@@ -214,6 +214,17 @@ export default {
         overflow: 'hidden',
         paddingTop: 20
     },
+    talentPage: {
+        backgroundColor: BaseTheme.palette.uiBackground,
+        flex: 1,
+        overflow: 'hidden',
+        paddingTop: 20,
+        justifyContent: 'space-between',
+    },
+    talentTopContainer: {
+        paddingHorizontal: 8,
+        gap: 20,
+    },
     logo: {
         width: 120,
         height: 120,
@@ -251,6 +262,15 @@ export default {
     cardText: {
         color: 'white',
         fontSize: 16,
+    },
+    talentButton: {
+        backgroundColor: BaseTheme.palette.action01,
+        borderRadius: BaseTheme.shape.borderRadius,
+        borderWidth: 1,
+        height: BaseTheme.spacing[7],
+        justifyContent: 'center',
+        paddingHorizontal: BaseTheme.spacing[4],
+        marginVertical: 8,
     },
     optionsButton: {
         backgroundColor: BaseTheme.palette.ui03,

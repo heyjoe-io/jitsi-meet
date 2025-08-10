@@ -17,11 +17,8 @@ import {
 } from 'react-native';
 import { connect } from 'react-redux';
 
-import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
 import { translate } from '../../base/i18n/functions';
-import Icon from '../../base/icons/components/Icon';
-import { IconArrowLeft } from '../../base/icons/svg';
 import LoadingIndicator from '../../base/react/components/native/LoadingIndicator';
 import Text from '../../base/react/components/native/Text';
 import BaseTheme from '../../base/ui/components/BaseTheme.native';
@@ -53,11 +50,11 @@ interface IProps extends AbstractProps {
 }
 
 /**
- * The native container rendering the welcome page.
+ * The native container rendering the talent page.
  *
  * @augments AbstractWelcomePage
  */
-class WelcomePage extends AbstractWelcomePage<IProps> {
+class TalentPage extends AbstractWelcomePage<IProps> {
     _onFieldBlur: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
     _onFieldFocus: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
 
@@ -101,12 +98,11 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         super.componentDidMount();
 
         const {
-            navigation,
-            t
+            navigation
         } = this.props;
 
         navigation.setOptions({
-            headerTitle: t('welcomepage.headerTitle')
+            headerTitle: 'Talent Portal'
         });
 
         navigation.addListener('focus', () => {
@@ -296,13 +292,21 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         return joinButton;
     }
 
-    /**
-     * Renders the room name input.
-     *
-     * @private
-     * @returns {ReactElement}
-     */
-    _renderRoomNameInput() {
+    _renderJoinLobbyButton() {
+        return (
+            <TouchableHighlight
+                onPress = { () => {
+                    // TODO: implement join lobby
+                } }
+                style = { styles.talentButton as ViewStyle }>
+                <Text style = { styles.buttonText as TextStyle }>
+                    Join New Video Capture Lobby
+                </Text>
+            </TouchableHighlight>
+        );
+    }
+
+    _renderMoreOptionsButton() {
         const roomnameAccLabel = 'welcomepage.accessibilityLabel.roomname';
         const { t } = this.props;
         const { isSettingsScreenFocused } = this.state;
@@ -313,24 +317,17 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     isSettingsScreenFocused && styles.roomNameInputContainer,
                     { opacity: this.state.roomNameInputAnimation }
                 ] as StyleProp<ViewStyle> }>
-                <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
-                    <TouchableHighlight onPress = { () => this._onMoreOptions(false) }>
-                        <View
-                            style = {{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                paddingVertical: 5,
-                                marginBottom: 10,
-                            } as ViewStyle}>
-                            <Icon
-                                size = { 24 }
-                                src = { IconArrowLeft } />
-                            <Text style = {{ color: 'white' } as ViewStyle}>Back</Text>
-                        </View>
-                    </TouchableHighlight>
+                <TouchableHighlight
+                    onPress = { () => this._onMoreOptions(!this.state.showEnterRoomNumber) }
+                    style = { styles.talentButton as ViewStyle }>
+                    <Text style = { styles.buttonText as TextStyle }>
+                        More Options
+                    </Text>
+                </TouchableHighlight>
+                { this.state.showEnterRoomNumber && <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
                     <View style = { styles.joinControls } >
                         <Text style = { styles.enterRoomText as StyleProp<TextStyle> }>
-                            Enter room number(admin use only)
+                            Enter room number (admin use only)
                         </Text>
                         <Input
                             accessibilityLabel = { t(roomnameAccLabel) }
@@ -348,18 +345,26 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             this._renderHintBox()
                         }
                     </View>
-                </SafeAreaView>
+                </SafeAreaView>}
             </Animated.View>
         );
     }
 
-    _renderOnboardView() {
-        const items = [
-            'Use your check-in link and open it in your phone\'s browser.',
-            'Once checked in, you\'ll be prompted to open this app.',
-            'You can also create or update your profile at',
-        ];
+    _renderLocalRecordingsButton() {
+        return (
+            <TouchableHighlight
+                onPress = { () => {
+                    // TODO: implement local recordings
+                } }
+                style = { styles.talentButton as ViewStyle }>
+                <Text style = { styles.buttonText as TextStyle }>
+                    Local Recordings
+                </Text>
+            </TouchableHighlight>
+        );
+    }
 
+    _renderSupportText() {
         const renderInlineText = (text: string) =>
             text.split(' ').map((word, idx) => (
                 <Text
@@ -367,62 +372,16 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     style = { styles.supportText }>{word}&nbsp;</Text>
             ));
 
-        const renderSupportText = () => (
+        return (
             <View style = { styles.supportContainer as ViewStyle }>
                 {renderInlineText('For support, email us at')}
                 <TouchableOpacity onPress = { () => Linking.openURL('mailto:support@heyjoe.io') }>
                     <Text style = { styles.linkTextSmall }>support@heyjoe.io&nbsp;</Text>
                 </TouchableOpacity>
-                {renderInlineText('or live chat with us at')}
+                {renderInlineText('or live chat us at')}
                 <TouchableOpacity onPress = { () => Linking.openURL('https://heyjoe.io/') }>
                     <Text style = { styles.linkTextSmall }>heyjoe.io</Text>
                 </TouchableOpacity>
-            </View>
-        );
-
-        const renderMoreOptionsButton = () => (
-            <TouchableHighlight
-                onPress = { () => this._onMoreOptions(true) }
-                style = { styles.optionsButton as ViewStyle }>
-                <Text style = { styles.buttonText as TextStyle }>
-                    More Options
-                </Text>
-            </TouchableHighlight>
-        );
-
-        return (
-            <View style = { styles.onboardContainer }>
-                {!this.state.showEnterRoomNumber && (
-                    <View style = { styles.cardWrap as ViewStyle }>
-                        <View style = { styles.card }>
-                            <Text style = { styles.cardTitle as TextStyle }>
-                                It looks like you're not checked into any sessions. To get started:
-                            </Text>
-
-                            {items.map((item, index) => (
-                                <View
-                                    key = { index }
-                                    style = { styles.listItem as ViewStyle }>
-                                    <Text style = { styles.cardText }>{`${index + 1}.`}</Text>
-                                    <View style = { styles.itemTextWrap as ViewStyle }>
-                                        {item.split(' ').map((word, idx) => (
-                                            <Text
-                                                key = { idx }
-                                                style = { styles.cardText }>{word}&nbsp;</Text>
-                                        ))}
-                                        {index === 2 && (
-                                            <TouchableOpacity onPress = { () => Linking.openURL('https://heyjoe.io/') }>
-                                                <Text style = { styles.linkText }>heyjoe.io</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </View>
-                            ))}
-                            {renderSupportText()}
-                        </View>
-                    </View>
-                )}
-                {renderMoreOptionsButton()}
             </View>
         );
     }
@@ -436,31 +395,20 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
     _renderFullUI() {
         return (
             <SafeAreaView style = { styles.safeAreaView as ViewStyle }>
-                <View style = { styles.welcomePage as ViewStyle }>
-                    <Image
-                        source = { HEY_JOE_LOGO }
-                        style = { styles.logo as ImageStyle } />
-                    <Text style = { styles.welcomeText as TextStyle }>Welcome to Hey Joe!</Text>
-                    { this.state.showEnterRoomNumber ? this._renderRoomNameInput() : this._renderOnboardView() }
+                <View style = { styles.talentPage as ViewStyle }>
+                    <View style = { styles.talentTopContainer as ViewStyle }>
+                        <Image
+                            source = { HEY_JOE_LOGO }
+                            style = { styles.logo as ImageStyle } />
+                        <View>
+                            {this._renderJoinLobbyButton()}
+                            {this._renderMoreOptionsButton()}
+                            {this._renderLocalRecordingsButton()}
+                        </View>
+                    </View>
+                    {this._renderSupportText()}
                 </View>
             </SafeAreaView>
-        );
-    }
-
-    /**
-     * Renders a "reduced" version of the welcome page.
-     *
-     * @returns {ReactElement}
-     */
-    _renderReducedUI() {
-        const { t } = this.props;
-
-        return (
-            <View style = { styles.reducedUIContainer as ViewStyle }>
-                <Text style = { styles.reducedUIText }>
-                    { t('welcomepage.reducedUIText', { app: getName() }) }
-                </Text>
-            </View>
         );
     }
 }
@@ -480,4 +428,4 @@ function _mapStateToProps(state: IReduxState) {
     };
 }
 
-export default translate(connect(_mapStateToProps)(WelcomePage));
+export default translate(connect(_mapStateToProps)(TalentPage));

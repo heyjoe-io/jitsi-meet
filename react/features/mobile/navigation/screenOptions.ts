@@ -50,6 +50,17 @@ export const welcomeScreenOptions = {
     }
 };
 
+export const talentScreenOptions = {
+    gestureEnabled: false,
+    headerShown: false,
+    headerStyle: {
+        backgroundColor: BaseTheme.palette.ui01
+    },
+    headerTitleStyle: {
+        color: BaseTheme.palette.text01
+    }
+};
+
 /**
  * Screen options for conference.
  */

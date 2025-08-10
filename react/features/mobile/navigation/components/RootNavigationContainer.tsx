@@ -8,8 +8,13 @@ import { IReduxState, IStore } from '../../../app/types';
 import DialInSummary from '../../../invite/components/dial-in-summary/native/DialInSummary';
 import Prejoin from '../../../prejoin/components/native/Prejoin';
 import UnsafeRoomWarning from '../../../prejoin/components/native/UnsafeRoomWarning';
+// eslint-disable-next-line
+// @ts-ignore
 import { isUnsafeRoomWarningEnabled } from '../../../prejoin/functions';
 import VisitorsQueue from '../../../visitors/components/native/VisitorsQueue';
+// eslint-disable-next-line
+// @ts-ignore
+import TalentPage from '../../../welcome/components/TalentPage';
 // eslint-disable-next-line
 // @ts-ignore
 import WelcomePage from '../../../welcome/components/WelcomePage';
@@ -23,6 +28,7 @@ import {
     dialInSummaryScreenOptions,
     navigationContainerTheme,
     preJoinScreenOptions,
+    talentScreenOptions,
     unsafeMeetingScreenOptions,
     visitorsScreenOptions,
     welcomeScreenOptions
@@ -76,11 +82,11 @@ const RootNavigationContainer = ({ dispatch, isUnsafeRoomWarningAvailable, isWel
                 barStyle = { 'light-content' }
                 translucent = { true } />
             <RootStack.Navigator
-                initialRouteName = { initialRouteName }>
-                {
+                initialRouteName = { screen.talent.main }>
+                {/* {
                     isWelcomePageAvailable
                         && <>
-                            <RootStack.Screen // @ts-ignore
+                            <RootStack.Screen
                                 component = { WelcomePage }
                                 name = { screen.welcome.main }
                                 options = { welcomeScreenOptions } />
@@ -91,7 +97,11 @@ const RootNavigationContainer = ({ dispatch, isUnsafeRoomWarningAvailable, isWel
                                 name = { screen.dialInSummary }
                                 options = { dialInSummaryScreenOptions } />
                         </>
-                }
+                } */}
+                <RootStack.Screen
+                    component = { TalentPage }
+                    name = { screen.talent.main }
+                    options = { talentScreenOptions } />
                 <RootStack.Screen
                     component = { ConnectingPage }
                     name = { screen.connecting }

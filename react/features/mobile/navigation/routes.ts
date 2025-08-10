@@ -51,5 +51,8 @@ export const screen = {
             calendar: 'Calendar',
             recent: 'Recent'
         }
+    },
+    talent: {
+        main: 'Talent'
     }
 };
