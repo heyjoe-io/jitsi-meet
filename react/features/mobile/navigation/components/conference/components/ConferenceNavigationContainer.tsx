@@ -31,6 +31,7 @@ import StartLiveStreamDialog from '../../../../../recording/components/LiveStrea
 import StartRecordingDialog
 // @ts-ignore
     from '../../../../../recording/components/Recording/native/StartRecordingDialog';
+// @ts-ignore
 import SalesforceLinkDialog
 // @ts-ignore
     from '../../../../../salesforce/components/native/SalesforceLinkDialog';
@@ -44,6 +45,7 @@ import LanguageSelectorDialog
 // @ts-ignore
     from '../../../../../subtitles/components/native/LanguageSelectorDialog';
 import Whiteboard from '../../../../../whiteboard/components/native/Whiteboard';
+import LocalRecordings from '../../../../recordings/components/LocalRecordings';
 // @ts-ignore
 import { screen } from '../../../routes';
 import {
@@ -57,6 +59,7 @@ import {
     lobbyNavigationContainerScreenOptions,
     navigationContainerTheme,
     participantsScreenOptions,
+    presentationScreenOptions,
     recordingScreenOptions,
     salesforceScreenOptions,
     securityScreenOptions,
@@ -223,6 +226,13 @@ const ConferenceNavigationContainer = () => {
                     options = {{
                         ...whiteboardScreenOptions,
                         title: t('whiteboard.screenTitle')
+                    }} />
+                <ConferenceStack.Screen
+                    component = { LocalRecordings }
+                    name = { screen.talent.main }
+                    options = {{
+                        ...presentationScreenOptions,
+                        title: t('toolbar.accessibilityLabel.localRecordings')
                     }} />
             </ConferenceStack.Navigator>
         </NavigationContainer>

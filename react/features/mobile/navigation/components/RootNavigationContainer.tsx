@@ -6,19 +6,14 @@ import { connect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../../app/types';
 import DialInSummary from '../../../invite/components/dial-in-summary/native/DialInSummary';
-import LocalRecordingList from '../../../mobile/recordings/components/LocalRecordingList';
+import LocalRecordingList from '../../../mobile/recordings/components/LocalRecordings';
 import Prejoin from '../../../prejoin/components/native/Prejoin';
 import UnsafeRoomWarning from '../../../prejoin/components/native/UnsafeRoomWarning';
-// eslint-disable-next-line
 // @ts-ignore
 import { isUnsafeRoomWarningEnabled } from '../../../prejoin/functions';
 import VisitorsQueue from '../../../visitors/components/native/VisitorsQueue';
-// eslint-disable-next-line
-// @ts-ignore
-// eslint-disable-next-line
 // @ts-ignore
 import TalentPage from '../../../welcome/components/TalentPage';
-// eslint-disable-next-line
 // @ts-ignore
 import WelcomePage from '../../../welcome/components/WelcomePage';
 import { isWelcomePageEnabled } from '../../../welcome/functions';

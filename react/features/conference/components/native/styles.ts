@@ -142,15 +142,6 @@ export default {
         textAlign: 'center'
     },
 
-    roomTimerView: {
-        backgroundColor: BaseTheme.palette.ui03,
-        borderRadius: BaseTheme.shape.borderRadius,
-        height: 32,
-        justifyContent: 'center',
-        paddingHorizontal: BaseTheme.spacing[2],
-        paddingVertical: BaseTheme.spacing[1],
-        minWidth: 50
-    },
 
     roomName: {
         color: BaseTheme.palette.text01,

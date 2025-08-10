@@ -1365,7 +1365,8 @@
             "videoblur": "Toggle video blur",
             "videomute": "Stop camera",
             "videomuteGUMPending": "Connecting your camera",
-            "videounmute": "Start camera"
+            "videounmute": "Start camera",
+            "localRecordings": "Local Recordings"
         },
         "addPeople": "Add people to your call",
         "audioOnlyOff": "Disable low bandwidth mode",
@@ -1545,7 +1546,7 @@
         "unpinFromStage": "Unpin",
         "verify": "Verify participant",
         "videoMuted": "Camera disabled",
-        "videomute": "Participant has stopped the camera"
+        "videomute": "Participant has stopped the camera",
     },
     "virtualBackground": {
         "accessibilityLabel": {

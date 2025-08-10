@@ -32,9 +32,9 @@ import { IToolboxNativeButton } from '../../types';
 
 import AudioOnlyButton from './AudioOnlyButton';
 import LinkToSalesforceButton from './LinkToSalesforceButton';
+import LocalRecordingsList from './LocalRecordingsList';
 import OpenCarmodeButton from './OpenCarmodeButton';
 import RaiseHandButton from './RaiseHandButton';
-
 
 /**
  * The type of the React {@code Component} props of {@link OverflowMenu}.
@@ -154,6 +154,7 @@ class OverflowMenu extends PureComponent<IProps, IState> {
         return (
             <BottomSheet
                 renderFooter = { this._renderReactionMenu }>
+                <LocalRecordingsList { ...topButtonProps } />
                 <Divider style = { styles.divider as ViewStyle } />
                 <OpenCarmodeButton { ...topButtonProps } />
                 <AudioOnlyButton { ...buttonProps } />

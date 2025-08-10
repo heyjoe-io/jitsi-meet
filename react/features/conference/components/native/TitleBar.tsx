@@ -12,14 +12,13 @@ import {
 import { getFeatureFlag } from '../../../base/flags/functions';
 import AudioDeviceToggleButton from '../../../mobile/audio-mode/components/AudioDeviceToggleButton';
 import PictureInPictureButton from '../../../mobile/picture-in-picture/components/PictureInPictureButton';
+import LocalRecordingButton from '../../../mobile/recordings/components/LocalRecordingButton';
 import ParticipantsPaneButton from '../../../participants-pane/components/native/ParticipantsPaneButton';
 import { isParticipantsPaneEnabled } from '../../../participants-pane/functions';
 import { isRoomNameEnabled } from '../../../prejoin/functions.native';
 import ToggleCameraButton from '../../../toolbox/components/native/ToggleCameraButton';
 import { isToolboxVisible } from '../../../toolbox/functions.native';
-import ConferenceTimer from '../ConferenceTimer';
 
-import Labels from './Labels';
 import styles from './styles';
 
 
@@ -90,12 +89,7 @@ const TitleBar = (props: IProps) => {
             <View
                 pointerEvents = 'box-none'
                 style = { styles.roomNameWrapper as ViewStyle }>
-                {
-                    props._conferenceTimerEnabled
-                    && <View style = { styles.roomTimerView as ViewStyle }>
-                        <ConferenceTimer textStyle = { styles.roomTimer } />
-                    </View>
-                }
+                <LocalRecordingButton />
                 {
                     props._roomNameEnabled
                     && <View style = { styles.roomNameView as ViewStyle }>
@@ -107,7 +101,7 @@ const TitleBar = (props: IProps) => {
                     </View>
                 }
                 {/* eslint-disable-next-line react/jsx-no-bind */}
-                <Labels createOnPress = { props._createOnPress } />
+                {/* <Labels createOnPress = { props._createOnPress } /> */}
             </View>
             {
                 props._toggleCameraButtonEnabled
