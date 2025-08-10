@@ -1,12 +1,17 @@
+/* eslint-disable react/jsx-no-bind */
 import React from 'react';
 import {
     Animated,
+    Image,
+    ImageStyle,
+    Linking,
     NativeSyntheticEvent,
     SafeAreaView,
     StyleProp,
     TextInputFocusEventData,
     TextStyle,
     TouchableHighlight,
+    TouchableOpacity,
     View,
     ViewStyle
 } from 'react-native';
@@ -16,7 +21,7 @@ import { getName } from '../../app/functions.native';
 import { IReduxState } from '../../app/types';
 import { translate } from '../../base/i18n/functions';
 import Icon from '../../base/icons/components/Icon';
-import { IconWarning } from '../../base/icons/svg';
+import { IconArrowLeft, IconWarning } from '../../base/icons/svg';
 import LoadingIndicator from '../../base/react/components/native/LoadingIndicator';
 import Text from '../../base/react/components/native/Text';
 import BaseTheme from '../../base/ui/components/BaseTheme.native';
@@ -24,8 +29,6 @@ import Button from '../../base/ui/components/native/Button';
 import Input from '../../base/ui/components/native/Input';
 import { BUTTON_TYPES } from '../../base/ui/constants.native';
 import getUnsafeRoomText from '../../base/util/getUnsafeRoomText.native';
-import WelcomePageTabs
-    from '../../mobile/navigation/components/welcome/components/WelcomePageTabs';
 
 import {
     IProps as AbstractProps,
@@ -33,6 +36,8 @@ import {
     _mapStateToProps as _abstractMapStateToProps
 } from './AbstractWelcomePage';
 import styles from './styles.native';
+
+const HEY_JOE_LOGO = require('../../../../images/hey-joe-logo.png');
 
 interface IProps extends AbstractProps {
 
@@ -71,6 +76,8 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         this.state.roomNameInputAnimation = new Animated.Value(1);
 
         this.state.hintBoxAnimation = new Animated.Value(0);
+
+        this.state.showEnterRoomNumber = false;
 
         // Bind event handlers so they are only bound once per instance.
         this._onFieldFocusChange = this._onFieldFocusChange.bind(this);
@@ -143,27 +150,6 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         return this._renderFullUI();
     }
 
-    /**
-     * Renders the insecure room name warning.
-     *
-     * @inheritdoc
-     */
-    _doRenderInsecureRoomNameWarning() {
-        return (
-            <View
-                style = { [
-                    styles.messageContainer,
-                    styles.insecureRoomNameWarningContainer as ViewStyle
-                ] }>
-                <Icon
-                    src = { IconWarning }
-                    style = { styles.insecureRoomNameWarningIcon } />
-                <Text style = { styles.insecureRoomNameWarningText }>
-                    { this.props.getUnsafeRoomTextFn(this.props.t) }
-                </Text>
-            </View>
-        );
-    }
 
     /**
      * Constructs a style array to handle the hint box animation.
@@ -254,16 +240,10 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      * @returns {React$Node}
      */
     _renderHintBox() {
-        const { t } = this.props;
 
         if (this.state._fieldFocused) {
             return (
                 <Animated.View style = { this._getHintBoxStyle() as ViewStyle[] }>
-                    <View style = { styles.hintTextContainer as ViewStyle } >
-                        <Text style = { styles.hintText as TextStyle }>
-                            { t('welcomepage.roomnameHint') }
-                        </Text>
-                    </View>
                     <View style = { styles.hintButtonContainer as ViewStyle } >
                         { this._renderJoinButton() }
                     </View>
@@ -334,9 +314,23 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     { opacity: this.state.roomNameInputAnimation }
                 ] as StyleProp<ViewStyle> }>
                 <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
+                    <TouchableHighlight onPress = { () => this._onMoreOptions(false) }>
+                        <View
+                            style = {{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 5,
+                                marginBottom: 10,
+                            } as ViewStyle}>
+                            <Icon
+                                size = { 24 }
+                                src = { IconArrowLeft } />
+                            <Text style = {{ color: 'white' } as ViewStyle}>Back</Text>
+                        </View>
+                    </TouchableHighlight>
                     <View style = { styles.joinControls } >
                         <Text style = { styles.enterRoomText as StyleProp<TextStyle> }>
-                            { t('welcomepage.roomname') }
+                            Enter room number(admin use only)
                         </Text>
                         <Input
                             accessibilityLabel = { t(roomnameAccLabel) }
@@ -347,12 +341,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                             onChange = { this._onRoomChange }
                             onFocus = { this._onFieldFocus }
                             onSubmitEditing = { this._onJoin }
-                            placeholder = { this.state.roomPlaceholder }
+                            placeholder = { 'Room #' }
                             returnKeyType = { 'go' }
                             value = { this.state.room } />
-                        {
-                            this._renderInsecureRoomNameWarning()
-                        }
                         {
                             this._renderHintBox()
                         }
@@ -362,6 +353,81 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         );
     }
 
+    _renderOnboardView() {
+        const items = [
+            'Use your check-in link and open it in your phone\'s browser.',
+            'Once checked in, you\'ll be prompted to open this app.',
+            'You can also create or update your profile at',
+        ];
+
+        const renderInlineText = (text: string) =>
+            text.split(' ').map((word, idx) => (
+                <Text
+                    key = { idx }
+                    style = { styles.supportText }>{word}&nbsp;</Text>
+            ));
+
+        const renderSupportText = () => (
+            <View style = { styles.supportContainer as ViewStyle }>
+                {renderInlineText('For support, email us at')}
+                <TouchableOpacity onPress = { () => Linking.openURL('mailto:support@heyjoe.io') }>
+                    <Text style = { styles.linkTextSmall }>support@heyjoe.io&nbsp;</Text>
+                </TouchableOpacity>
+                {renderInlineText('or live chat with us at')}
+                <TouchableOpacity onPress = { () => Linking.openURL('https://heyjoe.io/') }>
+                    <Text style = { styles.linkTextSmall }>heyjoe.io</Text>
+                </TouchableOpacity>
+            </View>
+        );
+
+        const renderMoreOptionsButton = () => (
+            <TouchableHighlight
+                onPress = { () => this._onMoreOptions(true) }
+                style = { styles.optionsButton as ViewStyle }>
+                <Text style = { styles.buttonText as TextStyle }>
+                    More Options
+                </Text>
+            </TouchableHighlight>
+        );
+
+        return (
+            <View style = { styles.onboardContainer }>
+                {!this.state.showEnterRoomNumber && (
+                    <View style = { styles.cardWrap as ViewStyle }>
+                        <View style = { styles.card }>
+                            <Text style = { styles.cardTitle as TextStyle }>
+                                It looks like you're not checked into any sessions. To get started:
+                            </Text>
+
+                            {items.map((item, index) => (
+                                <View
+                                    key = { index }
+                                    style = { styles.listItem as ViewStyle }>
+                                    <Text style = { styles.cardText }>{`${index + 1}.`}</Text>
+                                    <View style = { styles.itemTextWrap as ViewStyle }>
+                                        {item.split(' ').map((word, idx) => (
+                                            <Text
+                                                key = { idx }
+                                                style = { styles.cardText }>{word}&nbsp;</Text>
+                                        ))}
+                                        {index === 2 && (
+                                            <TouchableOpacity onPress = { () => Linking.openURL('https://heyjoe.io/') }>
+                                                <Text style = { styles.linkText }>heyjoe.io</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+                            ))}
+                            {renderSupportText()}
+                        </View>
+                    </View>
+                )}
+                {renderMoreOptionsButton()}
+            </View>
+        );
+    }
+
+
     /**
      * Renders the full welcome page.
      *
@@ -369,15 +435,15 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
      */
     _renderFullUI() {
         return (
-            <>
-                { this._renderRoomNameInput() }
+            <SafeAreaView style = { styles.safeAreaView as ViewStyle }>
                 <View style = { styles.welcomePage as ViewStyle }>
-                    <WelcomePageTabs
-                        disabled = { Boolean(this.state._fieldFocused) } // @ts-ignore
-                        onListContainerPress = { this._onFieldBlur }
-                        onSettingsScreenFocused = { this._onSettingsScreenFocused } />
+                    <Image
+                        source = { HEY_JOE_LOGO }
+                        style = { styles.logo as ImageStyle } />
+                    <Text style = { styles.welcomeText as TextStyle }>Welcome to Hey Joe!</Text>
+                    { this.state.showEnterRoomNumber ? this._renderRoomNameInput() : this._renderOnboardView() }
                 </View>
-            </>
+            </SafeAreaView>
         );
     }
 

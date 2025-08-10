@@ -75,7 +75,8 @@ export default {
      */
     hintContainer: {
         flexDirection: 'column',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        marginVertical: 16,
     },
 
     /**
@@ -204,18 +205,98 @@ export default {
     /**
      * The style of the top-level container of {@code WelcomePage}.
      */
+    safeAreaView: {
+        flex: 1
+    },
     welcomePage: {
         backgroundColor: BaseTheme.palette.uiBackground,
         flex: 1,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: 20
     },
-
+    logo: {
+        width: 120,
+        height: 120,
+        alignSelf: 'center'
+    },
+    onboardContainer: {
+        marginHorizontal: 16,
+    },
+    welcomeText: {
+        color: 'white',
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginTop: 30,
+    },
+    cardWrap: {
+        marginVertical: 20,
+        backgroundColor: BaseTheme.palette.ui03,
+        borderRadius: 8,
+        flexDirection: 'column',
+        gap: 18,
+    },
+    card: {
+        margin: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 16,
+        gap: 18,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        color: 'white',
+    },
+    cardText: {
+        color: 'white',
+        fontSize: 16,
+    },
+    optionsButton: {
+        backgroundColor: BaseTheme.palette.ui03,
+        borderRadius: BaseTheme.shape.borderRadius,
+        borderWidth: 1,
+        height: BaseTheme.spacing[7],
+        justifyContent: 'center',
+        paddingHorizontal: BaseTheme.spacing[4],
+    },
+    buttonText: {
+        alignSelf: 'center',
+        color: BaseTheme.palette.text01,
+        fontSize: 16,
+        fontWeight: 'bold'
+    },
+    listItem: {
+        flexDirection: 'row',
+        marginBottom: 4,
+        gap: 8,
+    },
+    itemTextWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'baseline',
+    },
+    linkText: {
+        color: '#007AFF',
+        fontSize: 16,
+    },
+    linkTextSmall: {
+        color: '#007AFF',
+    },
+    supportContainer: {
+        paddingHorizontal: 18,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    supportText: {
+        color: BaseTheme.palette.ui08,
+    },
     customInput: {
         fontSize: 18,
         letterSpacing: 0,
         textAlign: 'center'
     },
-
     recentList: {
         backgroundColor: BaseTheme.palette.uiBackground,
         flex: 1,
@@ -227,5 +308,5 @@ export default {
         flex: 1,
         opacity: 0.8,
         overflow: 'hidden'
-    }
+    },
 };

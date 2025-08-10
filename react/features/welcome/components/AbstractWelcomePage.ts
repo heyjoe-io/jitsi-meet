@@ -71,6 +71,7 @@ interface IState {
     room: string;
     roomNameInputAnimation?: any;
     roomPlaceholder: string;
+    showEnterRoomNumber: boolean;
     updateTimeoutId?: number;
 }
 
@@ -107,7 +108,8 @@ export class AbstractWelcomePage<P extends IProps> extends Component<P, IState> 
         _fieldFocused: false,
         isSettingsScreenFocused: false,
         roomNameInputAnimation: 0,
-        hintBoxAnimation: 0
+        hintBoxAnimation: 0,
+        showEnterRoomNumber: false
     };
 
     /**
@@ -224,6 +226,10 @@ export class AbstractWelcomePage<P extends IProps> extends Component<P, IState> 
             this.props.dispatch(appNavigate(room))
                 .then(onAppNavigateSettled, onAppNavigateSettled);
         }
+    }
+
+    _onMoreOptions(bool: boolean) {
+        this.setState({ showEnterRoomNumber: bool });
     }
 
     /**

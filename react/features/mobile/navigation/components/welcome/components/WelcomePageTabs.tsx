@@ -1,4 +1,4 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GestureResponderEvent } from 'react-native';
@@ -17,7 +17,8 @@ import { screen } from '../../../routes';
 import SettingsNavigationContainer
     from '../../settings/components/SettingsNavigationContainer';
 
-const WelcomePage = createBottomTabNavigator();
+
+const WelcomePage = createStackNavigator();
 
 /**
  * The type of the React {@code Component} props of {@link WelcomePageTabs}.
@@ -66,32 +67,22 @@ const WelcomePageTabs = ({ disabled, onListContainerPress, onSettingsScreenFocus
 
     return (
         <WelcomePage.Navigator
-            backBehavior = { 'none' }
             screenOptions = {{
                 ...tabBarOptions,
                 headerShown: false
             }}>
             <WelcomePage.Screen
-                listeners = {{
-                    tabPress: () => {
-                        onSettingsScreenFocused(false);
-                    }
-                }}
                 name = { screen.welcome.tabs.recent }
                 options = {{
                     ...recentListTabBarOptions,
-                    title: t('welcomepage.recentList')
+                    title: t('welcomepage.recentList'),
+                    headerShown: false
                 }}>
                 { RecentListScreen }
             </WelcomePage.Screen>
             {
                 calendarEnabled
             && <WelcomePage.Screen
-                listeners = {{
-                    tabPress: () => {
-                        onSettingsScreenFocused(false);
-                    }
-                }}
                 name = { screen.welcome.tabs.calendar }
                 options = {{
                     ...calendarListTabBarOptions,
@@ -101,11 +92,6 @@ const WelcomePageTabs = ({ disabled, onListContainerPress, onSettingsScreenFocus
             </WelcomePage.Screen>
             }
             <WelcomePage.Screen
-                listeners = {{
-                    tabPress: () => {
-                        onSettingsScreenFocused(true);
-                    }
-                }}
                 name = { screen.settings.main }
                 options = {{
                     ...settingsTabBarOptions,

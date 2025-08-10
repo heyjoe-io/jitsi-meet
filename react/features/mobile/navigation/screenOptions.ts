@@ -41,7 +41,7 @@ export const navigationContainerTheme = {
 export const welcomeScreenOptions = {
     ...TransitionPresets.ModalTransition,
     gestureEnabled: false,
-    headerShown: true,
+    headerShown: false,
     headerStyle: {
         backgroundColor: BaseTheme.palette.ui01
     },
