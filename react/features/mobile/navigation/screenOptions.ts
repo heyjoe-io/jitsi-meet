@@ -61,6 +61,15 @@ export const talentScreenOptions = {
     }
 };
 
+export const localRecordingScreenOptions = {
+    headerLeft: () => screenHeaderCloseButton(goBackToWelcomeScreen),
+    headerStyle: {
+        backgroundColor: BaseTheme.palette.ui01
+    },
+    headerTitleStyle: {
+        color: BaseTheme.palette.text01
+    }
+};
 /**
  * Screen options for conference.
  */

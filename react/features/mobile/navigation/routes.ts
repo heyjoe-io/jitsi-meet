@@ -54,5 +54,8 @@ export const screen = {
     },
     talent: {
         main: 'Talent'
+    },
+    recordings: {
+        main: 'Local Recordings'
     }
 };

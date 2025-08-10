@@ -354,7 +354,7 @@ class TalentPage extends AbstractWelcomePage<IProps> {
         return (
             <TouchableHighlight
                 onPress = { () => {
-                    // TODO: implement local recordings
+                    this.props.navigation.navigate('Local Recordings');
                 } }
                 style = { styles.talentButton as ViewStyle }>
                 <Text style = { styles.buttonText as TextStyle }>
