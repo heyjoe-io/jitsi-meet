@@ -30,12 +30,12 @@ export const FEATURE_FLAGS = {
 /**
  * The URL at which the terms (of service/use) are available to the user.
  */
-export const DEFAULT_TERMS_URL = 'https://jitsi.org/meet/terms';
+export const DEFAULT_TERMS_URL = 'https://heyjoe.io/terms-and-conditions/';
 
 /**
  * The URL at which the privacy policy is available to the user.
  */
-export const DEFAULT_PRIVACY_URL = 'https://jitsi.org/meet/privacy';
+export const DEFAULT_PRIVACY_URL = 'https://heyjoe.io/privacy-policy';
 
 /**
  * The URL at which the help centre is available to the user.

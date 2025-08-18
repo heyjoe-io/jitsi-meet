@@ -7,7 +7,9 @@ import { UPDATE_FLAGS } from './actionTypes';
 /**
  * Default state value for the feature flags.
  */
-const DEFAULT_STATE = {};
+const DEFAULT_STATE = {
+    'toolbox.alwaysVisible': true
+};
 
 export interface IFlagsState {
     flags?: Object;

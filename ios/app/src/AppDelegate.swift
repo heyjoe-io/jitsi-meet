@@ -15,7 +15,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // jitsiMeet.webRtcLoggingSeverity = .verbose
 
         jitsiMeet.conferenceActivityType = "org.jitsi.JitsiMeet.ios.conference" // Must match the one defined in Info.plist{}
-        jitsiMeet.customUrlScheme = "org.jitsi.meet"
+        jitsiMeet.customUrlScheme = "org.hey.meet"
         jitsiMeet.universalLinkDomains = ["meet.jit.si", "alpha.jitsi.net", "beta.meet.jit.si"]
 
         jitsiMeet.defaultConferenceOptions = JitsiMeetConferenceOptions.fromBuilder { builder in

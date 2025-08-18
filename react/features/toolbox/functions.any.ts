@@ -91,5 +91,7 @@ export function getToolbarButtons(stateful: IStateful, definedToolbarButtons: st
 export function isButtonEnabled(buttonName: string, state: IReduxState | Array<string>) {
     const buttons = Array.isArray(state) ? state : state['features/toolbox'].toolbarButtons || [];
 
+    console.log('is button enabled ? --- ', buttons, buttonName)
+
     return buttons.includes(buttonName);
 }

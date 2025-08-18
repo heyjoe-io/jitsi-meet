@@ -11,6 +11,7 @@ import HangupContainerButtons from './components/native/HangupContainerButtons';
 import OverflowMenuButton from './components/native/OverflowMenuButton';
 import ScreenSharingButton from './components/native/ScreenSharingButton';
 import VideoMuteButton from './components/native/VideoMuteButton';
+import LocalRecordingsList from './components/native/LocalRecordingsList';
 import { isDesktopShareButtonDisabled } from './functions.native';
 import { ICustomToolbarButton, IToolboxNativeButton, NativeToolbarButton } from './types';
 
@@ -38,6 +39,12 @@ const screensharing = {
     Content: ScreenSharingButton,
     group: 1
 };
+
+const localrecordingslist = {
+    key: 'localrecordings',
+    Content: LocalRecordingsList,
+    group: 1
+}
 
 const raisehand = {
     key: 'raisehand',
@@ -150,6 +157,7 @@ export function useNativeToolboxButtons(
         camera: videoMuteButton,
         chat: chatButton,
         desktop: screenSharingButton,
+        localrecordings: localrecordingslist,
         raisehand,
         tileview: tileViewButton,
         overflowmenu: overflowMenuButton,

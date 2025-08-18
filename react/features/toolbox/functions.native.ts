@@ -118,6 +118,9 @@ export function getVisibleNativeButtons(
             return 0; // other buttons are sorted by priority
         });
 
+    // Force add local recordings button before hangup
+    mainMenuButtons.splice(mainMenuButtons.length - 1, 0, allButtons['overflowmenu'])
+
     return {
         mainMenuButtons,
         overflowMenuButtons

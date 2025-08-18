@@ -9,10 +9,10 @@ const JITSI_MEET_APPS = [
     'com.atlassian.JitsiMeet.ios',
 
     // Android + iOS (testing) app.
-    'org.jitsi.meet',
+    'org.hey.meet',
 
     // Android debug app.
-    'org.jitsi.meet.debug'
+    'org.hey.meet.debug'
 ];
 
 /**

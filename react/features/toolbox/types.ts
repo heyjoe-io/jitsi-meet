@@ -21,6 +21,7 @@ export type ToolbarButton = 'camera' |
     'chat' |
     'closedcaptions' |
     'desktop' |
+    'localrecordings' |
     'download' |
     'embedmeeting' |
     'etherpad' |
@@ -87,6 +88,7 @@ export type NativeToolbarButton = 'camera' |
     'microphone' |
     'raisehand' |
     'desktop' |
+    'localrecordings' |
     'tileview' |
     'overflowmenu' |
     'hangup';

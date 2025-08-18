@@ -20,8 +20,8 @@ class LocalRecordingsList extends AbstractButton<AbstractButtonProps> {
      * @private
      * @returns {void}
      */
-    _handleClick() {
-        return navigate(screen.talent.main);
+    override _handleClick() {
+        return navigate(screen.recordings.main);
     }
 }
 

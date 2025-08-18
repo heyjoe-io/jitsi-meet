@@ -22,3 +22,5 @@ actionTypes.ts
 react-native-sdk/
 
 *.d.ts
+
+*

@@ -160,7 +160,7 @@ android.libraryVariants.all { def variant ->
     }
 
     // GRADLE REQUIREMENTS (Gradle 8.7+ / AGP 8.5.0+):
-    
+
     // This task requires explicit dependencies on resource tasks from all React Native modules
     // due to Gradle's strict validation of task dependencies.
 

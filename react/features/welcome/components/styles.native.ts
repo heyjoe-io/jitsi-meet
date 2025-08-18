@@ -220,6 +220,8 @@ export default {
         overflow: 'hidden',
         paddingTop: 20,
         justifyContent: 'space-between',
+        marginTop: '8%',
+        paddingBottom: 16
     },
     talentTopContainer: {
         paddingHorizontal: 8,

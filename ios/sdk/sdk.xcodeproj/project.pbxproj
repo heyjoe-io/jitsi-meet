@@ -172,7 +172,7 @@
 		DE81A2D72316AC7600AE1940 /* LogBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LogBridge.m; sourceTree = "<group>"; };
 		DE81A2DC2317ED5400AE1940 /* JitsiMeetBaseLogHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JitsiMeetBaseLogHandler.h; sourceTree = "<group>"; };
 		DE81A2DD2317ED5400AE1940 /* JitsiMeetBaseLogHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JitsiMeetBaseLogHandler.m; sourceTree = "<group>"; };
-		DE9A016F289A9A9A00E41CBB /* JitsiMeetSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = JitsiMeetSDK.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE9A016F289A9A9A00E41CBB /* JitsiMeetSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = JitsiMeetSDK.framework; path = "/Users/ice/work/joe/heyjoe/jitsi-meet/ios/sdk/build/Debug-iphoneos/JitsiMeetSDK.framework"; sourceTree = "<absolute>"; };
 		DE9A0170289A9A9A00E41CBB /* Lite-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Lite-Info.plist"; path = "/Users/saghul/work/jitsi/jitsi-meet-prs/ios/sdk/src/Lite-Info.plist"; sourceTree = "<absolute>"; };
 		DEA9F283258A5D9900D4CD74 /* JitsiMeetSDK.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JitsiMeetSDK.h; sourceTree = "<group>"; };
 		DEAD3224220C497000E93636 /* JitsiMeetConferenceOptions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JitsiMeetConferenceOptions.h; sourceTree = "<group>"; };
@@ -237,7 +237,6 @@
 			isa = PBXGroup;
 			children = (
 				0BD906E51EC0C00300C8C18E /* JitsiMeetSDK.framework */,
-				DE9A016F289A9A9A00E41CBB /* JitsiMeetSDK.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";

@@ -708,3 +708,24 @@ export function sanitizeUrl(url?: string | URL): URL | null {
 export function isImageDataURL(url: string): boolean {
     return IMG_DATA_URL.test(url);
 }
+
+
+// eslint-disable-next-line require-jsdoc
+export function searchQueryToObject(search) {
+    let pairs = search.substring(1).split('&'),
+        obj = {},
+        pair,
+        i;
+
+    for (i in pairs) {
+        if (pairs[i] === '') {
+            // eslint-disable-next-line no-continue
+            continue;
+        }
+
+        pair = pairs[i].split('=');
+        obj[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
+    }
+
+    return obj;
+}

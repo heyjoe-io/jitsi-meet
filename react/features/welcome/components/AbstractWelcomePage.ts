@@ -299,6 +299,8 @@ export function _mapStateToProps(state: IReduxState) {
         _moderatedRoomServiceUrl: state['features/base/config'].moderatedRoomServiceUrl,
         _recentListEnabled: isRecentListEnabled(),
         _room: state['features/base/conference'].room ?? '',
-        _settings: state['features/base/settings']
+        _settings: state['features/base/settings'],
+        _talent: state['features/talent'].talent,
+        _studio: state['features/talent'].studio
     };
 }

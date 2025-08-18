@@ -1,3 +1,4 @@
+import Clipboard from '@react-native-community/clipboard';
 import BaseApp from '../../base/app/components/BaseApp';
 import { toURLString } from '../../base/util/uri';
 import { appNavigate } from '../actions';
@@ -36,7 +37,13 @@ export class AbstractApp<P extends IProps = IProps> extends BaseApp<P> {
 
         // If a URL was explicitly specified to this React Component, then
         // open it; otherwise, use a default.
-        this._openURL(toURLString(this.props.url) || this._getDefaultURL());
+        const urlOnClipboard = await Clipboard.getString();
+
+        if (urlOnClipboard.startsWith('org.hey.meet')) {
+            this._openURL(urlOnClipboard);
+        } else {
+            this._openURL(toURLString(this.props.url) || this._getDefaultURL());
+        }
     }
 
     /**

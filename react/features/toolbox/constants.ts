@@ -64,23 +64,23 @@ export const THRESHOLDS = [
 export const NATIVE_THRESHOLDS = [
     {
         width: 560,
-        order: [ 'microphone', 'camera', 'chat', 'desktop', 'raisehand', 'tileview', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'chat', 'desktop', 'raisehand', 'tileview', 'hangup' ]
     },
     {
         width: 500,
-        order: [ 'microphone', 'camera', 'chat', 'raisehand', 'tileview', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'chat', 'raisehand', 'tileview', 'hangup' ]
     },
     {
         width: 440,
-        order: [ 'microphone', 'camera', 'chat', 'raisehand', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'chat', 'raisehand', 'hangup' ]
     },
     {
         width: 380,
-        order: [ 'microphone', 'camera', 'chat', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'chat', 'hangup' ]
     },
     {
         width: 320,
-        order: [ 'microphone', 'camera', 'overflowmenu', 'hangup' ]
+        order: [ 'microphone', 'camera', 'hangup' ]
     }
 ];
 
@@ -91,6 +91,7 @@ export const NATIVE_THRESHOLDS = [
 export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'microphone',
     'camera',
+    'localrecordings',
     'desktop',
     'speaker',
     'chat',
@@ -148,6 +149,7 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'speaker',
     'chat',
     'closedcaptions',
+    'localrecordings',
     'desktop',
     'download',
     // 'embedmeeting', // Removing embedmeeting button from the toolbar
@@ -197,6 +199,7 @@ export const NATIVE_TOOLBAR_BUTTONS: NativeToolbarButton[] = [
     'overflowmenu',
     'raisehand',
     'desktop',
+    'localrecordings',
     'tileview'
 ];
 

@@ -1,4 +1,5 @@
 /* eslint-disable react/jsx-no-bind */
+import Clipboard from '@react-native-community/clipboard';
 import React from 'react';
 import {
     Animated,
@@ -30,16 +31,24 @@ import Input from '../../base/ui/components/native/Input';
 import { BUTTON_TYPES } from '../../base/ui/constants.native';
 import getUnsafeRoomText from '../../base/util/getUnsafeRoomText.native';
 
+
 import {
     IProps as AbstractProps,
     AbstractWelcomePage,
     _mapStateToProps as _abstractMapStateToProps
 } from './AbstractWelcomePage';
+import TalentPageNative from './TalentPage.native';
 import styles from './styles.native';
+import { appNavigate } from '../../app/actions.native';
+import { toURLString } from '../../base/util/uri';
 
 const HEY_JOE_LOGO = require('../../../../images/hey-joe-logo.png');
 
 interface IProps extends AbstractProps {
+
+    _studio: any;
+
+    _talent: any;
 
     /**
      * Function for getting the unsafe room text.
@@ -146,6 +155,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             return this._renderReducedUI();
         }
         */
+
+        const { _talent, _studio } = this.props;
+
+        if (_talent && _studio) {
+            return this._renderTalentUI();
+        }
 
         return this._renderFullUI();
     }
@@ -462,6 +477,10 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                 </Text>
             </View>
         );
+    }
+
+    _renderTalentUI() {
+        return <TalentPageNative { ...this.props } />;
     }
 }
 

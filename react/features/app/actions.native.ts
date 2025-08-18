@@ -20,6 +20,7 @@ import {
     appendURLParam,
     getBackendSafeRoomName,
     parseURIString,
+    searchQueryToObject,
     toURLString
 } from '../base/util/uri';
 import { isPrejoinPageEnabled } from '../mobile/navigation/functions';
@@ -29,6 +30,7 @@ import {
 } from '../mobile/navigation/rootNavigationContainerRef';
 import { screen } from '../mobile/navigation/routes';
 import { clearNotifications } from '../notifications/actions';
+import { setOnboard, setTalentInfo } from '../onboard';
 import { isUnsafeRoomWarningEnabled } from '../prejoin/functions';
 
 import { maybeRedirectToTokenAuthUrl } from './actions.any';
@@ -53,6 +55,31 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
 
     return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
         let location = parseURIString(uri);
+
+
+        if (location && location.hash) {
+            const urlSearch: any = searchQueryToObject(location.hash);
+
+            if (urlSearch?.audition_data) {
+                try {
+                    // eslint-disable-next-line camelcase
+                    const { talent, studio, session, onboard_url } = JSON.parse(urlSearch.audition_data);
+
+                    dispatch(setOnboard(onboard_url));
+                    dispatch(setTalentInfo({
+                        talent: {
+                            ...talent,
+                            // eslint-disable-next-line no-mixed-operators
+                            expireAt: Number(new Date()) + 10 * 3600 * 1000
+                        },
+                        studio,
+                        session
+                    }));
+                } catch (err) {
+                    console.log('talent data decode failed', err);
+                }
+            }
+        }
 
         // If the specified location (URI) does not identify a host, use the app's
         // default.

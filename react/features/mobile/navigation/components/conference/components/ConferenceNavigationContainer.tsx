@@ -229,7 +229,7 @@ const ConferenceNavigationContainer = () => {
                     }} />
                 <ConferenceStack.Screen
                     component = { LocalRecordings }
-                    name = { screen.talent.main }
+                    name = { screen.recordings.main }
                     options = {{
                         ...presentationScreenOptions,
                         title: t('toolbar.accessibilityLabel.localRecordings')

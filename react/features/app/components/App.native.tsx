@@ -1,4 +1,4 @@
-import React, { ComponentType } from 'react';
+import React, { ComponentType, useEffect, useState } from 'react';
 import { NativeModules, Platform, StyleSheet, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,8 +23,84 @@ import { AbstractApp, IProps as AbstractAppProps } from './AbstractApp';
 import '../middlewares.native';
 import '../reducers.native';
 
+// eslint-disable-next-line import/order
+import { appNavigate } from '../actions.native';
+// eslint-disable-next-line import/order
+import { initWebsocket, scheduleExpire, setTalentInfo, stopWebsocket } from '../../onboard';
+// eslint-disable-next-line import/order
+import { connect } from 'react-redux';
+
 
 declare let __DEV__: any;
+
+/** Websocket bridge inject on native app root level. */
+const WSBridge = ({
+    _talent,
+    _onboardUrl,
+    appNavigate,
+    setTalentInfo,
+    updateSettings,
+    scheduleExpire
+}: any) => {
+    const [ talentId, setTalentId ] = useState('');
+
+    useEffect(() => {
+        stopWebsocket();
+        if (talentId && _onboardUrl) {
+            scheduleExpire();
+            initWebsocket(_onboardUrl, talentId);
+        }
+    }, [ talentId, _onboardUrl ]);
+
+    useEffect(() => {
+        if (_talent && _onboardUrl) {
+            setTalentId(_talent._id);
+            const talent = _talent;
+            const name = `${talent.first_name} ${talent.last_name}(talent)`;
+
+            updateSettings({
+                displayName: name,
+                email: talent.email
+            });
+        }
+    }, [ _talent, _onboardUrl ]);
+
+    useEffect(() => {
+        global.wsHandle = (type, data) => {
+            switch (type) {
+            case 'ws-kick':
+                appNavigate(`/${data.room}`);
+                break;
+            case 'ws-talent-update':
+                setTalentInfo({ talent: {
+                    ..._talent,
+                    ...data
+                } });
+                break;
+            }
+        };
+    });
+
+    return null;
+};
+
+export function _wb_mapStateToProps(state: Object) {
+    return {
+        _talent: state['features/talent'].talent,
+        _onboardUrl: state['features/talent'].onboardUrl
+    };
+}
+export function _wb_mapDispatchToProps(dispatch) {
+    return {
+        appNavigate: url => dispatch(appNavigate(url)),
+        setTalentInfo: info => dispatch(setTalentInfo(info)),
+        updateSettings: data => dispatch(updateSettings(data)),
+        scheduleExpire: () => dispatch(scheduleExpire())
+    };
+}
+
+const ConnectedWSBridge = connect(_wb_mapStateToProps, _wb_mapDispatchToProps)(WSBridge);
+
 
 const { AppInfo } = NativeModules;
 
@@ -188,6 +264,7 @@ export class App extends AbstractApp<IProps> {
                     onDimensionsChanged = { this._onDimensionsChanged }
                     onSafeAreaInsetsChanged = { this._onSafeAreaInsetsChanged }>
                     { super._createMainElement(component, props) }
+                    <ConnectedWSBridge />
                 </DimensionsDetector>
             </SafeAreaProvider>
         );

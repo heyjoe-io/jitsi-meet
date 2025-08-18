@@ -38,6 +38,10 @@ const HEY_JOE_LOGO = require('../../../../images/hey-joe-logo.png');
 
 interface IProps extends AbstractProps {
 
+    _studio: any;
+
+    _talent: any;
+
     /**
      * Function for getting the unsafe room text.
      */
@@ -293,14 +297,22 @@ class TalentPage extends AbstractWelcomePage<IProps> {
     }
 
     _renderJoinLobbyButton() {
+        const { _studio } = this.props;
+
+        const joinRoom = async room => {
+            this._onRoomChange(room);
+            await new Promise(res => setTimeout(res, 1000));
+            this._onJoin();
+        };
+
         return (
             <TouchableHighlight
                 onPress = { () => {
-                    // TODO: implement join lobby
+                    joinRoom(_studio.test_meeting_id);
                 } }
                 style = { styles.talentButton as ViewStyle }>
                 <Text style = { styles.buttonText as TextStyle }>
-                    Join New Video Capture Lobby
+                    Join {_studio.name} Lobby
                 </Text>
             </TouchableHighlight>
         );
