@@ -35,6 +35,8 @@ import { LAYOUT_CLASSNAMES } from '../../../video-layout/constants';
 import { getCurrentLayout } from '../../../video-layout/functions.any';
 import VisitorsQueue from '../../../visitors/components/web/VisitorsQueue';
 import { showVisitorsQueue } from '../../../visitors/functions';
+import { WaitingForHostScreen } from '../../../waiting-for-host/components';
+import { isWaitingForHost } from '../../../waiting-for-host/functions';
 import { init } from '../../actions.web';
 import { maybeShowSuboptimalExperienceNotification } from '../../functions.web';
 import {
@@ -112,6 +114,11 @@ interface IProps extends AbstractProps, WithTranslation {
      */
     _showVisitorsQueue: boolean;
 
+    /**
+     * If waiting for host screen should be visible or not.
+     */
+    _showWaitingForHost: boolean;
+
     dispatch: IStore['dispatch'];
 }
 
@@ -121,8 +128,8 @@ interface IProps extends AbstractProps, WithTranslation {
  * @param {IProps} props - The props object.
  * @returns {boolean} - True if the prejoin screen should be displayed and false otherwise.
  */
-function shouldShowPrejoin({ _showLobby, _showPrejoin, _showVisitorsQueue }: IProps) {
-    return _showPrejoin && !_showVisitorsQueue && !_showLobby;
+function shouldShowPrejoin({ _showLobby, _showPrejoin, _showVisitorsQueue, _showWaitingForHost }: IProps) {
+    return _showPrejoin && !_showVisitorsQueue && !_showLobby && !_showWaitingForHost;
 }
 
 /**
@@ -229,6 +236,7 @@ class Conference extends AbstractConference<IProps, any> {
             _showLobby,
             _showPrejoin,
             _showVisitorsQueue,
+            _showWaitingForHost,
             t
         } = this.props;
 
@@ -244,7 +252,7 @@ class Conference extends AbstractConference<IProps, any> {
                     className = { _layoutClassName }
                     id = 'videoconference_page'
                     onMouseMove = { isMobileBrowser() ? undefined : this._onShowToolbar }>
-                    { _showPrejoin || _showLobby
+                    { _showPrejoin || _showLobby || _showWaitingForHost
                  || (<div id = 'conference_info'>
                      <ConferenceInfo />
                  </div>)
@@ -255,7 +263,7 @@ class Conference extends AbstractConference<IProps, any> {
                         onTouchStart = { this._onVideospaceTouchStart }>
                         <LargeVideo />
                         {
-                            _showPrejoin || _showLobby || (<>
+                            _showPrejoin || _showLobby || _showWaitingForHost || (<>
                                 <StageFilmstrip />
                                 <ScreenshareFilmstrip />
                                 <MainFilmstrip />
@@ -263,7 +271,7 @@ class Conference extends AbstractConference<IProps, any> {
                         }
                     </div>
 
-                    { _showPrejoin || _showLobby || (
+                    { _showPrejoin || _showLobby || _showWaitingForHost || (
                         <>
                             <span
                                 aria-level = { 1 }
@@ -287,6 +295,7 @@ class Conference extends AbstractConference<IProps, any> {
                     { shouldShowPrejoin(this.props) && <Prejoin />}
                     { (_showLobby && !_showVisitorsQueue) && <LobbyScreen />}
                     { _showVisitorsQueue && <VisitorsQueue />}
+                    { _showWaitingForHost && <WaitingForHostScreen />}
                 </div>
                 <ParticipantsPane />
                 <ReactionAnimations />
@@ -433,7 +442,8 @@ function _mapStateToProps(state: IReduxState) {
         _roomName: getConferenceNameForTitle(state),
         _showLobby: getIsLobbyVisible(state),
         _showPrejoin: isPrejoinPageVisible(state),
-        _showVisitorsQueue: showVisitorsQueue(state)
+        _showVisitorsQueue: showVisitorsQueue(state),
+        _showWaitingForHost: isWaitingForHost(state)
     };
 }
 

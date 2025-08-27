@@ -1594,6 +1594,11 @@
         },
         "waitingMessage": "You'll join the meeting as soon as it is live!"
     },
+    "waitingForHost": {
+        "title": "Waiting for moderator",
+        "message": "Please wait for a moderator to start the meeting before you can join.",
+        "participantCount": "{{count}} people waiting"
+    },
     "volumeSlider": "Volume slider",
     "welcomepage": {
         "accessibilityLabel": {
