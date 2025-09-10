@@ -413,6 +413,14 @@ class TalentPage extends AbstractWelcomePage<IProps> {
                             source = { HEY_JOE_LOGO }
                             style = { styles.logo as ImageStyle } />
                         <View>
+                            <Text style={styles.talentInfoText}>
+                                {this.props._talent.first_name} {this.props._talent.last_name}
+                            </Text>
+                            <Text style={styles.talentInfoText}>
+                                {this.props._talent.email}
+                            </Text>
+                        </View>
+                        <View>
                             {this._renderJoinLobbyButton()}
                             {this._renderMoreOptionsButton()}
                             {this._renderLocalRecordingsButton()}

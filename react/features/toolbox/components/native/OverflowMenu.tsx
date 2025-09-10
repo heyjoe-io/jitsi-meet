@@ -246,8 +246,7 @@ class OverflowMenu extends PureComponent<IProps, IState> {
             <>
                 {
                     _overflowMenuButtons?.map(({ Content, key, text, ...rest }: IToolboxNativeButton) => {
-
-                        if (key === 'raisehand') {
+                        if (['raisehand', 'localrecordings'].includes(key)) {
                             return null;
                         }
 

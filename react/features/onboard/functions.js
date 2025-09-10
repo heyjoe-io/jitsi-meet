@@ -97,7 +97,7 @@ export function stopWebsocket() {
 }
 
 export function initWebsocket(onboardUrl, talentId) {
-    console.log('init ws', onboardUrl);
+    console.log('-------- init ws', onboardUrl, talentId);
     try {
         if (ws) {
             clearInterval(pingIntervalHandle);
@@ -110,11 +110,12 @@ export function initWebsocket(onboardUrl, talentId) {
 
         ws = new WebSocket(wsLink);
         ws.onopen = () => {
+            console.log('-------- ws opened')
             ws.send(JSON.stringify({
                 meta: 'join',
                 room: `talent-${talentId}`
             }));
-            console.log(`joined talent-${talentId}`);
+            console.log(`-------- joined talent-${talentId}`);
             pingIntervalHandle = setInterval(() => {
                 try {
                     ws.send(JSON.stringify({ meta: 'ping',
@@ -128,16 +129,16 @@ export function initWebsocket(onboardUrl, talentId) {
             }, 30000);
         };
         ws.onerror = err => {
-            console.log('ws.onerror', err);
+            console.log('-------- ws.onerror', err);
         };
         ws.onclose = () => {
-            console.log('ws closed');
+            console.log('-------- ws closed');
             initWebsocket(onboardUrl, talentId);
         };
         ws.onmessage = event => {
             try {
                 const ev = JSON.parse(event.data);
-                console.log('ws msg: ', ev);
+                console.log('-------- ws msg: ', ev);
 
                 if (ev.type === 'pong') {
                     clearTimeout(pongTimeoutHandle);
@@ -149,11 +150,11 @@ export function initWebsocket(onboardUrl, talentId) {
                     listener(ev);
                 });
             } catch (err) {
-                console.log('socket msg handle err: ', err);
+                console.log('-------- socket msg handle err: ', err);
             }
         };
     } catch (err) {
-        console.log('err', err);
+        console.log('-------- err', err);
         stopWebsocket();
     }
 }

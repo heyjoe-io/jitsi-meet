@@ -331,4 +331,9 @@ export default {
         opacity: 0.8,
         overflow: 'hidden'
     },
+
+    talentInfoText: {
+        color: 'white',
+        textAlign: 'center'
+    }
 };

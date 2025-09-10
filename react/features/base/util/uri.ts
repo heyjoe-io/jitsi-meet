@@ -729,3 +729,16 @@ export function searchQueryToObject(search) {
 
     return obj;
 }
+
+// eslint-disable-next-line require-jsdoc
+export function getDomainFromUrl(url) {
+    let match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+
+    // eslint-disable-next-line no-eq-null, eqeqeq
+    if (match != null && match.length > 2 && typeof match[2] === 'string' && match[2].length > 0) {
+        return match[2];
+    }
+
+    return null;
+
+}
