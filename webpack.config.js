@@ -186,7 +186,30 @@ function getConfig(options = {}) {
         },
         optimization: {
             concatenateModules: isProduction,
-            minimize: isProduction
+            minimize: isProduction,
+            // Enable code splitting for 16KB page size optimization
+            splitChunks: isProduction ? {
+                chunks: 'all',
+                minSize: 20000,
+                maxSize: 16000, // 16KB page size limit
+                cacheGroups: {
+                    vendor: {
+                        test: /[\\/]node_modules[\\/]/,
+                        name: 'vendors',
+                        chunks: 'all',
+                        maxSize: 16000
+                    },
+                    common: {
+                        name: 'common',
+                        minChunks: 2,
+                        chunks: 'all',
+                        maxSize: 16000
+                    }
+                }
+            } : false,
+            // Enable tree shaking
+            usedExports: isProduction,
+            sideEffects: false
         },
         output: {
             filename: `[name]${isProduction ? '.min' : ''}.js`,

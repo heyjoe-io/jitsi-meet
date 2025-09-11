@@ -1,11 +1,13 @@
 // NB: This import must always come first.
 import './bootstrap.native';
 
-import React, { PureComponent } from 'react';
-import { AppRegistry } from 'react-native';
+import React, { PureComponent, Suspense, lazy } from 'react';
+import { AppRegistry, View, ActivityIndicator } from 'react-native';
 
-import { App } from './features/app/components/App.native';
 import { _initLogging } from './features/base/logging/functions';
+
+// Lazy load the main App component for better code splitting
+const App = lazy(() => import('./features/app/components/App.native').then(module => ({ default: module.App })));
 
 /**
  * React Native doesn't support specifying props to the main/root component (in
@@ -23,7 +25,13 @@ class Root extends PureComponent {
      */
     render() {
         return (
-            <App { ...this.props } />
+            <Suspense fallback={
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" />
+                </View>
+            }>
+                <App { ...this.props } />
+            </Suspense>
         );
     }
 }
