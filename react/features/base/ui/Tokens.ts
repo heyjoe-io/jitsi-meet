@@ -6,6 +6,7 @@ export const colorMap = {
     //  - JitsiMeetView.m
     //  - JitsiMeetView.java
     uiBackground: 'surface01',
+    uiBackgroundOp: 'surface01op',
 
     // Container backgrounds
     ui01: 'surface02',
