@@ -193,6 +193,12 @@ const recording = {
 };
 
 /**
+const maxStageParticipants = {
+    key: 'maxstageparticipants',
+    Content: MaxStageParticipantsButton,
+    group: 4
+};
+
  * A hook that returns the toggle camera button if it is enabled and undefined otherwise.
  *
  *  @returns {Object | undefined}
@@ -342,6 +348,7 @@ export function useToolboxButtons(
         'select-background': virtualBackground,
         stats: speakerStats,
         settings,
+        maxstageparticipants: maxStageParticipants,
         shortcuts,
         embedmeeting: embed,
         feedback,
