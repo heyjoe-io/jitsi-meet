@@ -348,7 +348,6 @@ export function useToolboxButtons(
         'select-background': virtualBackground,
         stats: speakerStats,
         settings,
-        maxstageparticipants: maxStageParticipants,
         shortcuts,
         embedmeeting: embed,
         feedback,
