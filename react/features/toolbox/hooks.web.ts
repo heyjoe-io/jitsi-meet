@@ -353,7 +353,8 @@ export function useToolboxButtons(
         feedback,
         download: _download,
         help: _help
-    };
+        help: _help,
+        maxstageparticipants: maxStageParticipants
     const buttonKeys = Object.keys(buttons) as ToolbarButton[];
 
     buttonKeys.forEach(
