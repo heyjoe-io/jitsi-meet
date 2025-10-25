@@ -104,6 +104,7 @@ export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'invite',
     'toggle-camera',
     'videoquality',
+    'maxstageparticipants',
     'fullscreen',
     'security',
     'closedcaptions',
