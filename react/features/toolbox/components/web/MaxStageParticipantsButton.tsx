@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -20,6 +20,7 @@ import VideoSettingsPopup from '../../../settings/components/web/video/VideoSett
 const MaxStageParticipantsButton = (): JSX.Element | null => {
     const { t } = useTranslation();
     const dispatch = useDispatch();
+    const [isOpen, setIsOpen] = useState(false);
 
     const maxStageParticipants = useSelector((state: IReduxState) =>
         state['features/base/settings'].maxStageParticipants ?? 6
@@ -31,7 +32,12 @@ const MaxStageParticipantsButton = (): JSX.Element | null => {
 
     const handleMaxStageParticipantsChange = useCallback((value: number) => {
         dispatch(updateSettings({ maxStageParticipants: value }));
+        setIsOpen(false);
     }, [ dispatch ]);
+
+    const handleTogglePopup = useCallback(() => {
+        setIsOpen(prev => !prev);
+    }, []);
 
     if (!stageFilmstripEnabled) {
         return null;
@@ -50,14 +56,18 @@ const MaxStageParticipantsButton = (): JSX.Element | null => {
     return (
         <VideoSettingsPopup>
             <ToolboxButtonWithIcon
+                ariaControls = 'max-stage-participants-dialog'
+                ariaExpanded = { isOpen }
+                ariaHasPopup = { true }
                 ariaLabel = { t('toolbar.accessibilityLabel.maxStageParticipants') }
                 icon = { IconUsers }
                 iconDisabled = { false }
                 iconId = 'max-stage-participants-button'
-                iconTooltip = { `${t('settings.maxStageParticipants')}: ${maxStageParticipants}` }>
+                iconTooltip = { `${t('settings.maxStageParticipants')}: ${maxStageParticipants}` }
+                onIconClick = { handleTogglePopup }>
                 <ContextMenu
                     activateFocusTrap = { true }
-                    hidden = { false }
+                    hidden = { !isOpen }
                     id = 'max-stage-participants-dialog'>
                     <ContextMenuItemGroup>
                         {options.map(option => (

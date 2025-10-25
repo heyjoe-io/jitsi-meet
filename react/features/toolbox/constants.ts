@@ -122,7 +122,8 @@ export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'embedmeeting',
     'feedback',
     'download',
-    'help'
+    'help',
+    'maxstageparticipants'
 ];
 
 export const TOOLBAR_TIMEOUT = 4000;
