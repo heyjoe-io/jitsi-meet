@@ -30,19 +30,19 @@ export const THRESHOLDS = [
     },
     {
         width: 565,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'reactions', 'participants-pane', 'tileview', 'followme' ]
     },
     {
         width: 520,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
     },
     {
         width: 470,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'participants-pane', 'maxstageparticipants', 'followme' ]
     },
     {
         width: 420,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'followme' ]
     },
     {
         width: 370,
