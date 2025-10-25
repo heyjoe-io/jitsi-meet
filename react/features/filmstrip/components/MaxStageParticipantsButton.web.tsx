@@ -7,6 +7,7 @@ import { openDialog } from '../../base/dialog/actions';
 import { translate } from '../../base/i18n/functions';
 import { IconUsers } from '../../base/icons/svg';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../base/toolbox/components/AbstractButton';
+import { isStageFilmstripEnabled } from '../functions';
 
 import MaxStageParticipantsDialog from './MaxStageParticipantsDialog.web';
 
@@ -61,12 +62,13 @@ class MaxStageParticipantsButton extends AbstractButton<IProps> {
  * @returns {IProps}
  */
 function _mapStateToProps(state: IReduxState) {
+    const stageFilmstripEnabled = isStageFilmstripEnabled(state);
+
     return {
         _maxStageParticipants: state['features/base/settings'].maxStageParticipants ?? 6,
-        _stageFilmstripEnabled: state['features/base/config'].stageFilmstripEnabled,
-        visible: state['features/base/config'].stageFilmstripEnabled
+        _stageFilmstripEnabled: stageFilmstripEnabled,
+        visible: stageFilmstripEnabled
     };
 }
 
 export default translate(connect(_mapStateToProps)(MaxStageParticipantsButton));
-
