@@ -5,7 +5,7 @@ import { sendAnalytics } from '../../analytics/functions';
 import { IReduxState } from '../../app/types';
 import { openDialog } from '../../base/dialog/actions';
 import { translate } from '../../base/i18n/functions';
-import { IconUsers } from '../../base/icons/svg';
+import { IconPin } from '../../base/icons/svg';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../base/toolbox/components/AbstractButton';
 import { isStageFilmstripEnabled } from '../functions';
 
@@ -38,7 +38,7 @@ class MaxStageParticipantsButton extends AbstractButton<IProps> {
     override accessibilityLabel = 'toolbar.accessibilityLabel.maxStageParticipants';
     override label = 'toolbar.maxStageParticipants';
     override tooltip = 'toolbar.maxStageParticipants';
-    override icon = IconUsers;
+    override icon = IconPin;
 
     /**
      * Handles clicking the button, and opens the dialog.
