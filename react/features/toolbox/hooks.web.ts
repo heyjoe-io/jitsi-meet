@@ -192,13 +192,13 @@ const recording = {
     group: 4
 };
 
-/**
 const maxStageParticipants = {
     key: 'maxstageparticipants',
     Content: MaxStageParticipantsButton,
-    group: 4
+    group: 2
 };
 
+/**
  * A hook that returns the toggle camera button if it is enabled and undefined otherwise.
  *
  *  @returns {Object | undefined}

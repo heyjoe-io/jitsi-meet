@@ -182,7 +182,6 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'videoquality', // Removing video quality button from the toolbar
     'whiteboard'
 ];
-
 /**
  * The list of all possible native buttons.
  *

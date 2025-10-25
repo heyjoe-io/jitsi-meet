@@ -851,43 +851,44 @@ var config = {
     // - it's possible to reorder the buttons in the maintoolbar by changing the order of the mainToolbarButtons
     // - 'desktop' controls the "Share your screen" button
     // - if `toolbarButtons` is undefined, we fallback to enabling all buttons on the UI
-    // toolbarButtons: [
-    //    'camera',
-    //    'chat',
-    //    'closedcaptions',
-    //    'desktop',
-    //    'download',
-    //    'embedmeeting',
-    //    'etherpad',
-    //    'feedback',
-    //    'filmstrip',
-    //    'fullscreen',
-    //    'hangup',
-    //    'help',
-    //    'highlight',
-    //    'invite',
-    //    'linktosalesforce',
-    //    'livestreaming',
-    //    'microphone',
-    //    'noisesuppression',
-    //    'participants-pane',
-    //    'profile',
-    //    'raisehand',
-    //    'recording',
-    //    'security',
-    //    'select-background',
-    //    'settings',
-    //    'shareaudio',
-    //    'sharedvideo',
-    //    'shortcuts',
-    //    'stats',
-    //    'tileview',
-    //    'toggle-camera',
-    //    'videoquality',
-    //    'whiteboard',
-    // ],
-
-    // Holds values related to toolbar visibility control.
+    toolbarButtons: [
+       'camera',
+       'speaker',
+       'chat',
+       'closedcaptions',
+       'desktop',
+       'download',
+       'embedmeeting',
+       'etherpad',
+       'feedback',
+       'filmstrip',
+       'fullscreen',
+       'hangup',
+       'help',
+       'highlight',
+       'invite',
+       'linktosalesforce',
+       'livestreaming',
+       'maxstageparticipants',
+       'microphone',
+       'noisesuppression',
+       'participants-pane',
+       'profile',
+       'raisehand',
+       'followme',
+       'recording',
+       'security',
+       'select-background',
+       'settings',
+       'shareaudio',
+       'sharedvideo',
+       'shortcuts',
+       'stats',
+       'tileview',
+       'toggle-camera',
+       'videoquality',
+       'whiteboard',
+    ],
     // toolbarConfig: {
     //     // Moved from interfaceConfig.INITIAL_TOOLBAR_TIMEOUT
     //     // The initial number of milliseconds for the toolbar buttons to be visible on screen.
@@ -1906,5 +1907,4 @@ if (enableJaaS) {
     config.dialInConfCodeUrl = 'https://conference-mapper.jitsi.net/v1/access';
     config.roomPasswordNumberOfDigits = 10; // skip re-adding it (do not remove comment)
 }
-
 
