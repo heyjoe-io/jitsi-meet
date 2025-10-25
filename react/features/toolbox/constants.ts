@@ -160,6 +160,7 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     // 'invite', // Removing invite button from the toolbar
     'linktosalesforce',
     'livestreaming',
+    'maxstageparticipants',
     'microphone',
     'mute-everyone',
     'mute-video-everyone',
