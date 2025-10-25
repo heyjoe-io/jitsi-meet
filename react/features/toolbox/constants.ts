@@ -30,15 +30,15 @@ export const THRESHOLDS = [
     },
     {
         width: 565,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'reactions', 'participants-pane', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
     },
     {
         width: 520,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
     },
     {
         width: 470,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'maxstageparticipants', 'participants-pane', 'maxstageparticipants', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'followme' ]
     },
     {
         width: 420,
@@ -46,7 +46,7 @@ export const THRESHOLDS = [
     },
     {
         width: 370,
-        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'followme' ]
+        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'followme' ]
     },
     {
         width: 225,

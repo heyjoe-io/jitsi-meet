@@ -67,7 +67,7 @@ function _mapStateToProps(state: IReduxState) {
     return {
         _maxStageParticipants: state['features/base/settings'].maxStageParticipants ?? 6,
         _stageFilmstripEnabled: stageFilmstripEnabled,
-        visible: stageFilmstripEnabled
+        visible: true // Always show the button
     };
 }
 
