@@ -16,25 +16,27 @@ const useStyles = makeStyles()(() => {
             gap: '16px',
             padding: '16px'
         },
-        optionButton: {
+        selectWrapper: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+        },
+        select: {
             padding: '12px 16px',
             border: '1px solid #ccc',
             borderRadius: '6px',
-            cursor: 'pointer',
-            textAlign: 'center',
-            transition: 'all 0.2s',
             fontSize: '16px',
-            '&:hover': {
-                backgroundColor: '#f0f0f0'
+            cursor: 'pointer',
+            backgroundColor: 'white',
+            '&:focus': {
+                outline: '2px solid #0074e0',
+                borderColor: '#0074e0'
             }
         },
-        selected: {
-            backgroundColor: '#0074e0',
-            color: 'white',
-            borderColor: '#0074e0',
-            '&:hover': {
-                backgroundColor: '#005bb5'
-            }
+        description: {
+            margin: 0,
+            fontSize: '14px',
+            color: '#666'
         }
     };
 });
@@ -45,7 +47,7 @@ const useStyles = makeStyles()(() => {
  * @returns {JSX.Element}
  */
 function MaxStageParticipantsDialog() {
-    const { classes, cx } = useStyles();
+    const { classes } = useStyles();
     const { t } = useTranslation();
     const dispatch = useDispatch();
 
@@ -53,7 +55,8 @@ function MaxStageParticipantsDialog() {
         state['features/base/settings'].maxStageParticipants ?? 6
     );
 
-    const handleSelect = useCallback((value: number) => {
+    const handleChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = parseInt(event.target.value, 10);
         dispatch(updateSettings({ maxStageParticipants: value }));
     }, [dispatch]);
 
@@ -65,17 +68,28 @@ function MaxStageParticipantsDialog() {
             ok = {{ hidden: true }}
             titleKey = 'toolbar.maxStageParticipants'>
             <div className = { classes.container }>
-                <p>{t('settings.maxStageParticipantsDescription',
-                    'Set the maximum number of participants to appear on the main stage during the recording. (Only adjust this if you are recording the session.)')}</p>
-                {options.map(value => (
-                    <button
-                        className = { cx(classes.optionButton, maxStageParticipants === value && classes.selected) }
-                        key = { value }
-                        onClick = { () => handleSelect(value) }
-                        type = 'button'>
-                        {value}
-                    </button>
-                ))}
+                <p className = { classes.description }>
+                    {t('settings.maxStageParticipantsDescription',
+                        'Set the maximum number of participants to appear on the main stage during the recording. (Only adjust this if you are recording the session.)')}
+                </p>
+                <div className = { classes.selectWrapper }>
+                    <label htmlFor = 'max-stage-participants-select'>
+                        {t('settings.maxStageParticipantsLabel', 'Maximum stage participants')}
+                    </label>
+                    <select
+                        className = { classes.select }
+                        id = 'max-stage-participants-select'
+                        onChange = { handleChange }
+                        value = { maxStageParticipants }>
+                        {options.map(value => (
+                            <option
+                                key = { value }
+                                value = { value }>
+                                {value}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
         </Dialog>
     );
