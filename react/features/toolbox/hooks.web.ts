@@ -334,6 +334,7 @@ export function useToolboxButtons(
         'participants-pane': participants,
         invite,
         tileview,
+        maxstageparticipants: maxStageParticipants,
         'toggle-camera': toggleCameraButton,
         videoquality: videoQuality,
         fullscreen: _fullscreen,
