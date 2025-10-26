@@ -66,7 +66,7 @@ function MaxStageParticipantsDialog() {
             titleKey = 'toolbar.maxStageParticipants'>
             <div className = { classes.container }>
                 <p>{t('settings.maxStageParticipantsDescription',
-                    'Select the maximum number of participants that can be pinned to the main stage')}</p>
+                    'Set the maximum number of participants to appear on the main stage during the recording. (Only adjust this if you are recording the session.)')}</p>
                 {options.map(value => (
                     <button
                         className = { cx(classes.optionButton, maxStageParticipants === value && classes.selected) }
