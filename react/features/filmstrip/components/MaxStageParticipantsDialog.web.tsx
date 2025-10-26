@@ -73,7 +73,7 @@ function MaxStageParticipantsDialog() {
                         key = { value }
                         onClick = { () => handleSelect(value) }
                         type = 'button'>
-                        {value} {value === 1 ? t('settings.participant') : t('settings.participants')}
+                        {value}
                     </button>
                 ))}
             </div>
