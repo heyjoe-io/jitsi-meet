@@ -25,7 +25,7 @@ const DEFAULT_STATE: ISettingsState = {
     displayName: undefined,
     email: undefined,
     localFlipX: true,
-    maxStageParticipants: 6,
+    maxStageParticipants: 1,
     micDeviceId: undefined,
     serverURL: undefined,
     hideShareAudioHelper: false,
