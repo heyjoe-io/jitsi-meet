@@ -21,7 +21,7 @@ import { MEDIA_TYPE } from '../base/media/constants';
 import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
 import { updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
-import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
+import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants, isParticipantModerator } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
 import {
@@ -29,6 +29,9 @@ import {
     stopSound
 } from '../base/sounds/actions';
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
+import { getVideoTrackByParticipant, isParticipantMediaMuted } from '../base/tracks/functions.any';
+import { addStageParticipant } from '../filmstrip/actions.web';
+import { isStageFilmstripAvailable } from '../filmstrip/functions.web';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
@@ -227,6 +230,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
+            _autoPinNonModeratorsWithVideo(dispatch, getState);
             break;
         }
 
@@ -334,6 +338,39 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
     return result;
 });
+
+/**
+ * Automatically pins non-moderator participants with video enabled to the stage
+ * when recording starts. This ensures only video-enabled non-moderators appear
+ * in the recorded video.
+ *
+ * @private
+ * @param {Dispatch} dispatch - The Redux Dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    const state = getState();
+    
+    if (!isStageFilmstripAvailable(state)) {
+        return;
+    }
+
+    const remoteParticipants = getRemoteParticipants(state);
+    
+    remoteParticipants.forEach((participant) => {
+        if (isParticipantModerator(participant)) {
+            return;
+        }
+
+        const videoTrack = getVideoTrackByParticipant(state, participant);
+        const isVideoMuted = isParticipantMediaMuted(participant, MEDIA_TYPE.VIDEO, state);
+
+        if (videoTrack && !isVideoMuted) {
+            dispatch(addStageParticipant(participant.id, true));
+        }
+    });
+}
 
 /**
  * Shows a notification about an error in the recording session. A
