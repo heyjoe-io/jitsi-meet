@@ -33,6 +33,7 @@ export type ToolbarButton = 'camera' |
     'invite' |
     'linktosalesforce' |
     'livestreaming' |
+    'maxstageparticipants' |
     'microphone' |
     'mute-everyone' |
     'mute-video-everyone' |

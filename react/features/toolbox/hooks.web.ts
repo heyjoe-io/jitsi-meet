@@ -59,6 +59,7 @@ import VideoQualityButton from '../video-quality/components/VideoQualityButton.w
 import VideoQualityDialog from '../video-quality/components/VideoQualityDialog.web';
 import { useVirtualBackgroundButton } from '../virtual-background/hooks';
 import { useWhiteboardButton } from '../whiteboard/hooks';
+import MaxStageParticipantsButton from '../filmstrip/components/MaxStageParticipantsButton.web';
 
 import { setFullScreen } from './actions.web';
 import DownloadButton from './components/DownloadButton';
@@ -190,6 +191,12 @@ const recording = {
     key: 'recording',
     Content: RecordButton,
     group: 4
+};
+
+const maxStageParticipants = {
+    key: 'maxstageparticipants',
+    Content: MaxStageParticipantsButton,
+    group: 2
 };
 
 /**
@@ -327,6 +334,7 @@ export function useToolboxButtons(
         'participants-pane': participants,
         invite,
         tileview,
+        maxstageparticipants: maxStageParticipants,
         'toggle-camera': toggleCameraButton,
         videoquality: videoQuality,
         fullscreen: _fullscreen,
