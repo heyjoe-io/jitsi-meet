@@ -25,6 +25,7 @@ import { PARTICIPANT_ROLE } from '../base/participants/constants';
 import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants, isParticipantModerator } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
+import { updateSettings } from '../base/settings/actions';
 import {
     playSound,
     stopSound
@@ -32,6 +33,7 @@ import {
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
 import { getVideoTrackByParticipant, isParticipantMediaMuted } from '../base/tracks/functions.any';
 import { addStageParticipant } from '../filmstrip/actions.web';
+import { MAX_ACTIVE_PARTICIPANTS } from '../filmstrip/constants';
 import { isStageFilmstripAvailable } from '../filmstrip/functions.web';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
@@ -355,14 +357,15 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
  */
 function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     const state = getState();
-    
+
     if (!isStageFilmstripAvailable(state)) {
         return;
     }
 
     const remoteParticipants = getRemoteParticipants(state);
-    
-    remoteParticipants.forEach((participant) => {
+    const nonModeratorsWithVideo: string[] = [];
+
+    remoteParticipants.forEach(participant => {
         if (isParticipantModerator(participant)) {
             return;
         }
@@ -371,9 +374,21 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         const isVideoMuted = isParticipantMediaMuted(participant, MEDIA_TYPE.VIDEO, state);
 
         if (videoTrack && !isVideoMuted) {
-            dispatch(addStageParticipant(participant.id, true));
+            nonModeratorsWithVideo.push(participant.id);
         }
     });
+
+    if (nonModeratorsWithVideo.length > 0) {
+        const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
+
+        dispatch(updateSettings({
+            maxStageParticipants: requiredStageSlots
+        }));
+
+        nonModeratorsWithVideo.forEach(participantId => {
+            dispatch(addStageParticipant(participantId, true));
+        });
+    }
 
     dispatch(setFollowMeRecorder(true));
 }
