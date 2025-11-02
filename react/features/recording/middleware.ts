@@ -5,6 +5,7 @@ import { sendAnalytics } from '../analytics/functions';
 import { IStore } from '../app/types';
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
+import { setFollowMeRecorder } from '../base/conference/actions.any';
 import { getCurrentConference } from '../base/conference/functions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
@@ -304,6 +305,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 APP.API.notifyRecordingStatusChanged(
                     false, mode, undefined, isRecorderTranscriptionsRunning(state));
             }
+
+            dispatch(setFollowMeRecorder(false));
         }
 
         break;
@@ -342,7 +345,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 /**
  * Automatically pins non-moderator participants with video enabled to the stage
  * when recording starts. This ensures only video-enabled non-moderators appear
- * in the recorded video.
+ * in the recorded video. Also enables follow-me recorder mode to sync the layout
+ * to Jibri.
  *
  * @private
  * @param {Dispatch} dispatch - The Redux Dispatch function.
@@ -370,6 +374,8 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
             dispatch(addStageParticipant(participant.id, true));
         }
     });
+
+    dispatch(setFollowMeRecorder(true));
 }
 
 /**
