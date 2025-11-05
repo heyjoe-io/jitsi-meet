@@ -19,7 +19,7 @@ import {
     setVideoUnmutePermissions
 } from '../base/media/actions';
 import { MEDIA_TYPE } from '../base/media/constants';
-import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
+import { PARTICIPANT_JOINED, PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
 import { updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
 import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants, isParticipantModerator } from '../base/participants/functions';
@@ -65,6 +65,7 @@ import {
 import {
     getResourceId,
     getSessionById,
+    isCloudRecordingRunning,
     registerRecordingAudioFiles,
     shouldRequireRecordingConsent,
     unregisterRecordingAudioFiles
@@ -324,6 +325,45 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
         break;
     }
+    case PARTICIPANT_JOINED: {
+        const state = getState();
+        const { participant } = action;
+
+        // If recording is active and a non-moderator with video joins, add them to stage
+        if (isCloudRecordingRunning(state) && isStageFilmstripAvailable(state)) {
+            if (participant && !isParticipantModerator(participant)) {
+                // Use setTimeout to ensure video track is available
+                setTimeout(() => {
+                    const currentState = getState();
+                    const videoTrack = getVideoTrackByParticipant(currentState, participant);
+                    const isVideoMuted = isParticipantMediaMuted(participant, MEDIA_TYPE.VIDEO, currentState);
+
+                    if (videoTrack && !isVideoMuted) {
+                        const remoteParticipants = getRemoteParticipants(currentState);
+                        const nonModeratorsWithVideo = remoteParticipants.filter(p => {
+                            if (isParticipantModerator(p)) {
+                                return false;
+                            }
+                            const vTrack = getVideoTrackByParticipant(currentState, p);
+                            const vMuted = isParticipantMediaMuted(p, MEDIA_TYPE.VIDEO, currentState);
+
+                            return vTrack && !vMuted;
+                        });
+
+                        const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
+
+                        batch(() => {
+                            dispatch(updateSettings({
+                                maxStageParticipants: requiredStageSlots
+                            }));
+                            dispatch(addStageParticipant(participant.id, true));
+                        });
+                    }
+                }, 500);
+            }
+        }
+        break;
+    }
     case PARTICIPANT_UPDATED: {
         const { id, role } = action.participant;
         const state = getState();
@@ -381,12 +421,14 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
     if (nonModeratorsWithVideo.length > 0) {
         const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
 
-        dispatch(updateSettings({
-            maxStageParticipants: requiredStageSlots
-        }));
+        batch(() => {
+            dispatch(updateSettings({
+                maxStageParticipants: requiredStageSlots
+            }));
 
-        nonModeratorsWithVideo.forEach(participantId => {
-            dispatch(addStageParticipant(participantId, true));
+            nonModeratorsWithVideo.forEach(participantId => {
+                dispatch(addStageParticipant(participantId, true));
+            });
         });
     }
 
