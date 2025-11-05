@@ -340,14 +340,18 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                     if (videoTrack && !isVideoMuted) {
                         const remoteParticipants = getRemoteParticipants(currentState);
-                        const nonModeratorsWithVideo = remoteParticipants.filter(p => {
+                        const nonModeratorsWithVideo: string[] = [];
+
+                        remoteParticipants.forEach(p => {
                             if (isParticipantModerator(p)) {
-                                return false;
+                                return;
                             }
                             const vTrack = getVideoTrackByParticipant(currentState, p);
                             const vMuted = isParticipantMediaMuted(p, MEDIA_TYPE.VIDEO, currentState);
 
-                            return vTrack && !vMuted;
+                            if (vTrack && !vMuted) {
+                                nonModeratorsWithVideo.push(p.id);
+                            }
                         });
 
                         const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
