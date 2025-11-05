@@ -32,7 +32,7 @@ import {
 } from '../base/sounds/actions';
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
 import { getVideoTrackByParticipant, isParticipantMediaMuted } from '../base/tracks/functions.any';
-import { addStageParticipant } from '../filmstrip/actions.web';
+import { addStageParticipant, setStageParticipants } from '../filmstrip/actions.web';
 import { MAX_ACTIVE_PARTICIPANTS } from '../filmstrip/constants';
 import { isStageFilmstripAvailable } from '../filmstrip/functions.web';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
@@ -355,12 +355,17 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         });
 
                         const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
+                        const stageQueue = nonModeratorsWithVideo.map(participantId => ({
+                            participantId,
+                            pinned: true
+                        }));
 
                         batch(() => {
                             dispatch(updateSettings({
                                 maxStageParticipants: requiredStageSlots
                             }));
-                            dispatch(addStageParticipant(participant.id, true));
+                            // Replace stage participants with only non-moderators who have video
+                            dispatch(setStageParticipants(stageQueue));
                         });
                     }
                 }, 500);
@@ -424,15 +429,18 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
 
     if (nonModeratorsWithVideo.length > 0) {
         const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
+        const stageQueue = nonModeratorsWithVideo.map(participantId => ({
+            participantId,
+            pinned: true
+        }));
 
         batch(() => {
             dispatch(updateSettings({
                 maxStageParticipants: requiredStageSlots
             }));
 
-            nonModeratorsWithVideo.forEach(participantId => {
-                dispatch(addStageParticipant(participantId, true));
-            });
+            // Replace stage participants with only non-moderators who have video
+            dispatch(setStageParticipants(stageQueue));
         });
     }
 
