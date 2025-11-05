@@ -342,6 +342,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         const remoteParticipants = getRemoteParticipants(currentState);
                         const nonModeratorsWithVideo: string[] = [];
 
+                        // Only include remote non-moderators with video
                         remoteParticipants.forEach(p => {
                             if (isParticipantModerator(p)) {
                                 return;
@@ -354,7 +355,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                             }
                         });
 
-                        const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
+                        const requiredStageSlots = Math.min(
+                            nonModeratorsWithVideo.length || 1,
+                            MAX_ACTIVE_PARTICIPANTS
+                        );
                         const stageQueue = nonModeratorsWithVideo.map(participantId => ({
                             participantId,
                             pinned: true
@@ -364,7 +368,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                             dispatch(updateSettings({
                                 maxStageParticipants: requiredStageSlots
                             }));
-                            // Replace stage participants with only non-moderators who have video
+                            // Always replace stage participants to ensure moderators are removed
                             dispatch(setStageParticipants(stageQueue));
                         });
                     }
@@ -412,10 +416,14 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
     }
 
     const remoteParticipants = getRemoteParticipants(state);
+    const localParticipant = getLocalParticipant(state);
     const nonModeratorsWithVideo: string[] = [];
 
+    // Only include remote non-moderators with video (never include local participant)
     remoteParticipants.forEach(participant => {
         if (isParticipantModerator(participant)) {
+            logger.info(`Excluding moderator from stage: ${participant.name || participant.id}`);
+
             return;
         }
 
@@ -424,27 +432,39 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
 
         if (videoTrack && !isVideoMuted) {
             nonModeratorsWithVideo.push(participant.id);
+            logger.info(`Adding non-moderator with video to stage: ${participant.name || participant.id}`);
+        } else {
+            logger.info(`Excluding participant without video: ${participant.name || participant.id}`);
         }
     });
 
-    if (nonModeratorsWithVideo.length > 0) {
-        const requiredStageSlots = Math.min(nonModeratorsWithVideo.length, MAX_ACTIVE_PARTICIPANTS);
-        const stageQueue = nonModeratorsWithVideo.map(participantId => ({
-            participantId,
-            pinned: true
+    logger.info(`Total non-moderators with video: ${nonModeratorsWithVideo.length}`, nonModeratorsWithVideo);
+
+    const requiredStageSlots = Math.min(
+        nonModeratorsWithVideo.length || 1,
+        MAX_ACTIVE_PARTICIPANTS
+    );
+    const stageQueue = nonModeratorsWithVideo.map(participantId => ({
+        participantId,
+        pinned: true
+    }));
+
+    logger.info('Setting stage participants:', stageQueue);
+
+    batch(() => {
+        dispatch(updateSettings({
+            maxStageParticipants: requiredStageSlots
         }));
 
-        batch(() => {
-            dispatch(updateSettings({
-                maxStageParticipants: requiredStageSlots
-            }));
+        // Always replace stage participants to ensure moderators are removed
+        dispatch(setStageParticipants(stageQueue));
+    });
 
-            // Replace stage participants with only non-moderators who have video
-            dispatch(setStageParticipants(stageQueue));
-        });
-    }
-
-    dispatch(setFollowMeRecorder(true));
+    // Enable follow-me recorder after a delay to ensure stage is fully updated
+    setTimeout(() => {
+        logger.info('Enabling follow-me recorder mode');
+        dispatch(setFollowMeRecorder(true));
+    }, 1000);
 }
 
 /**
