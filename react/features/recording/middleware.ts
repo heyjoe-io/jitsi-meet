@@ -234,7 +234,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
-            _autoPinNonModeratorsWithVideo(dispatch, getState);
+            // Don't pin participants at PENDING - wait for Jibri to actually join
             break;
         }
 
@@ -275,6 +275,9 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     APP.API.notifyRecordingStatusChanged(
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
+
+                // Re-sync stage when Jibri actually joins and starts recording
+                _autoPinNonModeratorsWithVideo(dispatch, getState);
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
