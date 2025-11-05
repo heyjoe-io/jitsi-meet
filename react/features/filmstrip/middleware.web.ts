@@ -107,6 +107,7 @@ MiddlewareRegistry.register(store => next => action => {
             }
         }
         break;
+
     }
     case PARTICIPANT_JOINED: {
         result = next(action);
