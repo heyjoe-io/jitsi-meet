@@ -132,6 +132,8 @@ const ParticipantsPane = () => {
     const isChatOpen = useSelector((state: IReduxState) => state['features/chat'].isOpen);
     const { classes } = useStyles({ isChatOpen });
     const paneOpen = useSelector(getParticipantsPaneOpen);
+    const iAmRecorder = useSelector((state: IReduxState) => 
+        Boolean(state['features/base/config'].iAmRecorder));
     const isBreakoutRoomsSupported = useSelector((state: IReduxState) => state['features/base/conference'])
         .conference?.getBreakoutRooms()?.isSupported();
     const showCurrentVisitorsList = useSelector(shouldDisplayCurrentVisitorsList);
@@ -175,7 +177,8 @@ const ParticipantsPane = () => {
         setContextOpen(open => !open);
     }, []);
 
-    if (!paneOpen) {
+    // Hide participants pane in recorder mode (Jibri) and when pane is closed
+    if (!paneOpen || iAmRecorder) {
         return null;
     }
 
