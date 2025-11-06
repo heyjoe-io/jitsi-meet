@@ -406,6 +406,15 @@ class AbstractStartRecordingDialog extends Component<IProps, IState> {
                 createRecordingDialogEvent('start', 'confirm.button', attributes)
             );
 
+            // Close participants pane before starting recording
+            try {
+                const { close } = require('../../../participants-pane/actions');
+
+                dispatch(close());
+            } catch (e) {
+                // Participants pane not available on this platform
+            }
+
             this._toggleScreenshotCapture();
             _conference?.startRecording({
                 mode: JitsiRecordingConstants.mode.FILE,
