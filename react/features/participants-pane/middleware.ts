@@ -1,5 +1,6 @@
 import { AnyAction } from 'redux';
 
+import JitsiMeetJS from '../base/lib-jitsi-meet';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 
 import { PARTICIPANTS_PANE_CLOSE, PARTICIPANTS_PANE_OPEN } from './actionTypes';
@@ -10,13 +11,25 @@ import { PARTICIPANTS_PANE_CLOSE, PARTICIPANTS_PANE_OPEN } from './actionTypes';
  * @param {IStore} store - The redux store.
  * @returns {Function}
  */
-MiddlewareRegistry.register(() => (next: Function) => (action: AnyAction) => {
+MiddlewareRegistry.register(({ getState }) => (next: Function) => (action: AnyAction) => {
     switch (action.type) {
-    case PARTICIPANTS_PANE_OPEN:
+    case PARTICIPANTS_PANE_OPEN: {
+        const state = getState();
+        const { sessionDatas } = state['features/recording'];
+        const isRecording = sessionDatas.some(
+            (session: any) => session.mode === JitsiMeetJS.constants.recording.mode.FILE
+                && session.status === JitsiMeetJS.constants.recording.status.ON
+        );
+
+        if (isRecording) {
+            return;
+        }
+
         if (typeof APP !== 'undefined') {
             APP.API.notifyParticipantsPaneToggled(true);
         }
         break;
+    }
     case PARTICIPANTS_PANE_CLOSE:
         if (typeof APP !== 'undefined') {
             APP.API.notifyParticipantsPaneToggled(false);
