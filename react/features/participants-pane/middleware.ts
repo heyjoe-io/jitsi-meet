@@ -16,9 +16,10 @@ MiddlewareRegistry.register(({ getState }) => (next: Function) => (action: AnyAc
     case PARTICIPANTS_PANE_OPEN: {
         const state = getState();
         const { sessionDatas } = state['features/recording'];
+        const { PENDING, ON } = JitsiMeetJS.constants.recording.status;
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiMeetJS.constants.recording.mode.FILE
-                && session.status === JitsiMeetJS.constants.recording.status.ON
+                && (session.status === ON || session.status === PENDING)
         );
 
         if (isRecording) {

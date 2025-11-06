@@ -240,6 +240,16 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
+            // Close participants pane when recording enters PENDING state
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                try {
+                    const { close } = require('../participants-pane/actions');
+
+                    dispatch(close());
+                } catch (e) {
+                    // Participants pane not available on this platform
+                }
+            }
             break;
         }
 
