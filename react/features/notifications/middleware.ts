@@ -125,9 +125,10 @@ MiddlewareRegistry.register(store => next => action => {
         const { participant: p } = action;
         const { conference } = state['features/base/conference'];
 
-        // Do not display notifications for the virtual screenshare and whiteboard tiles.
+        // Do not display notifications for the virtual screenshare and whiteboard tiles or bots (like Jibri).
         if (conference
             && !p.local
+            && !p.botType
             && !isScreenShareParticipant(p)
             && !isWhiteboardParticipant(p)
             && !joinLeaveNotificationsDisabled()

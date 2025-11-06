@@ -126,15 +126,27 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
     case PARTICIPANT_JOINED: {
         const state = getState();
         const { sessionDatas } = state['features/recording'];
-        const isRecording = sessionDatas.some(
+        const isRecordingOrPending = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
-                && session.status === JitsiRecordingConstants.status.ON
+                && (session.status === JitsiRecordingConstants.status.ON
+                    || session.status === JitsiRecordingConstants.status.PENDING)
         );
 
         // Check if Jibri (recorder bot) just joined during an active recording
-        if (isRecording && action.participant?.botType) {
-            // Pin non-moderators when Jibri joins
-            _pinNonModeratorsForRecording(dispatch, getState);
+        if (action.participant?.botType) {
+            if (isRecordingOrPending) {
+                // Pin non-moderators when Jibri joins
+                _pinNonModeratorsForRecording(dispatch, getState);
+            }
+
+            // Always close participants pane when Jibri joins during recording initiation
+            try {
+                const { close } = require('../participants-pane/actions');
+
+                dispatch(close());
+            } catch (e) {
+                // Participants pane not available on this platform
+            }
         }
         break;
     }
