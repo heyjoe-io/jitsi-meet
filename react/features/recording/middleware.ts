@@ -281,9 +281,18 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
 
-                // Pin non-moderators when recording starts
+                // Pin non-moderators and close participants pane when recording starts
                 if (mode === JitsiRecordingConstants.mode.FILE) {
                     _pinNonModeratorsForRecording(dispatch, getState);
+
+                    // Close participants pane
+                    try {
+                        const { close } = require('../participants-pane/actions');
+
+                        dispatch(close());
+                    } catch (e) {
+                        // Participants pane not available on this platform
+                    }
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
