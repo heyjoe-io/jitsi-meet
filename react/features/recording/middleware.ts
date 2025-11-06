@@ -280,6 +280,11 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     APP.API.notifyRecordingStatusChanged(
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
+
+                // Pin non-moderators when recording starts
+                if (mode === JitsiRecordingConstants.mode.FILE) {
+                    _pinNonModeratorsForRecording(dispatch, getState);
+                }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
@@ -312,6 +317,18 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             if (typeof APP !== 'undefined') {
                 APP.API.notifyRecordingStatusChanged(
                     false, mode, undefined, isRecorderTranscriptionsRunning(state));
+            }
+
+            // Clear pinned participants when recording stops
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                try {
+                    const { clearStageParticipants } = require('../filmstrip/actions.web');
+
+                    dispatch(clearStageParticipants());
+                } catch (e) {
+                    // Fallback to unpinning if stage not available
+                    dispatch(pinParticipant(null));
+                }
             }
         }
 
@@ -475,9 +492,9 @@ function _pinNonModeratorsForRecording(dispatch: IStore['dispatch'], getState: I
     let isStageFilmstrip = false;
 
     try {
-        const { isStageFilmstripAvailable } = require('../filmstrip/functions');
+        const { isStageFilmstripEnabled } = require('../filmstrip/functions');
 
-        isStageFilmstrip = isStageFilmstripAvailable(state);
+        isStageFilmstrip = isStageFilmstripEnabled(state);
     } catch (e) {
         // Stage filmstrip not available on this platform
     }
