@@ -1,4 +1,5 @@
 import { batch } from 'react-redux';
+import { debounce } from 'lodash-es';
 
 import { createRecordingEvent } from '../analytics/AnalyticsEvents';
 import { sendAnalytics } from '../analytics/functions';
@@ -375,7 +376,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
-        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local && !track.videoStarted) {
+        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local && track.videoStarted) {
             _pinNonModeratorsForRecording(dispatch, getState);
         }
 
@@ -516,9 +517,10 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
  * @param {Function} getState - The Redux getState function.
  * @returns {void}
  */
-function _pinNonModeratorsForRecording(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+function _pinNonModeratorsForRecordingImpl(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     const state = getState();
     const remoteParticipants = getRemoteParticipants(state);
+    const tracks = state['features/base/tracks'];
 
     let isStageFilmstrip = false;
 
@@ -537,10 +539,20 @@ function _pinNonModeratorsForRecording(dispatch: IStore['dispatch'], getState: I
         const hasVideo = !isParticipantVideoMuted(participant, state);
 
         if (!isModerator && hasVideo) {
-            nonModeratorParticipantsWithVideo.push({
-                participantId,
-                pinned: true
-            });
+            // Check if the video track has actually started
+            const videoTrack = tracks.find((t: any) =>
+                t.participantId === participantId
+                && t.mediaType === MEDIA_TYPE.VIDEO
+                && !t.local
+            );
+
+            // Only add participant if their video track has started streaming
+            if (videoTrack && videoTrack.videoStarted) {
+                nonModeratorParticipantsWithVideo.push({
+                    participantId,
+                    pinned: true
+                });
+            }
         }
     });
 
@@ -561,3 +573,8 @@ function _pinNonModeratorsForRecording(dispatch: IStore['dispatch'], getState: I
         }
     }
 }
+
+/**
+ * Debounced version of _pinNonModeratorsForRecordingImpl to avoid rapid consecutive calls.
+ */
+const _pinNonModeratorsForRecording = debounce(_pinNonModeratorsForRecordingImpl, 300);
