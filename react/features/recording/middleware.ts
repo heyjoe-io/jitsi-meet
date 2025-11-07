@@ -306,7 +306,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                 // Pin non-moderators and close participants pane when recording starts
                 if (mode === JitsiRecordingConstants.mode.FILE) {
-                    _pinNonModeratorsForRecording(dispatch, getState);
+                    // Call directly (not debounced) on recording start for immediate pinning
+                    _pinNonModeratorsForRecordingImpl(dispatch, getState);
 
                     // Close participants pane
                     try {
@@ -376,7 +377,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
-        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local && track.videoStarted) {
+        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local) {
             _pinNonModeratorsForRecording(dispatch, getState);
         }
 
@@ -520,7 +521,6 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
 function _pinNonModeratorsForRecordingImpl(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     const state = getState();
     const remoteParticipants = getRemoteParticipants(state);
-    const tracks = state['features/base/tracks'];
 
     let isStageFilmstrip = false;
 
@@ -539,20 +539,10 @@ function _pinNonModeratorsForRecordingImpl(dispatch: IStore['dispatch'], getStat
         const hasVideo = !isParticipantVideoMuted(participant, state);
 
         if (!isModerator && hasVideo) {
-            // Check if the video track has actually started
-            const videoTrack = tracks.find((t: any) =>
-                t.participantId === participantId
-                && t.mediaType === MEDIA_TYPE.VIDEO
-                && !t.local
-            );
-
-            // Only add participant if their video track has started streaming
-            if (videoTrack && videoTrack.videoStarted) {
-                nonModeratorParticipantsWithVideo.push({
-                    participantId,
-                    pinned: true
-                });
-            }
+            nonModeratorParticipantsWithVideo.push({
+                participantId,
+                pinned: true
+            });
         }
     });
 
@@ -575,6 +565,8 @@ function _pinNonModeratorsForRecordingImpl(dispatch: IStore['dispatch'], getStat
 }
 
 /**
- * Debounced version of _pinNonModeratorsForRecordingImpl to avoid rapid consecutive calls.
+ * Debounced version of _pinNonModeratorsForRecordingImpl for dynamic updates during recording.
+ * Uses debouncing to avoid rapid consecutive calls when multiple tracks change simultaneously.
+ * The direct (non-debounced) function is called on recording start for immediate pinning.
  */
-const _pinNonModeratorsForRecording = debounce(_pinNonModeratorsForRecordingImpl, 300);
+const _pinNonModeratorsForRecording = debounce(_pinNonModeratorsForRecordingImpl, 500);
