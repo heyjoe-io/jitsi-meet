@@ -58,17 +58,11 @@ class AutoPinToggleButton extends AbstractButton<IProps> {
  * @returns {IProps}
  */
 function mapStateToProps(state: IReduxState) {
-    const { autoPinEnabled, sessionDatas } = state['features/recording'];
-    
-    // Only show the button when recording is active
-    const isRecording = sessionDatas?.some(
-        (session: any) => session.mode === 'file' 
-            && (session.status === 'on' || session.status === 'pending')
-    ) ?? false;
+    const { autoPinEnabled } = state['features/recording'];
 
     return {
         _autoPinEnabled: autoPinEnabled,
-        visible: isRecording
+        visible: true
     };
 }
 
