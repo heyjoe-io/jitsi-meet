@@ -418,7 +418,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         // Note: next(action) was already called before this switch statement (line 93)
         // so the reducer has already toggled the state. We just need to react to the change.
         const state = getState();
-        const { autoPinEnabled, sessionDatas } = state['features/recording'];
+        const { autoPinEnabled, sessionDatas, savedMaxStageParticipants } = state['features/recording'];
+        const currentMaxStageParticipants = state['features/base/settings'].maxStageParticipants;
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && session.status === JitsiRecordingConstants.status.ON
@@ -426,26 +427,52 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
         console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - new state:', autoPinEnabled, 'isRecording:', isRecording);
 
-        // If auto-pin is now disabled during an active recording, clear the stage
+        // If auto-pin is now disabled during an active recording
         if (isRecording && !autoPinEnabled) {
-            console.log('[Recording Middleware] Clearing stage (auto-pin disabled)');
+            console.log('[Recording Middleware] Auto-pin disabled - clearing stage and limiting to 1 participant');
 
             try {
                 const { isStageFilmstripEnabled } = require('../filmstrip/functions');
 
                 if (isStageFilmstripEnabled(state)) {
                     const { setStageParticipants } = require('../filmstrip/actions.web');
+                    const { updateSettings } = require('../base/settings/actions');
+
+                    // Save current maxStageParticipants if not already saved
+                    if (savedMaxStageParticipants === undefined) {
+                        dispatch({ 
+                            type: 'SAVE_MAX_STAGE_PARTICIPANTS', 
+                            value: currentMaxStageParticipants 
+                        });
+                    }
+
+                    // Set maxStageParticipants to 1 to prevent auto-filling the stage
+                    dispatch(updateSettings({ maxStageParticipants: 1 }));
 
                     // Clear the stage by setting an empty array
                     dispatch(setStageParticipants([]));
                 }
             } catch (e) {
                 // Stage filmstrip not available on this platform
+                console.error('[Recording Middleware] Error clearing stage:', e);
             }
         } else if (isRecording && autoPinEnabled) {
-            console.log('[Recording Middleware] Pinning non-moderators (auto-pin enabled)');
-            // If auto-pin is now enabled during an active recording, pin non-moderators
-            _pinNonModeratorsForRecordingImpl(dispatch, getState);
+            console.log('[Recording Middleware] Auto-pin enabled - restoring maxStageParticipants and pinning non-moderators');
+
+            try {
+                const { updateSettings } = require('../base/settings/actions');
+
+                // Restore original maxStageParticipants
+                if (savedMaxStageParticipants !== undefined) {
+                    dispatch(updateSettings({ maxStageParticipants: savedMaxStageParticipants }));
+                    dispatch({ type: 'CLEAR_SAVED_MAX_STAGE_PARTICIPANTS' });
+                }
+
+                // Pin non-moderators with video enabled
+                _pinNonModeratorsForRecordingImpl(dispatch, getState);
+            } catch (e) {
+                console.error('[Recording Middleware] Error restoring settings:', e);
+            }
         }
 
         break;

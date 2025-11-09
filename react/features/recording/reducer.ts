@@ -17,6 +17,7 @@ const DEFAULT_STATE = {
     consentRequested: new Set(),
     disableHighlightMeetingMoment: false,
     pendingNotificationUids: {},
+    savedMaxStageParticipants: undefined,
     selectedRecordingService: '',
     sessionDatas: []
 };
@@ -39,6 +40,7 @@ export interface IRecordingState {
     pendingNotificationUids: {
         [key: string]: string | undefined;
     };
+    savedMaxStageParticipants?: number;
     selectedRecordingService: string;
     sessionDatas: Array<ISessionData>;
     streamKey?: string;
@@ -123,6 +125,18 @@ ReducerRegistry.register<IRecordingState>(STORE_NAME,
             return {
                 ...state,
                 autoPinEnabled: !state.autoPinEnabled
+            };
+
+        case 'SAVE_MAX_STAGE_PARTICIPANTS':
+            return {
+                ...state,
+                savedMaxStageParticipants: action.value
+            };
+
+        case 'CLEAR_SAVED_MAX_STAGE_PARTICIPANTS':
+            return {
+                ...state,
+                savedMaxStageParticipants: undefined
             };
 
         default:
