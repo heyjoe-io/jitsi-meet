@@ -45,6 +45,7 @@ export type ToolbarButton = 'camera' |
     'followme' |
     'reactions' |
     'recording' |
+    'autopinrecording' |
     'security' |
     'select-background' |
     'settings' |

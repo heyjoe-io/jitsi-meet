@@ -39,6 +39,7 @@ import { REACTIONS } from '../reactions/constants';
 import { shouldDisplayReactionsButtons } from '../reactions/functions.any';
 import { useReactionsButton } from '../reactions/hooks.web';
 import RecordButton from '../recording/components/Recording/web/RecordButton';
+import AutoPinButton from '../recording/components/Recording/web/AutoPinButton';
 import { useLiveStreamingButton } from '../recording/hooks.web';
 import { isSalesforceEnabled } from '../salesforce/functions';
 import { startScreenShareFlow } from '../screen-share/actions.web';
@@ -193,6 +194,12 @@ const recording = {
     group: 4
 };
 
+const autopinrecording = {
+    key: 'autopinrecording',
+    Content: AutoPinButton,
+    group: 4
+};
+
 const maxStageParticipants = {
     key: 'maxstageparticipants',
     Content: MaxStageParticipantsButton,
@@ -325,6 +332,7 @@ export function useToolboxButtons(
         camera,
         profile,
         recording,
+        autopinrecording,
         desktop: desktopSharing,
         speaker,
         chat,

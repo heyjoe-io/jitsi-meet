@@ -19,9 +19,9 @@ import {
 } from '../base/media/actions';
 import { MEDIA_TYPE } from '../base/media/constants';
 import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
-import { updateLocalRecordingStatus } from '../base/participants/actions';
+import { pinParticipant, updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
-import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
+import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
 import {
@@ -29,6 +29,7 @@ import {
     stopSound
 } from '../base/sounds/actions';
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
+import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
@@ -266,6 +267,28 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 if (typeof APP !== 'undefined') {
                     APP.API.notifyRecordingStatusChanged(
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
+                }
+
+                const { autoPinOnRecording } = state['features/recording'];
+
+                if (autoPinOnRecording && mode === JitsiRecordingConstants.mode.FILE) {
+                    setTimeout(() => {
+                        const currentState = getState();
+                        const remoteParticipants = getRemoteParticipants(currentState);
+                        const participantsToPin: string[] = [];
+
+                        remoteParticipants.forEach((participant, id) => {
+                            if (!participant.fakeParticipant && !isParticipantVideoMuted(participant, currentState)) {
+                                participantsToPin.push(id);
+                            }
+                        });
+
+                        participantsToPin.forEach((participantId, index) => {
+                            setTimeout(() => {
+                                dispatch(pinParticipant(participantId));
+                            }, index * 100);
+                        });
+                    }, 6000);
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {

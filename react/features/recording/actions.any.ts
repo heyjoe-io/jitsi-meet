@@ -28,7 +28,8 @@ import {
     SET_START_RECORDING_NOTIFICATION_SHOWN,
     SET_STREAM_KEY,
     START_LOCAL_RECORDING,
-    STOP_LOCAL_RECORDING
+    STOP_LOCAL_RECORDING,
+    TOGGLE_AUTO_PIN_ON_RECORDING
 } from './actionTypes';
 import {
     RECORDING_METADATA_ID,
@@ -489,5 +490,18 @@ export function markConsentRequested(sessionId: string) {
     return {
         type: MARK_CONSENT_REQUESTED,
         sessionId
+    };
+}
+
+/**
+ * Toggles the auto-pin participants with video feature for recording.
+ *
+ * @returns {{
+ *     type: TOGGLE_AUTO_PIN_ON_RECORDING
+ * }}
+ */
+export function toggleAutoPinOnRecording() {
+    return {
+        type: TOGGLE_AUTO_PIN_ON_RECORDING
     };
 }
