@@ -118,6 +118,8 @@ ReducerRegistry.register<IRecordingState>(STORE_NAME,
             };
 
         case TOGGLE_AUTO_PIN_RECORDING:
+            console.log('[Recording Reducer] TOGGLE_AUTO_PIN_RECORDING - before:', state.autoPinEnabled, 'after:', !state.autoPinEnabled);
+
             return {
                 ...state,
                 autoPinEnabled: !state.autoPinEnabled

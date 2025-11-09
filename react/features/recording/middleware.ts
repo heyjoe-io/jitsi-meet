@@ -423,9 +423,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
+        console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - before:', wasAutoPinEnabled, 'isRecording:', isRecording);
+
         const nextResult = next(action);
         const stateAfter = getState();
         const isAutoPinEnabled = stateAfter['features/recording'].autoPinEnabled;
+
+        console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - after:', isAutoPinEnabled);
 
         // If auto-pin was just disabled during an active recording, clear the stage
         if (isRecording && wasAutoPinEnabled && !isAutoPinEnabled) {
