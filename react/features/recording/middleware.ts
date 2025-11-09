@@ -455,8 +455,14 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
 
     logger.info(`Total non-moderators with video: ${nonModeratorsWithVideo.length}`, nonModeratorsWithVideo);
 
-    const requiredStageSlots = Math.min(
-        nonModeratorsWithVideo.length || 1,
+    if (nonModeratorsWithVideo.length === 0) {
+        logger.warn('No non-moderators with video found, skipping stage setup');
+        
+        return;
+    }
+
+    const requiredStageSlots = Math.max(
+        nonModeratorsWithVideo.length,
         MAX_ACTIVE_PARTICIPANTS
     );
     const stageQueue = nonModeratorsWithVideo.map(participantId => ({
@@ -464,33 +470,45 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         pinned: true
     }));
 
-    logger.info('Setting stage participants:', stageQueue);
+    logger.info(`Setting ${nonModeratorsWithVideo.length} stage participants with ${requiredStageSlots} max slots:`, stageQueue);
 
-    batch(() => {
-        dispatch(updateSettings({
-            maxStageParticipants: requiredStageSlots
-        }));
+    // First, increase the max stage participants to accommodate all non-moderators
+    dispatch(updateSettings({
+        maxStageParticipants: requiredStageSlots
+    }));
 
-        // Always replace stage participants to ensure moderators are removed
+    // Small delay to ensure settings are applied before setting participants
+    setTimeout(() => {
+        logger.info('Applying stage participants:', stageQueue);
         dispatch(setStageParticipants(stageQueue));
-    });
+    }, 100);
 
-    // Enable follow-me recorder after a delay to ensure stage is fully updated
-    // and Jibri has received the participant list
+    // Enable follow-me recorder with multiple syncs to ensure Jibri gets all participants
     setTimeout(() => {
         logger.info('Enabling follow-me recorder mode');
         dispatch(setFollowMeRecorder(true));
         
-        // Force another stage sync after follow-me is enabled to ensure Jibri gets the layout
+        // First re-sync immediately after enabling follow-me
         setTimeout(() => {
             const currentState = getState();
             const currentActiveParticipants = currentState['features/filmstrip'].activeParticipants;
             
             if (currentActiveParticipants && currentActiveParticipants.length > 0) {
-                logger.info('Re-syncing stage participants for Jibri:', currentActiveParticipants);
+                logger.info(`First re-sync: ${currentActiveParticipants.length} active participants for Jibri:`, currentActiveParticipants);
                 dispatch(setStageParticipants(currentActiveParticipants));
+                
+                // Second re-sync to handle race conditions
+                setTimeout(() => {
+                    const latestState = getState();
+                    const latestActiveParticipants = latestState['features/filmstrip'].activeParticipants;
+                    
+                    if (latestActiveParticipants && latestActiveParticipants.length > 0) {
+                        logger.info(`Second re-sync: ${latestActiveParticipants.length} active participants for Jibri:`, latestActiveParticipants);
+                        dispatch(setStageParticipants(latestActiveParticipants));
+                    }
+                }, 1000);
             }
-        }, 500);
+        }, 300);
     }, 1500);
 }
 

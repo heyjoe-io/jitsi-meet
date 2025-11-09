@@ -40,6 +40,7 @@ import { shouldDisplayReactionsButtons } from '../reactions/functions.any';
 import { useReactionsButton } from '../reactions/hooks.web';
 import RecordButton from '../recording/components/Recording/web/RecordButton';
 import { useLiveStreamingButton } from '../recording/hooks.web';
+import { isStageFilmstripAvailable } from '../filmstrip/functions.web';
 import { isSalesforceEnabled } from '../salesforce/functions';
 import { startScreenShareFlow } from '../screen-share/actions.web';
 import ShareAudioButton from '../screen-share/components/web/ShareAudioButton';
@@ -254,6 +255,21 @@ function useLinkToSalesforceButton() {
     }
 }
 
+/**
+ * A hook that returns the auto-pin recording button if stage filmstrip is available.
+ *
+ *  @returns {Object | undefined}
+ */
+function useAutoPinRecordingButton() {
+    const _isStageFilmstripAvailable = useSelector((state: IReduxState) => 
+        isStageFilmstripAvailable(state, 2));
+    const toolbarButtons = useSelector((state: IReduxState) => state['features/toolbox'].toolbarButtons);
+
+    if (_isStageFilmstripAvailable && (!toolbarButtons || toolbarButtons.includes('autopinrecording'))) {
+        return autoPinRecording;
+    }
+}
+
 
 /**
  * A hook that returns the share audio button if it is enabled and undefined otherwise.
@@ -315,6 +331,7 @@ export function useToolboxButtons(
     // const recording = useRecordingButton();
     const liveStreaming = useLiveStreamingButton();
     const linktosalesforce = useLinkToSalesforceButton();
+    const _autopinrecording = useAutoPinRecordingButton();
     const shareaudio = getShareAudioButton();
     const shareVideo = useSharedVideoButton();
     const whiteboard = useWhiteboardButton();
@@ -349,7 +366,7 @@ export function useToolboxButtons(
         closedcaptions: cc,
         livestreaming: liveStreaming,
         linktosalesforce,
-        autopinrecording: autoPinRecording,
+        autopinrecording: _autopinrecording,
         sharedvideo: shareVideo,
         shareaudio,
         noisesuppression: noiseSuppression,
