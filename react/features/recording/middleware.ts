@@ -1,4 +1,5 @@
 import { batch } from 'react-redux';
+import { debounce } from 'lodash-es';
 
 import { createRecordingEvent } from '../analytics/AnalyticsEvents';
 import { sendAnalytics } from '../analytics/functions';
@@ -18,17 +19,18 @@ import {
     setVideoUnmutePermissions
 } from '../base/media/actions';
 import { MEDIA_TYPE } from '../base/media/constants';
-import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
-import { updateLocalRecordingStatus } from '../base/participants/actions';
+import { PARTICIPANT_JOINED, PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
+import { pinParticipant, updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
-import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
+import { getLocalParticipant, getRemoteParticipants, isParticipantModerator } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
 import {
     playSound,
     stopSound
 } from '../base/sounds/actions';
-import { TRACK_ADDED } from '../base/tracks/actionTypes';
+import { TRACK_ADDED, TRACK_UPDATED } from '../base/tracks/actionTypes';
+import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
@@ -38,13 +40,10 @@ import {
     clearRecordingSessions,
     hidePendingRecordingNotification,
     markConsentRequested,
-    showPendingRecordingNotification,
     showRecordingError,
     showRecordingLimitNotification,
     showRecordingWarning,
     showStartRecordingNotification,
-    showStartedRecordingNotification,
-    showStoppedRecordingNotification,
     updateRecordingSessionData
 } from './actions';
 import { RecordingConsentDialog } from './components/Recording';
@@ -57,7 +56,6 @@ import {
     START_RECORDING_NOTIFICATION_ID
 } from './constants';
 import {
-    getResourceId,
     getSessionById,
     registerRecordingAudioFiles,
     shouldRequireRecordingConsent,
@@ -123,6 +121,34 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 return;
             });
 
+        break;
+    }
+
+    case PARTICIPANT_JOINED: {
+        const state = getState();
+        const { sessionDatas } = state['features/recording'];
+        const isRecordingOrPending = sessionDatas.some(
+            (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
+                && (session.status === JitsiRecordingConstants.status.ON
+                    || session.status === JitsiRecordingConstants.status.PENDING)
+        );
+
+        // Check if Jibri (recorder bot) just joined during an active recording
+        if (action.participant?.botType) {
+            if (isRecordingOrPending) {
+                // Pin non-moderators when Jibri joins
+                _pinNonModeratorsForRecording(dispatch, getState);
+            }
+
+            // Always close participants pane when Jibri joins during recording initiation
+            try {
+                const { close } = require('../participants-pane/actions');
+
+                dispatch(close());
+            } catch (e) {
+                // Participants pane not available on this platform
+            }
+        }
         break;
     }
 
@@ -227,6 +253,16 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
+            // Close participants pane when recording enters PENDING state
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                try {
+                    const { close } = require('../participants-pane/actions');
+
+                    dispatch(close());
+                } catch (e) {
+                    // Participants pane not available on this platform
+                }
+            }
             break;
         }
 
@@ -267,6 +303,21 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     APP.API.notifyRecordingStatusChanged(
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
+
+                // Pin non-moderators and close participants pane when recording starts
+                if (mode === JitsiRecordingConstants.mode.FILE) {
+                    // Call directly (not debounced) on recording start for immediate pinning
+                    _pinNonModeratorsForRecordingImpl(dispatch, getState);
+
+                    // Close participants pane
+                    try {
+                        const { close } = require('../participants-pane/actions');
+
+                        dispatch(close());
+                    } catch (e) {
+                        // Participants pane not available on this platform
+                    }
+                }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
@@ -300,14 +351,37 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 APP.API.notifyRecordingStatusChanged(
                     false, mode, undefined, isRecorderTranscriptionsRunning(state));
             }
+
+            // Clear pinned participants when recording stops
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                try {
+                    const { clearStageParticipants } = require('../filmstrip/actions.web');
+
+                    dispatch(clearStageParticipants());
+                } catch (e) {
+                    // Fallback to unpinning if stage not available
+                    dispatch(pinParticipant(null));
+                }
+            }
         }
 
         break;
     }
-    case TRACK_ADDED: {
+    case TRACK_ADDED:
+    case TRACK_UPDATED: {
         const { track } = action;
+        const state = getState();
+        const { sessionDatas } = state['features/recording'];
+        const isRecording = sessionDatas.some(
+            (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
+                && session.status === JitsiRecordingConstants.status.ON
+        );
 
-        if (LocalRecordingManager.isRecordingLocally()
+        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local) {
+            _pinNonModeratorsForRecording(dispatch, getState);
+        }
+
+        if (action.type === TRACK_ADDED && LocalRecordingManager.isRecordingLocally()
                 && track.mediaType === MEDIA_TYPE.AUDIO && track.local) {
             const audioTrack = track.jitsiTrack.track;
 
@@ -316,19 +390,25 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         break;
     }
     case PARTICIPANT_UPDATED: {
+        const nextResult = next(action);
         const { id, role } = action.participant;
         const state = getState();
         const localParticipant = getLocalParticipant(state);
+        const { sessionDatas } = state['features/recording'];
+        const isRecording = sessionDatas.some(
+            (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
+                && session.status === JitsiRecordingConstants.status.ON
+        );
 
-        if (localParticipant?.id !== id) {
-            return next(action);
-        }
-
-        if (role === PARTICIPANT_ROLE.MODERATOR) {
+        if (localParticipant?.id === id && role === PARTICIPANT_ROLE.MODERATOR) {
             dispatch(showStartRecordingNotification());
         }
 
-        return next(action);
+        if (isRecording && role !== undefined) {
+            _pinNonModeratorsForRecording(dispatch, getState);
+        }
+
+        return nextResult;
     }
     }
 
@@ -429,3 +509,64 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
         dispatch(openDialog(RecordingConsentDialog));
     });
 }
+
+/**
+ * Pins non-moderator participants with video enabled to stage when recording starts.
+ * This ensures that recorded video shows only non-moderators who have their video on.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+function _pinNonModeratorsForRecordingImpl(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    const state = getState();
+    const remoteParticipants = getRemoteParticipants(state);
+
+    let isStageFilmstrip = false;
+
+    try {
+        const { isStageFilmstripEnabled } = require('../filmstrip/functions');
+
+        isStageFilmstrip = isStageFilmstripEnabled(state);
+    } catch (e) {
+        // Stage filmstrip not available on this platform
+    }
+
+    const nonModeratorParticipantsWithVideo: Array<{ participantId: string; pinned: boolean; }> = [];
+
+    remoteParticipants.forEach((participant, participantId) => {
+        const isModerator = isParticipantModerator(participant);
+        const hasVideo = !isParticipantVideoMuted(participant, state);
+
+        if (!isModerator && hasVideo) {
+            nonModeratorParticipantsWithVideo.push({
+                participantId,
+                pinned: true
+            });
+        }
+    });
+
+    if (nonModeratorParticipantsWithVideo.length > 0) {
+        if (isStageFilmstrip) {
+            try {
+                const { setStageParticipants } = require('../filmstrip/actions.web');
+
+                dispatch(setStageParticipants(nonModeratorParticipantsWithVideo));
+            } catch (e) {
+                // Fallback to pinning single participant if stage not available
+                if (nonModeratorParticipantsWithVideo.length === 1) {
+                    dispatch(pinParticipant(nonModeratorParticipantsWithVideo[0].participantId));
+                }
+            }
+        } else if (nonModeratorParticipantsWithVideo.length === 1) {
+            dispatch(pinParticipant(nonModeratorParticipantsWithVideo[0].participantId));
+        }
+    }
+}
+
+/**
+ * Debounced version of _pinNonModeratorsForRecordingImpl for dynamic updates during recording.
+ * Uses debouncing to avoid rapid consecutive calls when multiple tracks change simultaneously.
+ * The direct (non-debounced) function is called on recording start for immediate pinning.
+ */
+const _pinNonModeratorsForRecording = debounce(_pinNonModeratorsForRecordingImpl, 500);

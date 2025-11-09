@@ -78,7 +78,16 @@ class RecordingButton extends AbstractRecordButton<IProps> {
      * @returns {void}
      */
     _startRecording() {
-        const { _conference } = this.props;
+        const { _conference, dispatch } = this.props;
+
+        // Close participants pane before starting recording
+        try {
+            const { close } = require('../../../../participants-pane/actions');
+
+            dispatch(close());
+        } catch (e) {
+            // Participants pane not available on this platform
+        }
 
         if (_conference) {
             // Start Jibri recording with file recording metadata
