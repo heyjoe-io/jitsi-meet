@@ -466,14 +466,11 @@ function _updateReceiverVideoConstraints({ getState }: IStore) {
             const selectedSources: string[] = [];
             const onStageSources: string[] = [];
 
-            // If more than one video source is pinned to the stage filmstrip, they need to be added to the
-            // 'selectedSources' so that the bridge can allocate bandwidth for all the sources as opposed to doing
-            // greedy allocation for the sources (which happens when they are added to 'onStageSources').
-            if (activeParticipantsSources.length > 1) {
-                selectedSources.push(...activeParticipantsSources);
-            } else {
-                onStageSources.push(activeParticipantsSources[0]);
-            }
+            // FIX: Always use onStageSources for stage participants
+            // The bridge needs onStageSources to properly display participants on stage for all clients
+            // including Jibri. The old logic used selectedSources for multiple participants which only
+            // controls bandwidth allocation, not stage layout visibility.
+            onStageSources.push(...activeParticipantsSources);
 
             activeParticipantsSources.forEach(sourceName => {
                 const isScreenSharing = remoteScreenShares.includes(sourceName);

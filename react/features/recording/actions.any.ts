@@ -530,6 +530,14 @@ export function pinParticipantsWithVideo() {
             logger.info('[Auto-Pin] Setting stage participants:', stageQueue);
             dispatch(setStageParticipants(stageQueue));
             logger.info(`[Auto-Pin] Dispatched setStageParticipants with ${participantsWithVideo.length} participant(s)`);
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            logger.info('[Auto-Pin] Verifying stage participants were set...');
+            const updatedState = getState();
+            const actualStageParticipants = updatedState['features/filmstrip'].activeParticipants;
+
+            logger.info('[Auto-Pin] Stage participants after update:', actualStageParticipants);
         } else {
             const { pinParticipant } = await import('../base/participants/actions');
 
@@ -540,8 +548,8 @@ export function pinParticipantsWithVideo() {
             }
         }
 
-        logger.info('[Auto-Pin] Waiting 1000ms for layout to settle...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        logger.info('[Auto-Pin] Waiting 1500ms for layout to settle and propagate...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
         logger.info('[Auto-Pin] Stage layout settled, ready for recording');
     };
 }
