@@ -102,3 +102,12 @@ export const STOP_LOCAL_RECORDING = 'STOP_LOCAL_RECORDING';
  * }
  */
 export const SET_START_RECORDING_NOTIFICATION_SHOWN = 'SET_START_RECORDING_NOTIFICATION_SHOWN';
+
+/**
+ * Toggles the auto-pin feature for recording.
+ *
+ * {
+ *    type: TOGGLE_AUTO_PIN_RECORDING
+ * }
+ */
+export const TOGGLE_AUTO_PIN_RECORDING = 'TOGGLE_AUTO_PIN_RECORDING';

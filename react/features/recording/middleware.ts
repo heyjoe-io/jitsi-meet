@@ -126,7 +126,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
     case PARTICIPANT_JOINED: {
         const state = getState();
-        const { sessionDatas } = state['features/recording'];
+        const { sessionDatas, autoPinEnabled } = state['features/recording'];
         const isRecordingOrPending = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && (session.status === JitsiRecordingConstants.status.ON
@@ -135,7 +135,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
         // Check if Jibri (recorder bot) just joined during an active recording
         if (action.participant?.botType) {
-            if (isRecordingOrPending) {
+            if (isRecordingOrPending && autoPinEnabled) {
                 // Pin non-moderators when Jibri joins
                 _pinNonModeratorsForRecording(dispatch, getState);
             }
@@ -306,8 +306,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                 // Pin non-moderators and close participants pane when recording starts
                 if (mode === JitsiRecordingConstants.mode.FILE) {
-                    // Call directly (not debounced) on recording start for immediate pinning
-                    _pinNonModeratorsForRecordingImpl(dispatch, getState);
+                    const { autoPinEnabled } = state['features/recording'];
+
+                    if (autoPinEnabled) {
+                        // Call directly (not debounced) on recording start for immediate pinning
+                        _pinNonModeratorsForRecordingImpl(dispatch, getState);
+                    }
 
                     // Close participants pane
                     try {
@@ -371,13 +375,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
     case TRACK_UPDATED: {
         const { track } = action;
         const state = getState();
-        const { sessionDatas } = state['features/recording'];
+        const { sessionDatas, autoPinEnabled } = state['features/recording'];
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
-        if (isRecording && track.mediaType === MEDIA_TYPE.VIDEO && !track.local) {
+        if (isRecording && autoPinEnabled && track.mediaType === MEDIA_TYPE.VIDEO && !track.local) {
             _pinNonModeratorsForRecording(dispatch, getState);
         }
 
@@ -394,7 +398,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         const { id, role } = action.participant;
         const state = getState();
         const localParticipant = getLocalParticipant(state);
-        const { sessionDatas } = state['features/recording'];
+        const { sessionDatas, autoPinEnabled } = state['features/recording'];
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && session.status === JitsiRecordingConstants.status.ON
@@ -404,7 +408,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             dispatch(showStartRecordingNotification());
         }
 
-        if (isRecording && role !== undefined) {
+        if (isRecording && autoPinEnabled && role !== undefined) {
             _pinNonModeratorsForRecording(dispatch, getState);
         }
 
