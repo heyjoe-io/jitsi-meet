@@ -33,7 +33,7 @@ import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
-import { addStageParticipant } from '../filmstrip/actions.web';
+import { setStageParticipants } from '../filmstrip/actions.web';
 
 import { RECORDING_SESSION_UPDATED, START_LOCAL_RECORDING, STOP_LOCAL_RECORDING } from './actionTypes';
 import {
@@ -124,6 +124,21 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                 return;
             });
+
+        // Listen for auto-pin commands from moderator
+        conference.addCommandListener('auto-pin-stage', (data: any) => {
+            console.log('[AutoPin] Received auto-pin command from moderator:', data);
+            
+            if (data && data.participants && Array.isArray(data.participants)) {
+                const stageParticipants = data.participants.map((id: string) => ({
+                    participantId: id,
+                    pinned: true
+                }));
+
+                console.log('[AutoPin] Applying stage participants from moderator:', stageParticipants);
+                dispatch(setStageParticipants(stageParticipants));
+            }
+        });
 
         break;
     }
@@ -229,6 +244,62 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
+            const { autoPinOnRecording } = state['features/recording'];
+
+            console.log('[AutoPin] Recording PENDING (about to start). autoPinOnRecording:', autoPinOnRecording, 'mode:', mode);
+
+            if (autoPinOnRecording && mode === JitsiRecordingConstants.mode.FILE) {
+                console.log('[AutoPin] Pinning participants BEFORE Jibri joins...');
+
+                const remoteParticipants = getRemoteParticipants(state);
+                const participantsToPin: string[] = [];
+
+                console.log('[AutoPin] Checking participants. Total remote participants:', remoteParticipants.size);
+
+                remoteParticipants.forEach((participant, id) => {
+                    const isFake = participant.fakeParticipant;
+                    const isVideoMuted = isParticipantVideoMuted(participant, state);
+                    
+                    console.log('[AutoPin] Participant:', id, 
+                        'isFake:', isFake, 
+                        'isVideoMuted:', isVideoMuted,
+                        'name:', participant.name);
+
+                    if (!isFake && !isVideoMuted) {
+                        participantsToPin.push(id);
+                        console.log('[AutoPin] ✓ Will pin:', id);
+                    }
+                });
+
+                console.log('[AutoPin] Total participants to pin:', participantsToPin.length);
+
+                if (participantsToPin.length > 0) {
+                    const stageParticipants = participantsToPin.map(id => ({
+                        participantId: id,
+                        pinned: true
+                    }));
+
+                    console.log('[AutoPin] Setting stage participants for ALL users:', stageParticipants);
+                    
+                    // Set stage participants locally
+                    dispatch(setStageParticipants(stageParticipants));
+
+                    // Broadcast to all participants so everyone sees the same view
+                    const conference = getCurrentConference(state);
+
+                    if (conference) {
+                        console.log('[AutoPin] Broadcasting stage participants to all users...');
+                        
+                        // Send command to all participants
+                        conference.sendCommand('auto-pin-stage', {
+                            participants: participantsToPin
+                        });
+                    }
+                } else {
+                    console.log('[AutoPin] WARNING: No participants found to pin!');
+                }
+            }
+
             break;
         }
 
@@ -268,57 +339,6 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 if (typeof APP !== 'undefined') {
                     APP.API.notifyRecordingStatusChanged(
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
-                }
-
-                const { autoPinOnRecording } = state['features/recording'];
-
-                console.log('[AutoPin] Recording started. autoPinOnRecording:', autoPinOnRecording, 'mode:', mode);
-
-                if (autoPinOnRecording && mode === JitsiRecordingConstants.mode.FILE) {
-                    console.log('[AutoPin] Auto-pin is enabled. Waiting 6 seconds before pinning...');
-                    
-                    setTimeout(() => {
-                        const currentState = getState();
-                        const remoteParticipants = getRemoteParticipants(currentState);
-                        const participantsToPin: string[] = [];
-
-                        console.log('[AutoPin] Checking participants. Total remote participants:', remoteParticipants.size);
-
-                        remoteParticipants.forEach((participant, id) => {
-                            const isFake = participant.fakeParticipant;
-                            const isVideoMuted = isParticipantVideoMuted(participant, currentState);
-                            
-                            console.log('[AutoPin] Participant:', id, 
-                                'isFake:', isFake, 
-                                'isVideoMuted:', isVideoMuted,
-                                'name:', participant.name);
-
-                            if (!isFake && !isVideoMuted) {
-                                participantsToPin.push(id);
-                                console.log('[AutoPin] ✓ Will pin:', id);
-                            }
-                        });
-
-                        console.log('[AutoPin] Total participants to pin:', participantsToPin.length);
-
-                        participantsToPin.forEach((participantId, index) => {
-                            setTimeout(() => {
-                                console.log('[AutoPin] Adding participant to stage:', participantId);
-                                dispatch(addStageParticipant(participantId, true));
-                            }, index * 100);
-                        });
-
-                        if (participantsToPin.length === 0) {
-                            console.log('[AutoPin] WARNING: No participants found to pin!');
-                        }
-                    }, 6000);
-                } else {
-                    if (!autoPinOnRecording) {
-                        console.log('[AutoPin] Auto-pin is DISABLED (button not enabled)');
-                    }
-                    if (mode !== JitsiRecordingConstants.mode.FILE) {
-                        console.log('[AutoPin] Not file recording mode. Mode is:', mode);
-                    }
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
