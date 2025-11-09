@@ -78,13 +78,16 @@ class RecordingButton extends AbstractRecordButton<IProps> {
      * @returns {void}
      */
     _startRecording() {
-        const { _conference } = this.props;
+        const { _conference, dispatch } = this.props;
 
         if (_conference) {
-            // Start Jibri recording with file recording metadata
+            import('../../../actions').then(({ pinParticipantsWithVideo }) => {
+                dispatch(pinParticipantsWithVideo());
+            });
+
             const appData = JSON.stringify({
                 'file_recording_metadata': {
-                    'share': false // You can set this to true if you want sharing enabled by default
+                    'share': false
                 }
             });
 

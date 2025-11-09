@@ -406,6 +406,10 @@ class AbstractStartRecordingDialog extends Component<IProps, IState> {
                 createRecordingDialogEvent('start', 'confirm.button', attributes)
             );
 
+            import('../../actions').then(({ pinParticipantsWithVideo }) => {
+                dispatch(pinParticipantsWithVideo());
+            });
+
             this._toggleScreenshotCapture();
             _conference?.startRecording({
                 mode: JitsiRecordingConstants.mode.FILE,

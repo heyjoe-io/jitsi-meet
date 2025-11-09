@@ -7,6 +7,7 @@ import { JitsiRecordingConstants } from '../base/lib-jitsi-meet';
 import { getSoundFileSrc } from '../base/media/functions';
 import { getLocalParticipant, getRemoteParticipants } from '../base/participants/functions';
 import { registerSound, unregisterSound } from '../base/sounds/actions';
+import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { isSpotTV } from '../base/util/spot';
 import { isInBreakoutRoom as isInBreakoutRoomF } from '../breakout-rooms/functions';
 import { isEnabled as isDropboxEnabled } from '../dropbox/functions';
@@ -481,4 +482,28 @@ export function shouldRequireRecordingConsent(recorderSession: any, state: IRedu
     }
 
     return initiatorId !== getLocalParticipant(state)?.id;
+}
+
+/**
+ * Returns all participant IDs who have their video enabled (camera on).
+ *
+ * @param {IReduxState} state - The Redux state.
+ * @returns {Array<string>} - Array of participant IDs with video enabled.
+ */
+export function getParticipantsWithVideoEnabled(state: IReduxState): string[] {
+    const participantsWithVideo: string[] = [];
+    const localParticipant = getLocalParticipant(state);
+    const remoteParticipants = getRemoteParticipants(state);
+
+    if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
+        participantsWithVideo.push(localParticipant.id);
+    }
+
+    remoteParticipants.forEach((participant, id) => {
+        if (participant && !participant.fakeParticipant && !isParticipantVideoMuted(participant, state)) {
+            participantsWithVideo.push(id);
+        }
+    });
+
+    return participantsWithVideo;
 }

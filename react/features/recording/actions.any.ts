@@ -6,6 +6,7 @@ import JitsiMeetJS, { JitsiRecordingConstants } from '../base/lib-jitsi-meet';
 import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
 import { BUTTON_TYPES } from '../base/ui/constants.any';
 import { copyText } from '../base/util/copyText';
+import { isStageFilmstripAvailable } from '../filmstrip/functions';
 import { getVpaasTenant, isVpaasMeeting } from '../jaas/functions';
 import {
     hideNotification,
@@ -35,6 +36,7 @@ import {
     START_RECORDING_NOTIFICATION_ID
 } from './constants';
 import {
+    getParticipantsWithVideoEnabled,
     getRecordButtonProps,
     getRecordingLink,
     getResourceId,
@@ -489,5 +491,45 @@ export function markConsentRequested(sessionId: string) {
     return {
         type: MARK_CONSENT_REQUESTED,
         sessionId
+    };
+}
+
+/**
+ * Pins all participants who have their video enabled to the stage.
+ * This is called before starting a recording so that jibri captures
+ * the participants with cameras on.
+ *
+ * @returns {Function}
+ */
+export function pinParticipantsWithVideo() {
+    return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
+        const state = getState();
+        const participantsWithVideo = getParticipantsWithVideoEnabled(state);
+
+        if (participantsWithVideo.length === 0) {
+            logger.info('No participants with video enabled to pin for recording');
+
+            return;
+        }
+
+        const stageFilmstripEnabled = isStageFilmstripAvailable(state);
+
+        if (stageFilmstripEnabled) {
+            const { setStageParticipants } = await import('../filmstrip/actions.web');
+            const stageQueue = participantsWithVideo.map(participantId => ({
+                participantId,
+                pinned: true
+            }));
+
+            dispatch(setStageParticipants(stageQueue));
+            logger.info(`Auto-pinned ${participantsWithVideo.length} participant(s) with video enabled to stage for recording`);
+        } else {
+            const { pinParticipant } = await import('../base/participants/actions');
+
+            if (participantsWithVideo.length > 0) {
+                dispatch(pinParticipant(participantsWithVideo[0]));
+                logger.info(`Auto-pinned first participant with video enabled for recording (tile view mode)`);
+            }
+        }
     };
 }
