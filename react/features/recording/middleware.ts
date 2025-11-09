@@ -234,7 +234,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
-            // Don't pin participants at PENDING - wait for Jibri to actually join
+            // Pin participants NOW, before Jibri joins
+            // This way Jibri will see them already on stage when it enters
+            logger.info('Recording starting (PENDING status), pinning non-moderators NOW before Jibri joins');
+            _autoPinNonModeratorsWithVideo(dispatch, getState);
             break;
         }
 
@@ -276,15 +279,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
 
-                // Don't pin immediately - wait for Jibri to fully join first
-                logger.info('Recording started, waiting for Jibri to join before pinning participants');
-            } else if (initiator && !oldSessionData?.initiator) {
-                // Pin participants AFTER Jibri has joined and initiator is confirmed
-                // This ensures Jibri receives the pinning events
-                logger.info('Initiator confirmed, pinning participants for Jibri in 2 seconds');
-                setTimeout(() => {
-                    _autoPinNonModeratorsWithVideo(dispatch, getState);
-                }, 2000);
+                // Participants are already pinned (from PENDING status)
+                // Enable follow-me so Jibri follows moderator's view
+                logger.info('Jibri joined (status ON), enabling follow-me recorder mode');
+                dispatch(setFollowMeRecorder(true));
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
@@ -472,28 +470,17 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         pinned: true
     }));
 
-    logger.info(`Setting ${nonModeratorsWithVideo.length} stage participants with ${requiredStageSlots} max slots:`, stageQueue);
+    logger.info(`Pinning ${nonModeratorsWithVideo.length} non-moderators to stage (before Jibri joins):`, stageQueue);
 
-    // First, increase the max stage participants to accommodate all non-moderators
-    dispatch(updateSettings({
-        maxStageParticipants: requiredStageSlots
-    }));
-
-    // Add each participant individually to ensure they all get pinned
-    logger.info(`Adding ${stageQueue.length} participants to stage one by one`);
-    stageQueue.forEach((participant, index) => {
-        setTimeout(() => {
-            logger.info(`Adding participant ${index + 1}/${stageQueue.length}:`, participant.participantId);
-            dispatch(addStageParticipant(participant.participantId, true));
-        }, 100 + (index * 200));  // Stagger additions by 200ms each
+    // Set max stage participants and pin all non-moderators
+    batch(() => {
+        dispatch(updateSettings({
+            maxStageParticipants: requiredStageSlots
+        }));
+        dispatch(setStageParticipants(stageQueue));
     });
 
-    // Enable follow-me recorder after participants are set
-    // This ensures Jibri follows the moderator's layout going forward
-    setTimeout(() => {
-        logger.info('Enabling follow-me recorder mode');
-        dispatch(setFollowMeRecorder(true));
-    }, 500);
+    logger.info('Non-moderators pinned to stage. Jibri will see them when it joins.');
 }
 
 /**
