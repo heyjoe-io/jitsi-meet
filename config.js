@@ -874,6 +874,7 @@ var config = {
     //    'profile',
     //    'raisehand',
     //    'recording',
+    //    'autopinrecording',
     //    'security',
     //    'select-background',
     //    'settings',

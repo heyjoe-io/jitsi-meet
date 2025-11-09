@@ -276,14 +276,15 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
 
-                // Initial stage setup when recording starts (Jibri joins)
-                _autoPinNonModeratorsWithVideo(dispatch, getState);
+                // Don't pin immediately - wait for Jibri to fully join first
+                logger.info('Recording started, waiting for Jibri to join before pinning participants');
             } else if (initiator && !oldSessionData?.initiator) {
-                // Re-sync stage when initiator is set (ensures Jibri receives the layout)
-                // This happens on the second ON update from Jicofo
+                // Pin participants AFTER Jibri has joined and initiator is confirmed
+                // This ensures Jibri receives the pinning events
+                logger.info('Initiator confirmed, pinning participants for Jibri in 2 seconds');
                 setTimeout(() => {
                     _autoPinNonModeratorsWithVideo(dispatch, getState);
-                }, 500);
+                }, 2000);
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
@@ -483,33 +484,12 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         dispatch(setStageParticipants(stageQueue));
     }, 100);
 
-    // Enable follow-me recorder with multiple syncs to ensure Jibri gets all participants
+    // Enable follow-me recorder after participants are set
+    // This ensures Jibri follows the moderator's layout going forward
     setTimeout(() => {
         logger.info('Enabling follow-me recorder mode');
         dispatch(setFollowMeRecorder(true));
-        
-        // First re-sync immediately after enabling follow-me
-        setTimeout(() => {
-            const currentState = getState();
-            const currentActiveParticipants = currentState['features/filmstrip'].activeParticipants;
-            
-            if (currentActiveParticipants && currentActiveParticipants.length > 0) {
-                logger.info(`First re-sync: ${currentActiveParticipants.length} active participants for Jibri:`, currentActiveParticipants);
-                dispatch(setStageParticipants(currentActiveParticipants));
-                
-                // Second re-sync to handle race conditions
-                setTimeout(() => {
-                    const latestState = getState();
-                    const latestActiveParticipants = latestState['features/filmstrip'].activeParticipants;
-                    
-                    if (latestActiveParticipants && latestActiveParticipants.length > 0) {
-                        logger.info(`Second re-sync: ${latestActiveParticipants.length} active participants for Jibri:`, latestActiveParticipants);
-                        dispatch(setStageParticipants(latestActiveParticipants));
-                    }
-                }, 1000);
-            }
-        }, 300);
-    }, 1500);
+    }, 500);
 }
 
 /**

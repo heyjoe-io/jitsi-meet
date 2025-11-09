@@ -256,16 +256,15 @@ function useLinkToSalesforceButton() {
 }
 
 /**
- * A hook that returns the auto-pin recording button if stage filmstrip is available.
+ * A hook that returns the auto-pin recording button.
  *
  *  @returns {Object | undefined}
  */
 function useAutoPinRecordingButton() {
-    const _isStageFilmstripAvailable = useSelector((state: IReduxState) => 
-        isStageFilmstripAvailable(state, 2));
     const toolbarButtons = useSelector((state: IReduxState) => state['features/toolbox'].toolbarButtons);
 
-    if (_isStageFilmstripAvailable && (!toolbarButtons || toolbarButtons.includes('autopinrecording'))) {
+    // Always show the button if not explicitly hidden via config
+    if (!toolbarButtons || toolbarButtons.includes('autopinrecording')) {
         return autoPinRecording;
     }
 }
