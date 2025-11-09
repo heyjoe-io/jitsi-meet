@@ -8,10 +8,12 @@ import {
     SET_PENDING_RECORDING_NOTIFICATION_UID,
     SET_SELECTED_RECORDING_SERVICE,
     SET_START_RECORDING_NOTIFICATION_SHOWN,
-    SET_STREAM_KEY
+    SET_STREAM_KEY,
+    TOGGLE_AUTO_PIN_RECORDING
 } from './actionTypes';
 
 const DEFAULT_STATE = {
+    autoPinEnabled: true,
     consentRequested: new Set(),
     disableHighlightMeetingMoment: false,
     pendingNotificationUids: {},
@@ -31,6 +33,7 @@ export interface ISessionData {
 }
 
 export interface IRecordingState {
+    autoPinEnabled: boolean;
     consentRequested: Set<any>;
     disableHighlightMeetingMoment: boolean;
     pendingNotificationUids: {
@@ -112,6 +115,12 @@ ReducerRegistry.register<IRecordingState>(STORE_NAME,
             return {
                 ...state,
                 wasStartRecordingSuggested: true
+            };
+
+        case TOGGLE_AUTO_PIN_RECORDING:
+            return {
+                ...state,
+                autoPinEnabled: !state.autoPinEnabled
             };
 
         default:

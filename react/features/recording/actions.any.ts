@@ -28,7 +28,8 @@ import {
     SET_START_RECORDING_NOTIFICATION_SHOWN,
     SET_STREAM_KEY,
     START_LOCAL_RECORDING,
-    STOP_LOCAL_RECORDING
+    STOP_LOCAL_RECORDING,
+    TOGGLE_AUTO_PIN_RECORDING
 } from './actionTypes';
 import {
     RECORDING_METADATA_ID,
@@ -86,6 +87,19 @@ export function setHighlightMomentButtonState(disabled: boolean) {
     return {
         type: SET_MEETING_HIGHLIGHT_BUTTON_STATE,
         disabled
+    };
+}
+
+/**
+ * Toggles the auto-pin recording feature.
+ *
+ * @returns {{
+ *     type: TOGGLE_AUTO_PIN_RECORDING
+ * }}
+ */
+export function toggleAutoPinRecording() {
+    return {
+        type: TOGGLE_AUTO_PIN_RECORDING
     };
 }
 

@@ -66,6 +66,7 @@ import DownloadButton from './components/DownloadButton';
 import HelpButton from './components/HelpButton';
 import SpeakerButton from './components/SpeakerButton';
 import AudioSettingsButton from './components/web/AudioSettingsButton';
+import AutoPinRecordingButton from './components/web/AutoPinRecordingButton';
 import CustomOptionButton from './components/web/CustomOptionButton';
 import FullscreenButton from './components/web/FullscreenButton';
 import LinkToSalesforceButton from './components/web/LinkToSalesforceButton';
@@ -154,6 +155,12 @@ const fullscreen = {
 const linkToSalesforce = {
     key: 'linktosalesforce',
     Content: LinkToSalesforceButton,
+    group: 2
+};
+
+const autoPinRecording = {
+    key: 'autopinrecording',
+    Content: AutoPinRecordingButton,
     group: 2
 };
 
@@ -342,6 +349,7 @@ export function useToolboxButtons(
         closedcaptions: cc,
         livestreaming: liveStreaming,
         linktosalesforce,
+        autopinrecording: autoPinRecording,
         sharedvideo: shareVideo,
         shareaudio,
         noisesuppression: noiseSuppression,

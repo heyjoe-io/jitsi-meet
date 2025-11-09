@@ -276,8 +276,14 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                         true, mode, undefined, isRecorderTranscriptionsRunning(state));
                 }
 
-                // Re-sync stage when Jibri actually joins and starts recording
+                // Initial stage setup when recording starts (Jibri joins)
                 _autoPinNonModeratorsWithVideo(dispatch, getState);
+            } else if (initiator && !oldSessionData?.initiator) {
+                // Re-sync stage when initiator is set (ensures Jibri receives the layout)
+                // This happens on the second ON update from Jicofo
+                setTimeout(() => {
+                    _autoPinNonModeratorsWithVideo(dispatch, getState);
+                }, 500);
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             if (terminator) {
@@ -333,7 +339,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         const { participant } = action;
 
         // If recording is active and a non-moderator with video joins, add them to stage
-        if (isCloudRecordingRunning(state) && isStageFilmstripAvailable(state)) {
+        if (isCloudRecordingRunning(state) && isStageFilmstripAvailable(state) && state['features/recording'].autoPinEnabled) {
             if (participant && !isParticipantModerator(participant)) {
                 // Use setTimeout to ensure video track is available
                 setTimeout(() => {
@@ -414,6 +420,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     const state = getState();
 
+    // Check if auto-pin is enabled
+    if (!state['features/recording'].autoPinEnabled) {
+        logger.info('Auto-pin recording feature is disabled, skipping pinning');
+        return;
+    }
+
     if (!isStageFilmstripAvailable(state)) {
         return;
     }
@@ -464,10 +476,22 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
     });
 
     // Enable follow-me recorder after a delay to ensure stage is fully updated
+    // and Jibri has received the participant list
     setTimeout(() => {
         logger.info('Enabling follow-me recorder mode');
         dispatch(setFollowMeRecorder(true));
-    }, 1000);
+        
+        // Force another stage sync after follow-me is enabled to ensure Jibri gets the layout
+        setTimeout(() => {
+            const currentState = getState();
+            const currentActiveParticipants = currentState['features/filmstrip'].activeParticipants;
+            
+            if (currentActiveParticipants && currentActiveParticipants.length > 0) {
+                logger.info('Re-syncing stage participants for Jibri:', currentActiveParticipants);
+                dispatch(setStageParticipants(currentActiveParticipants));
+            }
+        }, 500);
+    }, 1500);
 }
 
 /**

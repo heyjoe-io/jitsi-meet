@@ -18,6 +18,7 @@ export interface IToolboxNativeButton {
 
 export type ToolbarButton = 'camera' |
     'speaker'|
+    'autopinrecording' |
     'chat' |
     'closedcaptions' |
     'desktop' |
