@@ -16,7 +16,8 @@ export interface IToolboxNativeButton {
     text?: string;
 }
 
-export type ToolbarButton = 'camera' |
+export type ToolbarButton = 'autopin-toggle' |
+    'camera' |
     'speaker'|
     'chat' |
     'closedcaptions' |

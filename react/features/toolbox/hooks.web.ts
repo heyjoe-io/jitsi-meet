@@ -38,6 +38,7 @@ import RaiseHandContainerButton from '../reactions/components/web/RaiseHandConta
 import { REACTIONS } from '../reactions/constants';
 import { shouldDisplayReactionsButtons } from '../reactions/functions.any';
 import { useReactionsButton } from '../reactions/hooks.web';
+import AutoPinToggleButton from '../recording/components/Recording/web/AutoPinToggleButton';
 import RecordButton from '../recording/components/Recording/web/RecordButton';
 import { useLiveStreamingButton } from '../recording/hooks.web';
 import { isSalesforceEnabled } from '../salesforce/functions';
@@ -193,6 +194,12 @@ const recording = {
     group: 4
 };
 
+const autoPinToggle = {
+    key: 'autopin-toggle',
+    Content: AutoPinToggleButton,
+    group: 4
+};
+
 const maxStageParticipants = {
     key: 'maxstageparticipants',
     Content: MaxStageParticipantsButton,
@@ -325,6 +332,7 @@ export function useToolboxButtons(
         camera,
         profile,
         recording,
+        'autopin-toggle': autoPinToggle,
         desktop: desktopSharing,
         speaker,
         chat,
