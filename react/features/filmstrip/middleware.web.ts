@@ -92,6 +92,7 @@ MiddlewareRegistry.register(store => next => action => {
                 width = Math.max(videoSpaceWidth - MIN_STAGE_VIEW_WIDTH, DEFAULT_FILMSTRIP_WIDTH);
             } else {
                 width = Math.min(videoSpaceWidth - MIN_STAGE_VIEW_WIDTH, filmstripWidth.userSet ?? 0);
+
             }
             if (width !== filmstripWidth.current) {
                 store.dispatch(setFilmstripWidth(width));

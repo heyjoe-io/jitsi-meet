@@ -19,11 +19,18 @@ class AutoPinButton extends AbstractButton<IProps> {
     override toggledLabel = 'toolbar.autoPinRecordingEnabled';
 
     override _handleClick() {
+        const newState = !this.props._autoPinEnabled;
+
+        console.log('[AutoPin Button] Clicked! Changing state to:', newState);
         this.props.dispatch(toggleAutoPinOnRecording());
     }
 
     override _isToggled() {
-        return this.props._autoPinEnabled;
+        const isEnabled = this.props._autoPinEnabled;
+
+        console.log('[AutoPin Button] Current state:', isEnabled);
+
+        return isEnabled;
     }
 }
 
