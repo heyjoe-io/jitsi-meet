@@ -462,8 +462,9 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         return;
     }
 
-    const requiredStageSlots = Math.max(
-        nonModeratorsWithVideo.length,
+    // Use the actual number of participants, capped at MAX_ACTIVE_PARTICIPANTS
+    const requiredStageSlots = Math.min(
+        Math.max(nonModeratorsWithVideo.length, 1),
         MAX_ACTIVE_PARTICIPANTS
     );
     const stageQueue = nonModeratorsWithVideo.map(participantId => ({
@@ -478,11 +479,14 @@ function _autoPinNonModeratorsWithVideo(dispatch: IStore['dispatch'], getState: 
         maxStageParticipants: requiredStageSlots
     }));
 
-    // Small delay to ensure settings are applied before setting participants
-    setTimeout(() => {
-        logger.info('Applying stage participants:', stageQueue);
-        dispatch(setStageParticipants(stageQueue));
-    }, 100);
+    // Add each participant individually to ensure they all get pinned
+    logger.info(`Adding ${stageQueue.length} participants to stage one by one`);
+    stageQueue.forEach((participant, index) => {
+        setTimeout(() => {
+            logger.info(`Adding participant ${index + 1}/${stageQueue.length}:`, participant.participantId);
+            dispatch(addStageParticipant(participant.participantId, true));
+        }, 100 + (index * 200));  // Stagger additions by 200ms each
+    });
 
     // Enable follow-me recorder after participants are set
     // This ensures Jibri follows the moderator's layout going forward
