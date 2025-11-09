@@ -503,16 +503,22 @@ export function markConsentRequested(sessionId: string) {
  */
 export function pinParticipantsWithVideo() {
     return async (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
+        logger.info('[Auto-Pin] Starting auto-pin process for recording...');
+        
         const state = getState();
         const participantsWithVideo = getParticipantsWithVideoEnabled(state);
 
+        logger.info(`[Auto-Pin] Found ${participantsWithVideo.length} participant(s) with video:`, participantsWithVideo);
+
         if (participantsWithVideo.length === 0) {
-            logger.info('No participants with video enabled to pin for recording');
+            logger.info('[Auto-Pin] No participants with video enabled to pin for recording');
 
             return;
         }
 
         const stageFilmstripEnabled = isStageFilmstripAvailable(state);
+
+        logger.info(`[Auto-Pin] Stage filmstrip enabled: ${stageFilmstripEnabled}`);
 
         if (stageFilmstripEnabled) {
             const { setStageParticipants } = await import('../filmstrip/actions.web');
@@ -521,15 +527,21 @@ export function pinParticipantsWithVideo() {
                 pinned: true
             }));
 
+            logger.info('[Auto-Pin] Setting stage participants:', stageQueue);
             dispatch(setStageParticipants(stageQueue));
-            logger.info(`Auto-pinned ${participantsWithVideo.length} participant(s) with video enabled to stage for recording`);
+            logger.info(`[Auto-Pin] Dispatched setStageParticipants with ${participantsWithVideo.length} participant(s)`);
         } else {
             const { pinParticipant } = await import('../base/participants/actions');
 
             if (participantsWithVideo.length > 0) {
+                logger.info(`[Auto-Pin] Pinning first participant: ${participantsWithVideo[0]}`);
                 dispatch(pinParticipant(participantsWithVideo[0]));
-                logger.info(`Auto-pinned first participant with video enabled for recording (tile view mode)`);
+                logger.info('[Auto-Pin] Dispatched pinParticipant (tile view mode)');
             }
         }
+
+        logger.info('[Auto-Pin] Waiting 1000ms for layout to settle...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        logger.info('[Auto-Pin] Stage layout settled, ready for recording');
     };
 }

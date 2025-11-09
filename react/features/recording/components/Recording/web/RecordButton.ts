@@ -77,13 +77,13 @@ class RecordingButton extends AbstractRecordButton<IProps> {
      * @private
      * @returns {void}
      */
-    _startRecording() {
+    async _startRecording() {
         const { _conference, dispatch } = this.props;
 
         if (_conference) {
-            import('../../../actions').then(({ pinParticipantsWithVideo }) => {
-                dispatch(pinParticipantsWithVideo());
-            });
+            const { pinParticipantsWithVideo } = await import('../../../actions');
+            
+            await dispatch(pinParticipantsWithVideo());
 
             const appData = JSON.stringify({
                 'file_recording_metadata': {

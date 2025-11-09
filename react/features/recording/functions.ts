@@ -495,13 +495,30 @@ export function getParticipantsWithVideoEnabled(state: IReduxState): string[] {
     const localParticipant = getLocalParticipant(state);
     const remoteParticipants = getRemoteParticipants(state);
 
+    logger.info('[Auto-Pin] Checking local participant:', {
+        id: localParticipant?.id,
+        name: localParticipant?.name,
+        videoMuted: localParticipant ? isParticipantVideoMuted(localParticipant, state) : 'N/A'
+    });
+
     if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
         participantsWithVideo.push(localParticipant.id);
+        logger.info('[Auto-Pin] ✓ Local participant has video enabled');
     }
 
     remoteParticipants.forEach((participant, id) => {
-        if (participant && !participant.fakeParticipant && !isParticipantVideoMuted(participant, state)) {
+        const videoMuted = isParticipantVideoMuted(participant, state);
+        const isFake = participant.fakeParticipant;
+
+        logger.info(`[Auto-Pin] Checking remote participant ${id}:`, {
+            name: participant.name,
+            videoMuted,
+            isFake
+        });
+
+        if (participant && !isFake && !videoMuted) {
             participantsWithVideo.push(id);
+            logger.info(`[Auto-Pin] ✓ Remote participant ${id} has video enabled`);
         }
     });
 

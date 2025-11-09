@@ -344,9 +344,9 @@ class AbstractStartRecordingDialog extends Component<IProps, IState> {
      * Starts a file recording session.
      *
      * @private
-     * @returns {boolean} - True (to note that the modal should be closed).
+     * @returns {Promise<boolean>} - True (to note that the modal should be closed).
      */
-    _onSubmit() {
+    async _onSubmit() {
         const {
             _appKey,
             _conference,
@@ -406,9 +406,8 @@ class AbstractStartRecordingDialog extends Component<IProps, IState> {
                 createRecordingDialogEvent('start', 'confirm.button', attributes)
             );
 
-            import('../../actions').then(({ pinParticipantsWithVideo }) => {
-                dispatch(pinParticipantsWithVideo());
-            });
+            const { pinParticipantsWithVideo } = await import('../../actions');
+            await dispatch(pinParticipantsWithVideo());
 
             this._toggleScreenshotCapture();
             _conference?.startRecording({
