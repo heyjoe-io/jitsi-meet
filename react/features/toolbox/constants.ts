@@ -98,6 +98,7 @@ export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'participants-pane',
     'tileview',
     'recording',
+    'autopin-toggle',
     'overflowmenu',
     'hangup',
     'invite',
@@ -143,6 +144,7 @@ export const SPINNER_COLOR = '#929292';
  * @type Array<string>
  */
 export const TOOLBAR_BUTTONS: ToolbarButton[] = [
+    'autopin-toggle',
     'camera',
     'speaker',
     'chat',
