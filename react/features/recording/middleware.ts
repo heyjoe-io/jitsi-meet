@@ -35,7 +35,7 @@ import { hideNotification, showErrorNotification, showNotification } from '../no
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
 
-import { RECORDING_SESSION_UPDATED, START_LOCAL_RECORDING, STOP_LOCAL_RECORDING } from './actionTypes';
+import { RECORDING_SESSION_UPDATED, START_LOCAL_RECORDING, STOP_LOCAL_RECORDING, TOGGLE_AUTO_PIN_RECORDING } from './actionTypes';
 import {
     clearRecordingSessions,
     hidePendingRecordingNotification,
@@ -410,6 +410,36 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
         if (isRecording && autoPinEnabled && role !== undefined) {
             _pinNonModeratorsForRecording(dispatch, getState);
+        }
+
+        return nextResult;
+    }
+    case TOGGLE_AUTO_PIN_RECORDING: {
+        const nextResult = next(action);
+        const state = getState();
+        const { sessionDatas, autoPinEnabled } = state['features/recording'];
+        const isRecording = sessionDatas.some(
+            (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
+                && session.status === JitsiRecordingConstants.status.ON
+        );
+
+        // If auto-pin was just disabled during an active recording, clear the stage
+        if (isRecording && !autoPinEnabled) {
+            try {
+                const { isStageFilmstripEnabled } = require('../filmstrip/functions');
+
+                if (isStageFilmstripEnabled(state)) {
+                    const { setStageParticipants } = require('../filmstrip/actions.web');
+
+                    // Clear the stage by setting an empty array
+                    dispatch(setStageParticipants([]));
+                }
+            } catch (e) {
+                // Stage filmstrip not available on this platform
+            }
+        } else if (isRecording && autoPinEnabled) {
+            // If auto-pin was just enabled during an active recording, pin non-moderators
+            _pinNonModeratorsForRecordingImpl(dispatch, getState);
         }
 
         return nextResult;
