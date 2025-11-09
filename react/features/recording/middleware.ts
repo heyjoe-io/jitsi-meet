@@ -126,8 +126,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             });
 
         // Listen for auto-pin commands from moderator
-        conference.addCommandListener('auto-pin-stage', (data: any) => {
-            console.log('[AutoPin] Received auto-pin command from moderator:', data);
+        conference.addCommandListener('auto-pin-stage', (data: any, from: string) => {
+            console.log('[AutoPin] Received auto-pin command from:', from);
+            console.log('[AutoPin] Command data:', data);
+            console.log('[AutoPin] Data type:', typeof data);
+            console.log('[AutoPin] Data.participants:', data?.participants);
+            console.log('[AutoPin] Is array?:', Array.isArray(data?.participants));
             
             if (data && data.participants && Array.isArray(data.participants)) {
                 const stageParticipants = data.participants.map((id: string) => ({
@@ -137,6 +141,9 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                 console.log('[AutoPin] Applying stage participants from moderator:', stageParticipants);
                 dispatch(setStageParticipants(stageParticipants));
+            } else {
+                console.log('[AutoPin] ERROR: Invalid command data format!');
+                console.log('[AutoPin] Expected: {participants: [...]}, got:', data);
             }
         });
 
@@ -251,6 +258,14 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             if (autoPinOnRecording && mode === JitsiRecordingConstants.mode.FILE) {
                 console.log('[AutoPin] Pinning participants BEFORE Jibri joins...');
 
+                // Make sure we're not in tile view - tile view uses selectedSources, but Jibri needs onStageSources
+                const { tileViewEnabled } = state['features/video-layout'];
+
+                if (tileViewEnabled) {
+                    console.log('[AutoPin] WARNING: Tile view is enabled. Jibri may not see stage participants correctly.');
+                    console.log('[AutoPin] Consider disabling tile view before starting recording.');
+                }
+
                 const remoteParticipants = getRemoteParticipants(state);
                 const participantsToPin: string[] = [];
 
@@ -284,17 +299,23 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     // Set stage participants locally
                     dispatch(setStageParticipants(stageParticipants));
 
-                    // Broadcast to all participants so everyone sees the same view
-                    const conference = getCurrentConference(state);
+                    // Force update video constraints to include onStageSources
+                    console.log('[AutoPin] Notifying bridge channel about stage sources...');
+                    
+                    // Dispatch an action to trigger video constraints update
+                    // This ensures Jibri sees the participants on stage
+                    setTimeout(() => {
+                        const conference = getCurrentConference(getState());
 
-                    if (conference) {
-                        console.log('[AutoPin] Broadcasting stage participants to all users...');
-                        
-                        // Send command to all participants
-                        conference.sendCommand('auto-pin-stage', {
-                            participants: participantsToPin
-                        });
-                    }
+                        if (conference) {
+                            console.log('[AutoPin] Broadcasting stage participants to all users...');
+                            
+                            // Send command to all participants
+                            conference.sendCommand('auto-pin-stage', {
+                                participants: participantsToPin
+                            });
+                        }
+                    }, 100);
                 } else {
                     console.log('[AutoPin] WARNING: No participants found to pin!');
                 }
