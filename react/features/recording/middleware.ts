@@ -19,7 +19,7 @@ import {
 } from '../base/media/actions';
 import { MEDIA_TYPE } from '../base/media/constants';
 import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
-import { pinParticipant, updateLocalRecordingStatus } from '../base/participants/actions';
+import { updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
 import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
@@ -33,6 +33,7 @@ import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
+import { addStageParticipant } from '../filmstrip/actions.web';
 
 import { RECORDING_SESSION_UPDATED, START_LOCAL_RECORDING, STOP_LOCAL_RECORDING } from './actionTypes';
 import {
@@ -302,8 +303,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
                         participantsToPin.forEach((participantId, index) => {
                             setTimeout(() => {
-                                console.log('[AutoPin] Pinning participant:', participantId);
-                                dispatch(pinParticipant(participantId));
+                                console.log('[AutoPin] Adding participant to stage:', participantId);
+                                dispatch(addStageParticipant(participantId, true));
                             }, index * 100);
                         });
 
