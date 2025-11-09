@@ -35,9 +35,9 @@ class AutoPinToggleButton extends AbstractButton<IProps> {
     override _handleClick() {
         const { dispatch } = this.props;
 
-        console.log('[AutoPinToggleButton] Button clicked, current state:', this.props._autoPinEnabled);
+        console.log('[AutoPinToggleButton] _handleClick called, current state:', this.props._autoPinEnabled);
         dispatch(toggleAutoPinRecording());
-        console.log('[AutoPinToggleButton] Action dispatched');
+        console.log('[AutoPinToggleButton] toggleAutoPinRecording dispatched');
     }
 
     /**

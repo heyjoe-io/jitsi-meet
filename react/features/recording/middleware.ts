@@ -415,28 +415,25 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         return nextResult;
     }
     case TOGGLE_AUTO_PIN_RECORDING: {
-        const stateBefore = getState();
-        const wasAutoPinEnabled = stateBefore['features/recording'].autoPinEnabled;
-        const { sessionDatas } = stateBefore['features/recording'];
+        // Note: next(action) was already called before this switch statement (line 93)
+        // so the reducer has already toggled the state. We just need to react to the change.
+        const state = getState();
+        const { autoPinEnabled, sessionDatas } = state['features/recording'];
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
-        console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - before:', wasAutoPinEnabled, 'isRecording:', isRecording);
+        console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - new state:', autoPinEnabled, 'isRecording:', isRecording);
 
-        const nextResult = next(action);
-        const stateAfter = getState();
-        const isAutoPinEnabled = stateAfter['features/recording'].autoPinEnabled;
+        // If auto-pin is now disabled during an active recording, clear the stage
+        if (isRecording && !autoPinEnabled) {
+            console.log('[Recording Middleware] Clearing stage (auto-pin disabled)');
 
-        console.log('[Recording Middleware] TOGGLE_AUTO_PIN_RECORDING - after:', isAutoPinEnabled);
-
-        // If auto-pin was just disabled during an active recording, clear the stage
-        if (isRecording && wasAutoPinEnabled && !isAutoPinEnabled) {
             try {
                 const { isStageFilmstripEnabled } = require('../filmstrip/functions');
 
-                if (isStageFilmstripEnabled(stateAfter)) {
+                if (isStageFilmstripEnabled(state)) {
                     const { setStageParticipants } = require('../filmstrip/actions.web');
 
                     // Clear the stage by setting an empty array
@@ -445,12 +442,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             } catch (e) {
                 // Stage filmstrip not available on this platform
             }
-        } else if (isRecording && !wasAutoPinEnabled && isAutoPinEnabled) {
-            // If auto-pin was just enabled during an active recording, pin non-moderators
+        } else if (isRecording && autoPinEnabled) {
+            console.log('[Recording Middleware] Pinning non-moderators (auto-pin enabled)');
+            // If auto-pin is now enabled during an active recording, pin non-moderators
             _pinNonModeratorsForRecordingImpl(dispatch, getState);
         }
 
-        return nextResult;
+        break;
     }
     }
 
