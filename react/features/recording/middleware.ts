@@ -415,20 +415,24 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         return nextResult;
     }
     case TOGGLE_AUTO_PIN_RECORDING: {
-        const nextResult = next(action);
-        const state = getState();
-        const { sessionDatas, autoPinEnabled } = state['features/recording'];
+        const stateBefore = getState();
+        const wasAutoPinEnabled = stateBefore['features/recording'].autoPinEnabled;
+        const { sessionDatas } = stateBefore['features/recording'];
         const isRecording = sessionDatas.some(
             (session: any) => session.mode === JitsiRecordingConstants.mode.FILE
                 && session.status === JitsiRecordingConstants.status.ON
         );
 
+        const nextResult = next(action);
+        const stateAfter = getState();
+        const isAutoPinEnabled = stateAfter['features/recording'].autoPinEnabled;
+
         // If auto-pin was just disabled during an active recording, clear the stage
-        if (isRecording && !autoPinEnabled) {
+        if (isRecording && wasAutoPinEnabled && !isAutoPinEnabled) {
             try {
                 const { isStageFilmstripEnabled } = require('../filmstrip/functions');
 
-                if (isStageFilmstripEnabled(state)) {
+                if (isStageFilmstripEnabled(stateAfter)) {
                     const { setStageParticipants } = require('../filmstrip/actions.web');
 
                     // Clear the stage by setting an empty array
@@ -437,7 +441,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             } catch (e) {
                 // Stage filmstrip not available on this platform
             }
-        } else if (isRecording && autoPinEnabled) {
+        } else if (isRecording && !wasAutoPinEnabled && isAutoPinEnabled) {
             // If auto-pin was just enabled during an active recording, pin non-moderators
             _pinNonModeratorsForRecordingImpl(dispatch, getState);
         }
