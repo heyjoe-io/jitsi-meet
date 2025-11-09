@@ -1,0 +1,49 @@
+/**
+ * CSS Solution for Hiding Moderator Videos During Recording
+ * 
+ * This CSS can be added to hide moderator video containers when recording is active.
+ * While this doesn't prevent the streams from being received, it prevents them from
+ * appearing in the visual recording that Jibri captures.
+ * 
+ * IMPORTANT: This is a visual-only solution. For complete stream filtering,
+ * server-side configuration is required (see JIBRI_STREAM_FILTERING.md)
+ */
+
+/* Hide moderator thumbnails when recording is active */
+.recording-on .videocontainer[data-is-moderator="true"] {
+    display: none !important;
+}
+
+/* Alternative: Use visibility to maintain layout but hide content */
+.recording-on .videocontainer[data-is-moderator="true"] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+/* Hide moderator large video when they would normally appear */
+.recording-on #largeVideoContainer[data-participant-is-moderator="true"] {
+    display: none !important;
+}
+
+/* Ensure filmstrip doesn't show moderator tiles during recording */
+.recording-on .filmstrip__videos .videocontainer[data-is-moderator="true"] {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+/* Stage filmstrip - hide moderator tiles */
+.recording-on .stage-filmstrip .thumbnail[data-is-moderator="true"] {
+    display: none !important;
+}
+
+/* Tile view - hide moderator tiles */
+.recording-on .tile-view .videocontainer[data-is-moderator="true"] {
+    display: none !important;
+}
+
+/**
+ * To apply this CSS, add it to:
+ * - css/all.css (for web)
+ * - Or inject it programmatically when recording starts
+ */
