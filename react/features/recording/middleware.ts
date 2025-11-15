@@ -241,13 +241,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // notification on the update from jicofo.
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
-            
+
             // Auto-pin participants with camera enabled when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
                 logger.info('Recording started (Jibri joined), auto-pinning participants with camera enabled');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
-            
+
             if (initiator && !oldSessionData?.initiator) {
                 if (typeof recordingLimit === 'object') {
                     dispatch(showRecordingLimitNotification(mode));
@@ -459,7 +459,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
         const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
         const { updateSettings } = await import('../base/settings/actions');
-        
+
         const state = getState();
 
         if (!isStageFilmstripAvailable(state)) {
@@ -496,7 +496,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         // Wait for Jibri to fully join and establish video streams
         // This prevents pinning before video streams are ready, which causes display delays
         logger.info('Waiting 2 seconds for Jibri video streams to stabilize...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Clear existing pins to ensure clean state
         dispatch(clearStageParticipants());
