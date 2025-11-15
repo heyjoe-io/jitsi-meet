@@ -283,7 +283,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 dispatch(setFollowMeRecorder(false));
                 logger.info('Disabled follow-me for recorder (recording stopped)');
             }
-            
+
             if (terminator) {
                 // dispatch(
                 //     showStoppedRecordingNotification(
@@ -496,7 +496,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Wait for Jibri to join and stabilize
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
