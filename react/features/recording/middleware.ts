@@ -457,13 +457,17 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
     try {
         const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
-        const { addStageParticipant } = await import('../filmstrip/actions.web');
+        const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
         
         const state = getState();
 
         if (!isStageFilmstripAvailable(state)) {
             return;
         }
+
+        // Clear all existing pins to ensure clean state for recording
+        dispatch(clearStageParticipants());
+        logger.info('Cleared existing stage participants before auto-pinning for recording');
 
         const remoteParticipants = getRemoteParticipants(state);
         const localParticipant = getLocalParticipant(state);
