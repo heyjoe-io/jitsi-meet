@@ -21,7 +21,7 @@ import { MEDIA_TYPE } from '../base/media/constants';
 import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
 import { updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
-import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
+import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
 import {
@@ -29,6 +29,7 @@ import {
     stopSound
 } from '../base/sounds/actions';
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
+import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
@@ -240,6 +241,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // notification on the update from jicofo.
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
+            
+            // Auto-pin participants with camera enabled when Jibri joins (first ON status)
+            if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
+                logger.info('Recording started (Jibri joined), auto-pinning participants with camera enabled');
+                _pinParticipantsWithCameraEnabled(dispatch, getState);
+            }
+            
             if (initiator && !oldSessionData?.initiator) {
                 if (typeof recordingLimit === 'object') {
                     dispatch(showRecordingLimitNotification(mode));
@@ -316,16 +324,19 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         break;
     }
     case PARTICIPANT_UPDATED: {
-        const { id, role } = action.participant;
+        const { id, role, botType } = action.participant;
         const state = getState();
         const localParticipant = getLocalParticipant(state);
 
-        if (localParticipant?.id !== id) {
-            return next(action);
+        if (localParticipant?.id === id) {
+            if (role === PARTICIPANT_ROLE.MODERATOR) {
+                dispatch(showStartRecordingNotification());
+            }
         }
 
-        if (role === PARTICIPANT_ROLE.MODERATOR) {
-            dispatch(showStartRecordingNotification());
+        if (botType === 'jibri') {
+            logger.info('Jibri participant detected, auto-pinning participants with camera enabled');
+            _pinParticipantsWithCameraEnabled(dispatch, getState);
         }
 
         return next(action);
@@ -428,4 +439,53 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
         dispatch(setVideoMuted(true));
         dispatch(openDialog(RecordingConsentDialog));
     });
+}
+
+/**
+ * Pins all participants who have their camera enabled to the stage filmstrip.
+ * This is triggered when Jibri joins for recording.
+ * Only works on web platform where stage filmstrip is available.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    if (navigator.product === 'ReactNative') {
+        return;
+    }
+
+    try {
+        const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
+        const { addStageParticipant } = await import('../filmstrip/actions.web');
+        
+        const state = getState();
+
+        if (!isStageFilmstripAvailable(state)) {
+            return;
+        }
+
+        const remoteParticipants = getRemoteParticipants(state);
+        const localParticipant = getLocalParticipant(state);
+
+        const participantsToPinIds: string[] = [];
+
+        remoteParticipants.forEach((participant: any) => {
+            if (!participant.botType && !isParticipantVideoMuted(participant, state)) {
+                participantsToPinIds.push(participant.id);
+            }
+        });
+
+        if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
+            participantsToPinIds.push(localParticipant.id);
+        }
+
+        participantsToPinIds.forEach(participantId => {
+            dispatch(addStageParticipant(participantId, true));
+        });
+
+        logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
+    } catch (error) {
+        logger.error('Error auto-pinning participants for recording:', error);
+    }
 }
