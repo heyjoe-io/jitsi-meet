@@ -489,8 +489,8 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Enable follow-me for recorder (Jibri) so it receives our layout and pins
-        const { enableFollowMeRecorder } = await import('../base/conference/actions.any');
-        dispatch(enableFollowMeRecorder(true));
+        const { setFollowMeRecorder } = await import('../base/conference/actions.any');
+        dispatch(setFollowMeRecorder(true));
         logger.info('Enabled follow-me for recorder');
 
         // Wait for Jibri to join and stabilize
