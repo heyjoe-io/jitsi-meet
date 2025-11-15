@@ -495,13 +495,8 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
-        // Enable follow-me for recorder (Jibri) so it receives our layout and pins
-        const { setFollowMeRecorder } = await import('../base/conference/actions.any');
-        dispatch(setFollowMeRecorder(true));
-        logger.info('Enabled follow-me for recorder');
-
         // Wait for Jibri to join and stabilize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
@@ -513,12 +508,21 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         // Clear existing pins
         dispatch(clearStageParticipants());
-        await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Add all participants with cameras - this triggers stage filmstrip layout
+        // Add all participants with cameras IMMEDIATELY after clear (no delay)
+        // This prevents layout from switching to vertical/horizontal filmstrip
         participantsToPinIds.forEach(participantId => {
             dispatch(addStageParticipant(participantId, true));
         });
+
+        // Wait for pins to be in place before enabling follow-me
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // NOW enable follow-me for recorder AFTER pins are in place
+        // This ensures Jibri receives the correct stage filmstrip layout with pins
+        const { setFollowMeRecorder } = await import('../base/conference/actions.any');
+        dispatch(setFollowMeRecorder(true));
+        logger.info('Enabled follow-me for recorder with pins already in place');
 
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
     } catch (error) {
