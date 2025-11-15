@@ -488,30 +488,28 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
-        // Force stage filmstrip mode (disable tile view) for proper pinning in recording
-        // This ensures Jibri sees the stage layout with pinned participants, not tile view
-        const { setTileView } = await import('../video-layout/actions.web');
-        
-        logger.info('Forcing stage filmstrip mode for recording (disabling tile view)');
-        dispatch(setTileView(false));
-        // Wait for layout change to propagate via follow-me to Jibri
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for Jibri to fully join and establish video streams first
+        // This prevents any race conditions with layout changes
+        logger.info('Waiting 3 seconds for Jibri to fully stabilize...');
+        // await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // First, update maxStageParticipants to ensure we can pin all participants
-        // This setting will be sent to Jibri via follow-me
+        // Update maxStageParticipants to ensure we can pin all participants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
         dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
 
-        // Wait for Jibri to fully join and establish video streams
-        // This prevents pinning before video streams are ready, which causes display delays
-        logger.info('Waiting 2 seconds for Jibri video streams to stabilize...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Force stage filmstrip mode (disable tile view) for proper pinning in recording
+        const { setTileView } = await import('../video-layout/actions.web');
+        logger.info('Forcing stage filmstrip mode for recording');
+        dispatch(setTileView(false));
+
+        // Wait for settings and layout to propagate via follow-me to Jibri
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Clear existing pins to ensure clean state
         dispatch(clearStageParticipants());
 
-        // Small delay for follow-me to propagate the clear
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for clear to propagate
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         // Add all participants with cameras enabled
         participantsToPinIds.forEach(participantId => {
