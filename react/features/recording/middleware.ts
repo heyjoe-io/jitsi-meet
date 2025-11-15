@@ -488,6 +488,17 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
+        // Ensure we're not in tile view - stage filmstrip mode is required for pinning
+        const { setTileView } = await import('../video-layout/actions.web');
+        const { tileViewEnabled } = state['features/video-layout'];
+        
+        if (tileViewEnabled) {
+            logger.info('Disabling tile view to enable stage filmstrip pinning');
+            dispatch(setTileView(false));
+            // Small delay for layout change to propagate
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
         // First, update maxStageParticipants to ensure we can pin all participants
         // This setting will be sent to Jibri via follow-me
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
