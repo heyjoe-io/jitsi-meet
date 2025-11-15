@@ -481,13 +481,28 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
             participantsToPinIds.push(localParticipant.id);
         }
 
+        if (participantsToPinIds.length === 0) {
+            logger.info('Auto-pin skipped: no participants with cameras enabled');
+            return;
+        }
+
+        logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
+
         // First, update maxStageParticipants to ensure we can pin all participants
         // This setting will be sent to Jibri via follow-me
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
         dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
 
+        // Wait for Jibri to fully join and establish video streams
+        // This prevents pinning before video streams are ready, which causes display delays
+        logger.info('Waiting 2 seconds for Jibri video streams to stabilize...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
         // Clear existing pins to ensure clean state
         dispatch(clearStageParticipants());
+
+        // Small delay for follow-me to propagate the clear
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Add all participants with cameras enabled
         participantsToPinIds.forEach(participantId => {
