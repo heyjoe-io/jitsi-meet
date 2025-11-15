@@ -457,7 +457,8 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
     try {
         const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
-        const { setStageParticipants } = await import('../filmstrip/actions.web');
+        const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
+        const { updateSettings } = await import('../base/settings/actions');
         
         const state = getState();
 
@@ -468,29 +469,32 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         const remoteParticipants = getRemoteParticipants(state);
         const localParticipant = getLocalParticipant(state);
 
-        const participantsToPinQueue: Array<{ participantId: string; pinned: boolean; }> = [];
+        const participantsToPinIds: string[] = [];
 
         remoteParticipants.forEach((participant: any) => {
             if (!participant.botType && !isParticipantVideoMuted(participant, state)) {
-                participantsToPinQueue.push({
-                    participantId: participant.id,
-                    pinned: true
-                });
+                participantsToPinIds.push(participant.id);
             }
         });
 
         if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
-            participantsToPinQueue.push({
-                participantId: localParticipant.id,
-                pinned: true
-            });
+            participantsToPinIds.push(localParticipant.id);
         }
 
-        // Use setStageParticipants to bypass maxStageParticipants limit check
-        // This ensures all participants with cameras are pinned for Jibri recording
-        dispatch(setStageParticipants(participantsToPinQueue));
+        // First, update maxStageParticipants to ensure we can pin all participants
+        // This setting will be sent to Jibri via follow-me
+        const maxNeeded = Math.max(participantsToPinIds.length, 6);
+        dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
 
-        logger.info(`Auto-pinned ${participantsToPinQueue.length} participants with camera enabled for recording (bypassing max limit for Jibri)`);
+        // Clear existing pins to ensure clean state
+        dispatch(clearStageParticipants());
+
+        // Add all participants with cameras enabled
+        participantsToPinIds.forEach(participantId => {
+            dispatch(addStageParticipant(participantId, true));
+        });
+
+        logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
     } catch (error) {
         logger.error('Error auto-pinning participants for recording:', error);
     }
