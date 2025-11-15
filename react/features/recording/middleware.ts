@@ -488,30 +488,27 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
-        // Wait for Jibri to fully join and establish video streams first
-        // This prevents any race conditions with layout changes
-        logger.info('Waiting 3 seconds for Jibri to fully stabilize...');
-        // await new Promise(resolve => setTimeout(resolve, 3000));
+        // Enable follow-me for recorder (Jibri) so it receives our layout and pins
+        const { enableFollowMeRecorder } = await import('../base/conference/actions.any');
+        dispatch(enableFollowMeRecorder(true));
+        logger.info('Enabled follow-me for recorder');
 
-        // Update maxStageParticipants to ensure we can pin all participants
+        // Wait for Jibri to join and stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
         dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
 
-        // Force stage filmstrip mode (disable tile view) for proper pinning in recording
+        // Disable tile view
         const { setTileView } = await import('../video-layout/actions.web');
-        logger.info('Forcing stage filmstrip mode for recording');
         dispatch(setTileView(false));
 
-        // Wait for settings and layout to propagate via follow-me to Jibri
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Clear existing pins to ensure clean state
+        // Clear existing pins
         dispatch(clearStageParticipants());
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Wait for clear to propagate
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Add all participants with cameras enabled
+        // Add all participants with cameras - this triggers stage filmstrip layout
         participantsToPinIds.forEach(participantId => {
             dispatch(addStageParticipant(participantId, true));
         });
