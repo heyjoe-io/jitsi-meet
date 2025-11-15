@@ -5,6 +5,7 @@ import { sendAnalytics } from '../analytics/functions';
 import { IStore } from '../app/types';
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
+import { setFollowMeRecorder } from '../base/conference/actions.any';
 import { getCurrentConference } from '../base/conference/functions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
@@ -277,6 +278,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
+            // Disable follow-me recorder when recording stops so follow-me button works again
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                dispatch(setFollowMeRecorder(false));
+                logger.info('Disabled follow-me for recorder (recording stopped)');
+            }
+            
             if (terminator) {
                 // dispatch(
                 //     showStoppedRecordingNotification(
