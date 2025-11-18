@@ -30,23 +30,23 @@ export const THRESHOLDS = [
     },
     {
         width: 565,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras' ]
     },
     {
         width: 520,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras' ]
     },
     {
         width: 470,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'pinallcameras' ]
     },
     {
         width: 420,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras' ]
     },
     {
         width: 370,
-        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'followme' ]
+        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras' ]
     },
     {
         width: 225,
@@ -167,7 +167,7 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'participants-pane',
     'profile',
     'raisehand',
-    'followme',
+    'pinallcameras',
     'recording',
     'security',
     'select-background',
