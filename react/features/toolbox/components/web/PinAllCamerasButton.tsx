@@ -6,9 +6,10 @@ import { IReduxState } from '../../../app/types';
 import { translate } from '../../../base/i18n/functions';
 import { IconPin } from '../../../base/icons/svg';
 import { MEDIA_TYPE, VIDEO_TYPE } from '../../../base/media/constants';
-import { pinParticipant } from '../../../base/participants/actions';
 import { getRemoteParticipants } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
+import { addStageParticipant } from '../../../filmstrip/actions.web';
+import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
 
 /**
  * The type of the React {@code Component} props of {@link PinAllCamerasButton}.
@@ -31,7 +32,7 @@ class PinAllCamerasButton extends AbstractButton<IProps> {
     override tooltip = 'toolbar.pinAllCameras';
 
     /**
-     * Handles clicking the button to pin all participants with camera enabled.
+     * Handles clicking the button to add all participants with camera enabled to stage.
      *
      * @private
      * @returns {void}
@@ -41,8 +42,11 @@ class PinAllCamerasButton extends AbstractButton<IProps> {
 
         sendAnalytics(createToolbarEvent('pin.all.cameras'));
 
+        console.log('PinAllCamerasButton: Adding participants to stage:', participantsWithCamera);
+
         participantsWithCamera.forEach(participantId => {
-            dispatch(pinParticipant(participantId));
+            console.log('PinAllCamerasButton: Adding participant to stage:', participantId);
+            dispatch(addStageParticipant(participantId, true));
         });
     }
 
@@ -67,6 +71,10 @@ class PinAllCamerasButton extends AbstractButton<IProps> {
 function mapStateToProps(state: IReduxState) {
     const remoteParticipants = getRemoteParticipants(state);
     const participantsWithCamera: string[] = [];
+    const stageFilmstripAvailable = isStageFilmstripAvailable(state);
+
+    console.log('PinAllCamerasButton: Total remote participants:', remoteParticipants.size);
+    console.log('PinAllCamerasButton: Stage filmstrip available:', stageFilmstripAvailable);
 
     remoteParticipants.forEach((participant, id) => {
         if (participant.sources) {
@@ -77,6 +85,8 @@ function mapStateToProps(state: IReduxState) {
                     source => source.videoType === VIDEO_TYPE.CAMERA && !source.muted
                 );
 
+                console.log(`PinAllCamerasButton: Participant ${id} has camera:`, hasCameraEnabled, 'videoSources:', videoSources);
+
                 if (hasCameraEnabled) {
                     participantsWithCamera.push(id);
                 }
@@ -84,9 +94,11 @@ function mapStateToProps(state: IReduxState) {
         }
     });
 
+    console.log('PinAllCamerasButton: Participants with camera:', participantsWithCamera);
+
     return {
         participantsWithCamera,
-        visible: participantsWithCamera.length > 0
+        visible: stageFilmstripAvailable && participantsWithCamera.length > 0
     };
 }
 
