@@ -43,6 +43,7 @@ export type ToolbarButton = 'camera' |
     'profile' |
     'raisehand' |
     'pinallcameras' |
+    'followme' |
     'reactions' |
     'recording' |
     'security' |
