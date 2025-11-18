@@ -16,11 +16,6 @@ import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/too
 interface IProps extends AbstractButtonProps {
 
     /**
-     * Redux dispatch function.
-     */
-    dispatch: Function;
-
-    /**
      * Array of participant IDs with camera enabled.
      */
     participantsWithCamera: string[];
