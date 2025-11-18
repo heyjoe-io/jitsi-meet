@@ -6,7 +6,7 @@ import { IReduxState } from '../../../app/types';
 import { translate } from '../../../base/i18n/functions';
 import { IconPin, IconPinned } from '../../../base/icons/svg';
 import { MEDIA_TYPE, VIDEO_TYPE } from '../../../base/media/constants';
-import { getRemoteParticipants } from '../../../base/participants/functions';
+import { getRemoteParticipants, isLocalParticipantModerator } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { addStageParticipant, removeStageParticipant } from '../../../filmstrip/actions.web';
 import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
@@ -104,9 +104,11 @@ function mapStateToProps(state: IReduxState) {
     const participantsWithCamera: string[] = [];
     const stageFilmstripAvailable = isStageFilmstripAvailable(state);
     const { activeParticipants } = state['features/filmstrip'];
+    const isModerator = isLocalParticipantModerator(state);
 
     console.log('PinAllCamerasButton: Total remote participants:', remoteParticipants.size);
     console.log('PinAllCamerasButton: Stage filmstrip available:', stageFilmstripAvailable);
+    console.log('PinAllCamerasButton: Is moderator:', isModerator);
 
     remoteParticipants.forEach((participant, id) => {
         if (participant.sources) {
@@ -142,7 +144,7 @@ function mapStateToProps(state: IReduxState) {
     return {
         participantsWithCamera,
         allCamerasPinned,
-        visible: stageFilmstripAvailable && participantsWithCamera.length > 0
+        visible: isModerator && stageFilmstripAvailable && participantsWithCamera.length > 0
     };
 }
 
