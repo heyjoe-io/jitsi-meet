@@ -21,6 +21,14 @@ StateListenerRegistry.register(
     /* listener */ (newSelectedValue, store) => _sendFollowMeCommand(newSelectedValue || 'off', store));
 
 /**
+ * Subscribes to changes to the Follow Me Recorder setting for sending follow-me
+ * commands specifically for the recorder.
+ */
+StateListenerRegistry.register(
+    /* selector */ state => state['features/base/conference'].followMeRecorderEnabled,
+    /* listener */ _sendFollowMeCommand);
+
+/**
  * Subscribes to changes to the currently pinned participant in the user
  * interface of the local participant.
  */
@@ -130,7 +138,8 @@ function _sendFollowMeCommand(
         );
 
         return;
-    } else if (!state['features/base/conference'].followMeEnabled) {
+    } else if (!state['features/base/conference'].followMeEnabled 
+        && !state['features/base/conference'].followMeRecorderEnabled) {
         return;
     }
 
