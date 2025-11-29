@@ -37,7 +37,7 @@ const DEFAULT_STATE = {
      * @public
      * @type {boolean}
      */
-    enabled: true,
+    enabled: false,
 
     /**
      * The horizontal view dimensions.

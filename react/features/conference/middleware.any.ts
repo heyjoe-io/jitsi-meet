@@ -138,7 +138,7 @@ function _setReducedUI({ dispatch, getState }: IStore) {
     const { reducedUI } = getState()['features/base/responsive-ui'];
 
     dispatch(setToolboxEnabled(!reducedUI));
-    dispatch(setFilmstripEnabled(!reducedUI));
+    // dispatch(setFilmstripEnabled(!reducedUI)); // Disabled: keep filmstrip disabled by default
 }
 
 /**
