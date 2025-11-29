@@ -26,7 +26,6 @@ import {
     NOTIFICATION_TIMEOUT_TYPE,
     RAISE_HAND_NOTIFICATION_ID
 } from '../../notifications/constants';
-import { open as openParticipantsPane } from '../../participants-pane/actions';
 import { CALLING, INVITED } from '../../presence-status/constants';
 import { RAISE_HAND_SOUND_ID } from '../../reactions/constants';
 import { RECORDING_OFF_SOUND_ID, RECORDING_ON_SOUND_ID } from '../../recording/constants';
@@ -933,9 +932,7 @@ function _raiseHandUpdated({ dispatch, getState }: IStore, conference: IJitsiCon
             title: notificationTitle,
             descriptionKey: 'notify.raisedHand',
             concatText: true,
-            uid: RAISE_HAND_NOTIFICATION_ID,
-            customActionNameKey: [ 'notify.viewParticipants' ],
-            customActionHandler: [ () => dispatch(openParticipantsPane()) ]
+            uid: RAISE_HAND_NOTIFICATION_ID
         }, NOTIFICATION_TIMEOUT_TYPE.LONG));
     }
 
