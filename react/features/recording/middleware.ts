@@ -506,6 +506,10 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         const { setTileView } = await import('../video-layout/actions.web');
         dispatch(setTileView(false));
 
+        // Hide filmstrip to show only stage participants in recording
+        const { setFilmstripVisible } = await import('../filmstrip/actions.any');
+        dispatch(setFilmstripVisible(false));
+
         // Clear existing pins
         dispatch(clearStageParticipants());
 
@@ -534,13 +538,25 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
  * Disables follow-me recorder mode and clears the recorder state.
  * This ensures the follow-me button becomes enabled again after recording stops.
  * The subscriber will automatically send the appropriate follow-me command.
+ * Also restores the filmstrip visibility.
  *
  * @param {Function} dispatch - The Redux dispatch function.
  * @param {Function} getState - The Redux getState function.
  * @returns {void}
  */
-function _disableFollowMeRecorder(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+async function _disableFollowMeRecorder(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     // Disable the followMeRecorderEnabled flag
     // The subscriber will automatically send an "off" command if regular follow-me is also disabled
     dispatch(setFollowMeRecorder(false));
+
+    // Restore filmstrip visibility after recording stops
+    if (navigator.product !== 'ReactNative') {
+        try {
+            const { setFilmstripVisible } = await import('../filmstrip/actions.any');
+            dispatch(setFilmstripVisible(true));
+            logger.info('Restored filmstrip visibility after recording stopped');
+        } catch (error) {
+            logger.error('Error restoring filmstrip visibility:', error);
+        }
+    }
 }
