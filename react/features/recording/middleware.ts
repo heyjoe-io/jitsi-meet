@@ -33,6 +33,7 @@ import { TRACK_ADDED } from '../base/tracks/actionTypes';
 import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
+import { close as closeParticipantsPane } from '../participants-pane/actions.any';
 import { isRecorderTranscriptionsRunning } from '../transcribing/functions';
 
 import { RECORDING_SESSION_UPDATED, START_LOCAL_RECORDING, STOP_LOCAL_RECORDING } from './actionTypes';
@@ -246,6 +247,11 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // Auto-pin participants with camera enabled when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
                 logger.info('Recording started (Jibri joined), auto-pinning participants with camera enabled');
+                
+                // Close participants pane if it's open
+                dispatch(closeParticipantsPane());
+                logger.info('Closed participants pane for recording');
+                
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
 
