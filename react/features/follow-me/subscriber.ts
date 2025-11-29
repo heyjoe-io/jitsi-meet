@@ -26,7 +26,7 @@ StateListenerRegistry.register(
  */
 StateListenerRegistry.register(
     /* selector */ state => state['features/base/conference'].followMeRecorderEnabled,
-    /* listener */ _sendFollowMeCommand);
+    /* listener */ (newSelectedValue, store) => _sendFollowMeCommand(newSelectedValue || 'off', store));
 
 /**
  * Subscribes to changes to the currently pinned participant in the user
