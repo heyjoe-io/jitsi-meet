@@ -132,7 +132,7 @@ const DEFAULT_STATE = {
      * @public
      * @type {boolean}
      */
-    visible: true,
+    visible: false,
 
     /**
      * The end index in the remote participants array that is visible in the filmstrip.
