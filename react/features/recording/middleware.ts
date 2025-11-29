@@ -280,7 +280,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             // Disable follow-me recorder when recording stops so follow-me button works again
             if (mode === JitsiRecordingConstants.mode.FILE) {
-                dispatch(setFollowMeRecorder(false));
+                _disableFollowMeRecorder(dispatch, getState);
                 logger.info('Disabled follow-me for recorder (recording stopped)');
             }
 
@@ -528,4 +528,19 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
     } catch (error) {
         logger.error('Error auto-pinning participants for recording:', error);
     }
+}
+
+/**
+ * Disables follow-me recorder mode and clears the recorder state.
+ * This ensures the follow-me button becomes enabled again after recording stops.
+ * The subscriber will automatically send the appropriate follow-me command.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+function _disableFollowMeRecorder(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    // Disable the followMeRecorderEnabled flag
+    // The subscriber will automatically send an "off" command if regular follow-me is also disabled
+    dispatch(setFollowMeRecorder(false));
 }
