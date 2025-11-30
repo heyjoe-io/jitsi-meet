@@ -4,6 +4,7 @@ import { IReduxState, IStore } from '../../../app/types';
 import { setFollowMe } from '../../../base/conference/actions.any';
 import { translate } from '../../../base/i18n/functions';
 import { IconFollowMeOff, IconFollowMeOn } from '../../../base/icons/svg';
+import { getLocalParticipant } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { isFollowMeActive, isFollowMeRecorderActive } from '../../../follow-me/functions';
 
@@ -36,6 +37,11 @@ interface IProps extends AbstractButtonProps {
      * Whether or not follow-me recorder is checked.
      */
     followMeRecorderChecked: boolean;
+
+    /**
+     * Whether the local participant is the one controlling follow-me.
+     */
+    isLocalModeratorControlling: boolean;
 }
 
 /**
@@ -59,7 +65,12 @@ class FollowMeButton extends AbstractButton<IProps> {
      * @returns {boolean}
      */
     override _isToggled() {
-        const { followMeEnabled, followMeActive, followMeRecorderChecked } = this.props;
+        const { followMeEnabled, followMeActive, followMeRecorderChecked, isLocalModeratorControlling } = this.props;
+
+        // If the local moderator is controlling follow-me, show as toggled (ON)
+        if (isLocalModeratorControlling) {
+            return true;
+        }
 
         return followMeEnabled && !followMeActive && !followMeRecorderChecked;
     }
@@ -72,7 +83,13 @@ class FollowMeButton extends AbstractButton<IProps> {
      * @returns {boolean}
      */
     override _isDisabled() {
-        const { followMeActive, followMeRecorderActive } = this.props;
+        const { followMeActive, followMeRecorderActive, isLocalModeratorControlling } = this.props;
+
+        // Don't disable the button if the local moderator is the one controlling follow-me
+        // This allows them to toggle it off
+        if (isLocalModeratorControlling) {
+            return false;
+        }
 
         return followMeActive || followMeRecorderActive;
     }
@@ -110,12 +127,18 @@ function mapStateToProps(state: IReduxState) {
     } = state['features/base/conference'];
     const followMeActive = isFollowMeActive(state);
     const followMeRecorderActive = isFollowMeRecorderActive(state);
+    const localParticipant = getLocalParticipant(state);
+    const followMeModeratorId = state['features/follow-me'].moderator;
+    const isLocalModeratorControlling = Boolean(
+        localParticipant && followMeModeratorId && localParticipant.id === followMeModeratorId
+    );
 
     return {
         followMeEnabled: Boolean(conference && followMeEnabled),
         followMeActive: Boolean(conference && followMeActive),
         followMeRecorderActive: Boolean(conference && followMeRecorderActive),
-        followMeRecorderChecked: Boolean(conference && followMeRecorderEnabled)
+        followMeRecorderChecked: Boolean(conference && followMeRecorderEnabled),
+        isLocalModeratorControlling
     };
 }
 
