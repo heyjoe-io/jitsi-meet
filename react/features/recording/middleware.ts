@@ -331,7 +331,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         break;
     }
     case PARTICIPANT_UPDATED: {
-        const { id, role, botType } = action.participant;
+        const { id, role } = action.participant;
         const state = getState();
         const localParticipant = getLocalParticipant(state);
 
@@ -339,11 +339,6 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             if (role === PARTICIPANT_ROLE.MODERATOR) {
                 dispatch(showStartRecordingNotification());
             }
-        }
-
-        if (botType === 'jibri') {
-            logger.info('Jibri participant detected, auto-pinning participants with camera enabled');
-            _pinParticipantsWithCameraEnabled(dispatch, getState);
         }
 
         return next(action);
@@ -495,8 +490,8 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
-        // Wait for Jibri to join and stabilize
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for Jibri to fully join and stabilize before making any layout changes
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
@@ -519,8 +514,8 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
             dispatch(addStageParticipant(participantId, true));
         });
 
-        // Wait for pins to be in place before enabling follow-me
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for pins to be applied and layout to stabilize before enabling follow-me
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // NOW enable follow-me for recorder AFTER pins are in place
         // This ensures Jibri receives the correct stage filmstrip layout with pins
