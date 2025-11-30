@@ -7,6 +7,7 @@ import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
 import { setFollowMe } from '../base/conference/actions.any';
 import { getCurrentConference } from '../base/conference/functions';
+import { setFollowMeModerator } from '../follow-me/actions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
     JitsiConferenceEvents,
@@ -249,8 +250,19 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
                 
                 // Enable follow-me when Jibri joins
-                dispatch(setFollowMe(true));
-                logger.info('Enabled follow-me after Jibri joined');
+                const state = getState();
+                const localParticipant = getLocalParticipant(state);
+                
+                if (localParticipant) {
+                    // Set the local moderator as the one controlling follow-me
+                    // This needs to be done BEFORE setFollowMe to ensure the button state is correct
+                    dispatch(setFollowMeModerator(localParticipant.id));
+                    dispatch(setFollowMe(true));
+                    logger.info('Enabled follow-me with local moderator as controller:', localParticipant.id);
+                } else {
+                    dispatch(setFollowMe(true));
+                    logger.info('Enabled follow-me after Jibri joined');
+                }
                 
                 logger.info('Starting auto-pin process for camera-enabled participants...');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
@@ -287,9 +299,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
             // Disable follow-me and restore filmstrip when recording stops
             if (mode === JitsiRecordingConstants.mode.FILE) {
-                // Disable follow-me toggle
+                // Clear the moderator and disable follow-me toggle
+                dispatch(setFollowMeModerator());
                 dispatch(setFollowMe(false));
-                logger.info('Disabled follow-me after recording stopped');
+                logger.info('Disabled follow-me and cleared moderator after recording stopped');
                 
                 _restoreFilmstripAfterRecording(dispatch, getState);
                 logger.info('Restored filmstrip after recording stopped');
