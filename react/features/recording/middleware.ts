@@ -245,7 +245,9 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
             // Auto-pin participants with camera enabled when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
-                logger.info('Recording started (Jibri joined), auto-pinning participants with camera enabled');
+                logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator, 
+                    'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
+                logger.info('Starting auto-pin process for camera-enabled participants...');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
 
@@ -278,10 +280,11 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
-            // Disable follow-me recorder when recording stops so follow-me button works again
+            // Keep follow-me enabled when recording stops (it was enabled when recording started)
+            // Just restore the filmstrip visibility
             if (mode === JitsiRecordingConstants.mode.FILE) {
-                _disableFollowMeRecorder(dispatch, getState);
-                logger.info('Disabled follow-me for recorder (recording stopped)');
+                _restoreFilmstripAfterRecording(dispatch, getState);
+                logger.info('Restored filmstrip after recording stopped (follow-me remains enabled)');
             }
 
             if (terminator) {
@@ -521,8 +524,15 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         // This ensures Jibri receives the correct stage filmstrip layout with pins
         const { setFollowMeRecorder } = await import('../base/conference/actions.any');
         dispatch(setFollowMeRecorder(true));
-        logger.info('Enabled follow-me for recorder with pins already in place');
 
+        // Wait a bit for the state to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Manually send the follow-me command with current state
+        // This ensures Jibri gets the command with all the pinned participants
+        _sendFollowMeCommandToRecorder(getState);
+
+        logger.info('Enabled follow-me for recorder and sent command with pinned participants');
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
     } catch (error) {
         logger.error('Error auto-pinning participants for recording:', error);
@@ -530,18 +540,15 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 }
 
 /**
- * Disables follow-me recorder mode and clears the recorder state.
- * This ensures the follow-me button becomes enabled again after recording stops.
- * The subscriber will automatically send the appropriate follow-me command.
- * Also restores the filmstrip visibility.
+ * Restores the filmstrip visibility after recording stops.
+ * Follow-me remains enabled as it was turned on when recording started.
  *
  * @param {Function} dispatch - The Redux dispatch function.
  * @param {Function} getState - The Redux getState function.
  * @returns {void}
  */
-async function _disableFollowMeRecorder(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+async function _restoreFilmstripAfterRecording(dispatch: IStore['dispatch'], getState: IStore['getState']) {
     // Disable the followMeRecorderEnabled flag
-    // The subscriber will automatically send an "off" command if regular follow-me is also disabled
     dispatch(setFollowMeRecorder(false));
 
     // Restore filmstrip visibility after recording stops
@@ -554,4 +561,40 @@ async function _disableFollowMeRecorder(dispatch: IStore['dispatch'], getState: 
             logger.error('Error restoring filmstrip visibility:', error);
         }
     }
+}
+
+/**
+ * Manually sends the follow-me command to the recorder with the current UI state.
+ * This ensures Jibri receives the follow-me command with all pinned participants.
+ *
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+function _sendFollowMeCommandToRecorder(getState: IStore['getState']) {
+    const state = getState();
+    const conference = getCurrentConference(state);
+
+    if (!conference) {
+        logger.warn('Cannot send follow-me command: conference not found');
+        return;
+    }
+
+    // Import the functions needed to build the follow-me state
+    const { getPinnedActiveParticipants } = require('../filmstrip/functions');
+    const { isStageFilmstripEnabled } = require('../filmstrip/functions');
+    const { shouldDisplayTileView } = require('../video-layout/functions');
+
+    const stageFilmstrip = isStageFilmstripEnabled(state);
+    const followMeState = {
+        recorder: 'true',
+        filmstripVisible: state['features/filmstrip'].visible,
+        maxStageParticipants: stageFilmstrip ? state['features/base/settings'].maxStageParticipants : undefined,
+        pinnedStageParticipants: stageFilmstrip ? JSON.stringify(getPinnedActiveParticipants(state)) : undefined,
+        sharedDocumentVisible: state['features/etherpad']?.editing,
+        tileViewEnabled: shouldDisplayTileView(state)
+    };
+
+    logger.info('Sending follow-me command to recorder with state:', followMeState);
+
+    conference.sendCommand('follow-me', { attributes: followMeState });
 }
