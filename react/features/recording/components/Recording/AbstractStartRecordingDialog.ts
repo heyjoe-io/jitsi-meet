@@ -4,7 +4,6 @@ import { WithTranslation } from 'react-i18next';
 import { createRecordingDialogEvent } from '../../../analytics/AnalyticsEvents';
 import { sendAnalytics } from '../../../analytics/functions';
 import { IReduxState, IStore } from '../../../app/types';
-import { setFollowMe } from '../../../base/conference/actions.any';
 import { IJitsiConference } from '../../../base/conference/reducer';
 import { JitsiRecordingConstants } from '../../../base/lib-jitsi-meet';
 import { updateDropboxToken } from '../../../dropbox/actions';
@@ -406,9 +405,6 @@ class AbstractStartRecordingDialog extends Component<IProps, IState> {
             sendAnalytics(
                 createRecordingDialogEvent('start', 'confirm.button', attributes)
             );
-
-            // Enable follow-me before starting recording
-            dispatch(setFollowMe(true));
 
             this._toggleScreenshotCapture();
             _conference?.startRecording({

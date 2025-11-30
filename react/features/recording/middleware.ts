@@ -5,6 +5,7 @@ import { sendAnalytics } from '../analytics/functions';
 import { IStore } from '../app/types';
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
+import { setFollowMe } from '../base/conference/actions.any';
 import { getCurrentConference } from '../base/conference/functions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
@@ -246,6 +247,11 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
                 logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator, 
                     'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
+                
+                // Enable follow-me when Jibri joins
+                dispatch(setFollowMe(true));
+                logger.info('Enabled follow-me after Jibri joined');
+                
                 logger.info('Starting auto-pin process for camera-enabled participants...');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
@@ -279,11 +285,14 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
-            // Keep follow-me enabled when recording stops (it was enabled when recording started)
-            // Just restore the filmstrip visibility
+            // Disable follow-me and restore filmstrip when recording stops
             if (mode === JitsiRecordingConstants.mode.FILE) {
+                // Disable follow-me toggle
+                dispatch(setFollowMe(false));
+                logger.info('Disabled follow-me after recording stopped');
+                
                 _restoreFilmstripAfterRecording(dispatch, getState);
-                logger.info('Restored filmstrip after recording stopped (follow-me remains enabled)');
+                logger.info('Restored filmstrip after recording stopped');
             }
 
             if (terminator) {
