@@ -5,7 +5,6 @@ import { sendAnalytics } from '../analytics/functions';
 import { IStore } from '../app/types';
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
-import { setFollowMeRecorder } from '../base/conference/actions.any';
 import { getCurrentConference } from '../base/conference/functions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
@@ -517,23 +516,11 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
             dispatch(addStageParticipant(participantId, true));
         });
 
-        // Wait for pins to be applied and layout to stabilize before enabling follow-me
+        // Wait for pins to be applied and layout to stabilize
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // NOW enable follow-me for recorder AFTER pins are in place
-        // This ensures Jibri receives the correct stage filmstrip layout with pins
-        const { setFollowMeRecorder } = await import('../base/conference/actions.any');
-        dispatch(setFollowMeRecorder(true));
-
-        // Wait a bit for the state to update
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Manually send the follow-me command with current state
-        // This ensures Jibri gets the command with all the pinned participants
-        _sendFollowMeCommandToRecorder(getState);
-
-        logger.info('Enabled follow-me for recorder and sent command with pinned participants');
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
+        logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
     } catch (error) {
         logger.error('Error auto-pinning participants for recording:', error);
     }
@@ -548,9 +535,6 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
  * @returns {void}
  */
 async function _restoreFilmstripAfterRecording(dispatch: IStore['dispatch'], getState: IStore['getState']) {
-    // Disable the followMeRecorderEnabled flag
-    dispatch(setFollowMeRecorder(false));
-
     // Restore filmstrip visibility after recording stops
     if (navigator.product !== 'ReactNative') {
         try {
@@ -563,38 +547,4 @@ async function _restoreFilmstripAfterRecording(dispatch: IStore['dispatch'], get
     }
 }
 
-/**
- * Manually sends the follow-me command to the recorder with the current UI state.
- * This ensures Jibri receives the follow-me command with all pinned participants.
- *
- * @param {Function} getState - The Redux getState function.
- * @returns {void}
- */
-function _sendFollowMeCommandToRecorder(getState: IStore['getState']) {
-    const state = getState();
-    const conference = getCurrentConference(state);
 
-    if (!conference) {
-        logger.warn('Cannot send follow-me command: conference not found');
-        return;
-    }
-
-    // Import the functions needed to build the follow-me state
-    const { getPinnedActiveParticipants } = require('../filmstrip/functions');
-    const { isStageFilmstripEnabled } = require('../filmstrip/functions');
-    const { shouldDisplayTileView } = require('../video-layout/functions');
-
-    const stageFilmstrip = isStageFilmstripEnabled(state);
-    const followMeState = {
-        recorder: 'true',
-        filmstripVisible: state['features/filmstrip'].visible,
-        maxStageParticipants: stageFilmstrip ? state['features/base/settings'].maxStageParticipants : undefined,
-        pinnedStageParticipants: stageFilmstrip ? JSON.stringify(getPinnedActiveParticipants(state)) : undefined,
-        sharedDocumentVisible: state['features/etherpad']?.editing,
-        tileViewEnabled: shouldDisplayTileView(state)
-    };
-
-    logger.info('Sending follow-me command to recorder with state:', followMeState);
-
-    conference.sendCommand('follow-me', { attributes: followMeState });
-}
