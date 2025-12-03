@@ -252,7 +252,7 @@ function _handleLobbyNotification(store: IStore) {
         customActionType = [ BUTTON_TYPES.PRIMARY ];
         customActionHandler = [ () => batch(() => {
             dispatch(hideNotification(LOBBY_NOTIFICATION_ID));
-            dispatch(openParticipantsPane());
+            // dispatch(openParticipantsPane()); // Disabled: keep participants pane closed by default
         }) ];
     }
 

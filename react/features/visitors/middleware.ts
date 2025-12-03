@@ -463,7 +463,7 @@ function _handlePromotionNotification(
         customActionType = [ BUTTON_TYPES.PRIMARY ];
         customActionHandler = [ () => batch(() => {
             dispatch(hideNotification(VISITORS_PROMOTION_NOTIFICATION_ID));
-            dispatch(openParticipantsPane());
+            // dispatch(openParticipantsPane()); // Disabled: keep participants pane closed by default
         }) ];
     }
 

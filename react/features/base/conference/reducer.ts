@@ -277,10 +277,7 @@ ReducerRegistry.register<IConferenceState>('features/base/conference',
             return set(state, 'followMeEnabled', action.enabled);
 
         case SET_FOLLOW_ME_RECORDER:
-            return { ...state,
-                followMeRecorderEnabled: action.enabled,
-                followMeEnabled: action.enabled
-            };
+            return set(state, 'followMeRecorderEnabled', action.enabled);
 
         case SET_START_REACTIONS_MUTED:
             return set(state, 'startReactionsMuted', action.muted);
