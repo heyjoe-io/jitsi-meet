@@ -300,10 +300,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
-            // Restore filmstrip when recording stops but keep follow-me enabled
+            // Restore filmstrip and clear follow-me moderator when recording stops
             if (mode === JitsiRecordingConstants.mode.FILE) {
                 _restoreFilmstripAfterRecording(dispatch, getState);
-                logger.info('Restored filmstrip after recording stopped. Follow-me remains enabled.');
+                // Clear the follow-me moderator so user can toggle follow-me freely
+                dispatch(setFollowMeModerator());
+                logger.info('Restored filmstrip after recording stopped and cleared follow-me moderator.');
             }
 
             if (terminator) {
@@ -513,7 +515,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Wait for Jibri to fully join and stabilize before making any layout changes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
@@ -537,7 +539,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         });
 
         // Wait for pins to be applied and layout to stabilize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 250));
 
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
         logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
