@@ -300,15 +300,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
-            // Disable follow-me and restore filmstrip when recording stops
+            // Restore filmstrip when recording stops but keep follow-me enabled
             if (mode === JitsiRecordingConstants.mode.FILE) {
-                // Clear the moderator and disable follow-me toggle
-                dispatch(setFollowMeModerator());
-                dispatch(setFollowMe(false));
-                logger.info('Disabled follow-me and cleared moderator after recording stopped');
-                
                 _restoreFilmstripAfterRecording(dispatch, getState);
-                logger.info('Restored filmstrip after recording stopped');
+                logger.info('Restored filmstrip after recording stopped. Follow-me remains enabled.');
             }
 
             if (terminator) {
@@ -553,7 +548,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
 
 /**
  * Restores the filmstrip visibility after recording stops.
- * Follow-me remains enabled as it was turned on when recording started.
+ * Note: Follow-me remains enabled and is not disabled when recording stops.
  *
  * @param {Function} dispatch - The Redux dispatch function.
  * @param {Function} getState - The Redux getState function.
