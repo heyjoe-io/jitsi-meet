@@ -252,25 +252,6 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
 
-            // Enable follow-me when we receive initiator info (second ON status)
-            // Only the moderator who started recording should have follow-me enabled
-            if (initiator && !oldSessionData?.initiator && mode === JitsiRecordingConstants.mode.FILE) {
-                const state = getState();
-                const localParticipant = getLocalParticipant(state);
-                const initiatorId = getResourceId(initiator);
-                
-                // Only enable follow-me if the local participant is the one who started recording
-                if (localParticipant && localParticipant.id === initiatorId) {
-                    // Set the local moderator as the one controlling follow-me
-                    dispatch(setFollowMeModerator(localParticipant.id));
-                    dispatch(setFollowMe(true));
-                    logger.info('Enabled follow-me for recording initiator:', localParticipant.id);
-                } else {
-                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:', 
-                        localParticipant?.id, 'Initiator:', initiatorId);
-                }
-            }
-
             if (initiator && !oldSessionData?.initiator) {
                 if (typeof recordingLimit === 'object') {
                     dispatch(showRecordingLimitNotification(mode));
