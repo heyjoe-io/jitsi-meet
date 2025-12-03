@@ -81,18 +81,6 @@ class RecordingButton extends AbstractRecordButton<IProps> {
         const { _conference, dispatch } = this.props;
 
         if (_conference) {
-            // Enable follow-me immediately when local recorder starts recording
-            import('../../../../base/conference/actions.any').then(({ setFollowMe }) => {
-                dispatch(setFollowMe(true));
-            });
-            import('../../../../follow-me/actions').then(({ setFollowMeModerator }) => {
-                import('../../../../base/participants/functions').then(({ getLocalParticipant }) => {
-                    const state = APP.store.getState();
-                    const localParticipant = getLocalParticipant(state);
-                    dispatch(setFollowMeModerator(localParticipant?.id));
-                });
-            });
-
             // Start Jibri recording with file recording metadata
             const appData = JSON.stringify({
                 'file_recording_metadata': {

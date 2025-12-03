@@ -248,6 +248,13 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
                 logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator, 
                     'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
+                
+                // Enable follow-me when Jibri joins
+                const localParticipant = getLocalParticipant(state);
+                dispatch(setFollowMe(true));
+                dispatch(setFollowMeModerator(localParticipant?.id));
+                logger.info('Enabled follow-me for Jibri with moderator:', localParticipant?.id);
+                
                 logger.info('Starting auto-pin process for camera-enabled participants...');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
             }
