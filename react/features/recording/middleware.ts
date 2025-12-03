@@ -244,17 +244,31 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
 
-            // Enable follow-me immediately when Jibri joins (first ON status)
+            // Auto-pin participants with camera enabled when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
+                logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator, 
+                    'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
+                logger.info('Starting auto-pin process for camera-enabled participants...');
+                _pinParticipantsWithCameraEnabled(dispatch, getState);
+            }
+
+            // Enable follow-me when we receive initiator info (second ON status)
+            // Only the moderator who started recording should have follow-me enabled
+            if (initiator && !oldSessionData?.initiator && mode === JitsiRecordingConstants.mode.FILE) {
                 const state = getState();
                 const localParticipant = getLocalParticipant(state);
+                const initiatorId = getResourceId(initiator);
                 
-                logger.info('Recording status changed to ON (Jibri joined). Enabling follow-me immediately.');
-                
-                // Enable follow-me for the local moderator who started recording
-                dispatch(setFollowMeModerator(localParticipant?.id));
-                dispatch(setFollowMe(true));
-                logger.info('Enabled follow-me immediately when Jibri joined for participant:', localParticipant?.id);
+                // Only enable follow-me if the local participant is the one who started recording
+                if (localParticipant && localParticipant.id === initiatorId) {
+                    // Set the local moderator as the one controlling follow-me
+                    dispatch(setFollowMeModerator(localParticipant.id));
+                    dispatch(setFollowMe(true));
+                    logger.info('Enabled follow-me for recording initiator:', localParticipant.id);
+                } else {
+                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:', 
+                        localParticipant?.id, 'Initiator:', initiatorId);
+                }
             }
 
             if (initiator && !oldSessionData?.initiator) {
@@ -451,6 +465,87 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
         dispatch(setVideoMuted(true));
         dispatch(openDialog(RecordingConsentDialog));
     });
+}
+
+/**
+ * Pins all participants who have their camera enabled to the stage filmstrip.
+ * This is triggered when Jibri joins for recording.
+ * Only works on web platform where stage filmstrip is available.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    if (navigator.product === 'ReactNative') {
+        return;
+    }
+
+    try {
+        const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
+        const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
+        const { updateSettings } = await import('../base/settings/actions');
+
+        const state = getState();
+
+        if (!isStageFilmstripAvailable(state)) {
+            return;
+        }
+
+        const remoteParticipants = getRemoteParticipants(state);
+        const localParticipant = getLocalParticipant(state);
+
+        const participantsToPinIds: string[] = [];
+
+        remoteParticipants.forEach((participant: any) => {
+            if (!participant.botType && !isParticipantVideoMuted(participant, state)) {
+                participantsToPinIds.push(participant.id);
+            }
+        });
+
+        if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
+            participantsToPinIds.push(localParticipant.id);
+        }
+
+        if (participantsToPinIds.length === 0) {
+            logger.info('Auto-pin skipped: no participants with cameras enabled');
+            return;
+        }
+
+        logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
+
+        // Wait for Jibri to fully join and stabilize before making any layout changes
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Update maxStageParticipants
+        const maxNeeded = Math.max(participantsToPinIds.length, 6);
+        dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
+
+        // Disable tile view
+        const { setTileView } = await import('../video-layout/actions.web');
+        dispatch(setTileView(false));
+
+        // Hide filmstrip to show only stage participants in recording
+        const { setFilmstripVisible } = await import('../filmstrip/actions.any');
+        dispatch(setFilmstripVisible(false));
+
+        // Clear existing pins
+        dispatch(clearStageParticipants());
+
+        // Add all participants with cameras IMMEDIATELY after clear (no delay)
+        // This prevents layout from switching to vertical/horizontal filmstrip
+        participantsToPinIds.forEach(participantId => {
+            dispatch(addStageParticipant(participantId, true));
+        });
+
+        // Wait for pins to be applied and layout to stabilize
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
+        logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
+    } catch (error) {
+        logger.error('Error auto-pinning participants for recording:', error);
+    }
 }
 
 /**
