@@ -515,7 +515,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Wait for Jibri to fully join and stabilize before making any layout changes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
