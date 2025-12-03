@@ -244,17 +244,20 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
 
-            // Enable follow-me immediately when Jibri joins (first ON status)
+            // Enable follow-me when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
                 const state = getState();
                 const localParticipant = getLocalParticipant(state);
                 
-                logger.info('Recording status changed to ON (Jibri joined). Enabling follow-me immediately.');
+                logger.info('Recording status changed to ON (Jibri joined). Enabling follow-me after brief delay.');
                 
-                // Enable follow-me for the local moderator who started recording
-                dispatch(setFollowMeModerator(localParticipant?.id));
-                dispatch(setFollowMe(true));
-                logger.info('Enabled follow-me immediately when Jibri joined for participant:', localParticipant?.id);
+                // Wait a bit for the pinned layout to stabilize before enabling follow-me
+                // This prevents flickering caused by rapid state changes
+                setTimeout(() => {
+                    dispatch(setFollowMeModerator(localParticipant?.id));
+                    dispatch(setFollowMe(true));
+                    logger.info('Enabled follow-me for Jibri, participant:', localParticipant?.id);
+                }, 1000);
             }
 
             if (initiator && !oldSessionData?.initiator) {
