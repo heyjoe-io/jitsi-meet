@@ -81,11 +81,6 @@ class RecordingButton extends AbstractRecordButton<IProps> {
         const { _conference, dispatch } = this.props;
 
         if (_conference) {
-            // Enable tile view before starting recording to ensure correct layout
-            import('../../../../video-layout/actions.web').then(({ setTileView }) => {
-                dispatch(setTileView(true));
-            });
-
             // Start Jibri recording with file recording metadata
             const appData = JSON.stringify({
                 'file_recording_metadata': {
