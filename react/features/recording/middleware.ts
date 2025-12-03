@@ -246,7 +246,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
 
             // Auto-pin participants with camera enabled when Jibri joins (first ON status)
             if (!initiator && oldSessionData?.status !== ON && mode === JitsiRecordingConstants.mode.FILE) {
-                logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator, 
+                logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator,
                     'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
                 logger.info('Starting auto-pin process for camera-enabled participants...');
                 _pinParticipantsWithCameraEnabled(dispatch, getState);
@@ -258,7 +258,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 const state = getState();
                 const localParticipant = getLocalParticipant(state);
                 const initiatorId = getResourceId(initiator);
-                
+
                 // Only enable follow-me if the local participant is the one who started recording
                 if (localParticipant && localParticipant.id === initiatorId) {
                     // Set the local moderator as the one controlling follow-me
@@ -266,7 +266,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     dispatch(setFollowMe(true));
                     logger.info('Enabled follow-me for recording initiator:', localParticipant.id);
                 } else {
-                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:', 
+                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:',
                         localParticipant?.id, 'Initiator:', initiatorId);
                 }
             }
@@ -513,7 +513,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Wait for Jibri to fully join and stabilize before making any layout changes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
@@ -537,7 +537,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         });
 
         // Wait for pins to be applied and layout to stabilize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
         logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
