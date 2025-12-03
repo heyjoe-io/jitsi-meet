@@ -77,25 +77,23 @@ class RecordingButton extends AbstractRecordButton<IProps> {
      * @private
      * @returns {void}
      */
-    async _startRecording() {
+    _startRecording() {
         const { _conference, dispatch } = this.props;
 
         if (_conference) {
-            // Step 1: Pin camera-enabled users to stage first
-            await this._pinCameraEnabledUsers();
+            // Enable follow-me immediately when local recorder starts recording
+            import('../../../../base/conference/actions.any').then(({ setFollowMe }) => {
+                dispatch(setFollowMe(true));
+            });
+            import('../../../../follow-me/actions').then(({ setFollowMeModerator }) => {
+                import('../../../../base/participants/functions').then(({ getLocalParticipant }) => {
+                    const state = APP.store.getState();
+                    const localParticipant = getLocalParticipant(state);
+                    dispatch(setFollowMeModerator(localParticipant?.id));
+                });
+            });
 
-            // Step 2: Enable follow-me after pinning is done
-            const { setFollowMe } = await import('../../../../base/conference/actions.any');
-            const { setFollowMeModerator } = await import('../../../../follow-me/actions');
-            const { getLocalParticipant } = await import('../../../../base/participants/functions');
-            
-            const state = APP.store.getState();
-            const localParticipant = getLocalParticipant(state);
-            
-            dispatch(setFollowMeModerator(localParticipant?.id));
-            dispatch(setFollowMe(true));
-
-            // Step 3: Start Jibri recording
+            // Start Jibri recording with file recording metadata
             const appData = JSON.stringify({
                 'file_recording_metadata': {
                     'share': false // You can set this to true if you want sharing enabled by default
@@ -106,74 +104,6 @@ class RecordingButton extends AbstractRecordButton<IProps> {
                 mode: JitsiRecordingConstants.mode.FILE,
                 appData
             });
-        }
-    }
-
-    /**
-     * Pins all participants with camera enabled to the stage.
-     *
-     * @private
-     * @returns {Promise<void>}
-     */
-    async _pinCameraEnabledUsers() {
-        if (navigator.product === 'ReactNative') {
-            return;
-        }
-
-        try {
-            const { dispatch } = this.props;
-            const { isStageFilmstripAvailable } = await import('../../../../filmstrip/functions.web');
-            const { addStageParticipant, clearStageParticipants } = await import('../../../../filmstrip/actions.web');
-            const { setFilmstripVisible } = await import('../../../../filmstrip/actions.any');
-            const { setTileView } = await import('../../../../video-layout/actions.web');
-            const { updateSettings } = await import('../../../../base/settings/actions');
-            const { getRemoteParticipants, getLocalParticipant } = await import('../../../../base/participants/functions');
-            const { isParticipantVideoMuted } = await import('../../../../base/tracks/functions.any');
-            
-            const state = APP.store.getState();
-
-            if (!isStageFilmstripAvailable(state)) {
-                return;
-            }
-
-            const remoteParticipants = getRemoteParticipants(state);
-            const localParticipant = getLocalParticipant(state);
-            const participantsToPinIds: string[] = [];
-
-            remoteParticipants.forEach((participant: any) => {
-                if (!participant.botType && !isParticipantVideoMuted(participant, state)) {
-                    participantsToPinIds.push(participant.id);
-                }
-            });
-
-            if (localParticipant && !isParticipantVideoMuted(localParticipant, state)) {
-                participantsToPinIds.push(localParticipant.id);
-            }
-
-            if (participantsToPinIds.length === 0) {
-                return;
-            }
-
-            // Update maxStageParticipants
-            const maxNeeded = Math.max(participantsToPinIds.length, 6);
-            dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
-
-            // Disable tile view
-            dispatch(setTileView(false));
-
-            // Hide filmstrip
-            dispatch(setFilmstripVisible(false));
-
-            // Clear existing pins and add camera-enabled participants
-            dispatch(clearStageParticipants());
-            participantsToPinIds.forEach(participantId => {
-                dispatch(addStageParticipant(participantId, true));
-            });
-
-            // Wait a bit for layout to stabilize before enabling follow-me
-            await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (error) {
-            console.error('Error pinning camera-enabled users:', error);
         }
     }
 
