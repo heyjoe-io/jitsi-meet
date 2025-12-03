@@ -518,7 +518,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
 
         // Wait for Jibri to fully join and stabilize before making any layout changes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Update maxStageParticipants
         const maxNeeded = Math.max(participantsToPinIds.length, 6);
@@ -542,7 +542,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         });
 
         // Wait for pins to be applied and layout to stabilize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // await new Promise(resolve => setTimeout(resolve, 500));
 
         logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
         logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
