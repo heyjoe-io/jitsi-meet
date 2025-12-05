@@ -515,10 +515,6 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         // Wait for Jibri to fully join and stabilize before making any layout changes
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Update maxStageParticipants
-        const maxNeeded = Math.max(participantsToPinIds.length, 6);
-        dispatch(updateSettings({ maxStageParticipants: maxNeeded }));
-
         // Disable tile view
         const { setTileView } = await import('../video-layout/actions.web');
         dispatch(setTileView(false));
