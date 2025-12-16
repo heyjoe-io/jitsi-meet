@@ -139,7 +139,7 @@ function _onFollowMeCommand(attributes: any = {}, id: string, store: IStore) {
     }
 
     // when recorder flag is on, follow me is handled only on recorder side
-    if (attributes.recorder && !store.getState()['features/base/config'].iAmRecorder) {
+    if (attributes.recorder === 'true' && !store.getState()['features/base/config'].iAmRecorder) {
         return;
     }
 

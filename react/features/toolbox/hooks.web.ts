@@ -46,6 +46,7 @@ import ShareAudioButton from '../screen-share/components/web/ShareAudioButton';
 import { isScreenAudioSupported, isScreenVideoShared } from '../screen-share/functions';
 import { useSecurityDialogButton } from '../security/hooks.web';
 import FollowMeContainerButton from '../settings/components/web/FollowMeContainerButtons';
+import PinAllCamerasButton from './components/web/PinAllCamerasButton';
 import SettingsButton from '../settings/components/web/SettingsButton';
 import { useSharedVideoButton } from '../shared-video/hooks';
 import SpeakerStats from '../speaker-stats/components/web/SpeakerStats';
@@ -118,6 +119,12 @@ const desktop = {
 const raisehand = {
     key: 'raisehand',
     Content: RaiseHandContainerButton,
+    group: 2
+};
+
+const pinallcameras = {
+    key: 'pinallcameras',
+    Content: PinAllCamerasButton,
     group: 2
 };
 
@@ -329,6 +336,7 @@ export function useToolboxButtons(
         speaker,
         chat,
         raisehand,
+        pinallcameras,
         followme,
         reactions,
         'participants-pane': participants,

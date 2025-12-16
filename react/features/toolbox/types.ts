@@ -42,6 +42,7 @@ export type ToolbarButton = 'camera' |
     'participants-pane' |
     'profile' |
     'raisehand' |
+    'pinallcameras' |
     'followme' |
     'reactions' |
     'recording' |

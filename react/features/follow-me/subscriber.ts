@@ -21,6 +21,22 @@ StateListenerRegistry.register(
     /* listener */ (newSelectedValue, store) => _sendFollowMeCommand(newSelectedValue || 'off', store));
 
 /**
+ * Subscribes to changes to the Follow Me Recorder setting for sending follow-me
+ * commands specifically for the recorder.
+ * When turned off, send 'off' to notify Jibri to clear the follow-me state.
+ */
+StateListenerRegistry.register(
+    /* selector */ state => state['features/base/conference'].followMeRecorderEnabled,
+    /* listener */ (newSelectedValue, store) => {
+        // If followMeRecorderEnabled is being disabled, send 'off' only if regular followMe is also disabled
+        if (!newSelectedValue && !store.getState()['features/base/conference'].followMeEnabled) {
+            _sendFollowMeCommand('off', store);
+        } else {
+            _sendFollowMeCommand(newSelectedValue, store);
+        }
+    });
+
+/**
  * Subscribes to changes to the currently pinned participant in the user
  * interface of the local participant.
  */
@@ -88,7 +104,7 @@ function _getFollowMeState(state: IReduxState) {
     const stageFilmstrip = isStageFilmstripEnabled(state);
 
     return {
-        recorder: state['features/base/conference'].followMeRecorderEnabled,
+        recorder: state['features/base/conference'].followMeRecorderEnabled ? 'true' : undefined,
         filmstripVisible: state['features/filmstrip'].visible,
         maxStageParticipants: stageFilmstrip ? state['features/base/settings'].maxStageParticipants : undefined,
         nextOnStage: pinnedParticipant?.id,
@@ -130,7 +146,8 @@ function _sendFollowMeCommand(
         );
 
         return;
-    } else if (!state['features/base/conference'].followMeEnabled) {
+    } else if (!state['features/base/conference'].followMeEnabled 
+        && !state['features/base/conference'].followMeRecorderEnabled) {
         return;
     }
 
