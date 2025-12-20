@@ -189,9 +189,16 @@ function _onFollowMeCommand(attributes: any = {}, id: string, store: IStore) {
             oldStageParticipants = JSON.parse(oldState.pinnedStageParticipants);
         }
 
-        if (!isEqual(stageParticipants, oldStageParticipants)) {
-            const toRemove = differenceWith(oldStageParticipants, stageParticipants, isEqual);
-            const toAdd = differenceWith(stageParticipants, oldStageParticipants, isEqual);
+        // Extract participant IDs for comparison to avoid flickering when only order/properties change
+        const newParticipantIds = stageParticipants.map((p: { participantId: string; }) => p.participantId);
+        const oldParticipantIds = oldStageParticipants.map((p: { participantId: string; }) => p.participantId);
+
+        // Only update if the actual set of participants has changed, not just their order
+        if (!isEqual(newParticipantIds.sort(), oldParticipantIds.sort())) {
+            const toRemove = differenceWith(oldStageParticipants, stageParticipants, 
+                (a: { participantId: string; }, b: { participantId: string; }) => a.participantId === b.participantId);
+            const toAdd = differenceWith(stageParticipants, oldStageParticipants,
+                (a: { participantId: string; }, b: { participantId: string; }) => a.participantId === b.participantId);
 
             toRemove.forEach((p: { participantId: string; }) =>
                 store.dispatch(removeStageParticipant(p.participantId)));

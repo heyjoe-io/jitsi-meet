@@ -304,9 +304,11 @@ class AudioTrack extends Component<IProps> {
  */
 function _mapStateToProps(state: IReduxState, ownProps: any) {
     const { participantsVolume } = state['features/filmstrip'];
+    const speakerMuted = state['features/toolbox']?.speakerMuted;
+    const startSilent = state['features/base/config'].startSilent;
 
     return {
-        _muted: state['features/base/config'].startSilent,
+        _muted: speakerMuted !== undefined ? speakerMuted : startSilent,
         _volume: participantsVolume[ownProps.participantId]
     };
 }
