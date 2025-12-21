@@ -183,15 +183,11 @@ function _onFollowMeCommand(attributes: any = {}, id: string, store: IStore) {
 
     if (attributes.pinnedStageParticipants !== undefined) {
         const stageParticipants = JSON.parse(attributes.pinnedStageParticipants);
-        let oldStageParticipants = [];
+        const currentStageParticipants = state['features/filmstrip'].activeParticipants;
 
-        if (oldState.pinnedStageParticipants !== undefined) {
-            oldStageParticipants = JSON.parse(oldState.pinnedStageParticipants);
-        }
-
-        if (!isEqual(stageParticipants, oldStageParticipants)) {
-            // Use setStageParticipants to update the entire list at once
-            // This avoids the flicker caused by removing and re-adding participants individually
+        // Only update if the stage participants have actually changed
+        // Compare against current Redux state, not old follow-me state
+        if (!isEqual(stageParticipants, currentStageParticipants)) {
             store.dispatch(setStageParticipants(stageParticipants));
         }
     }
