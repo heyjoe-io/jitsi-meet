@@ -16,6 +16,7 @@ import {
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import { CLIENT_RESIZED } from '../base/responsive-ui/actionTypes';
 import { SETTINGS_UPDATED } from '../base/settings/actionTypes';
+import { isFollowMeActive } from '../follow-me/functions';
 import { setTileView } from '../video-layout/actions.web';
 import { LAYOUTS } from '../video-layout/constants';
 import { getCurrentLayout } from '../video-layout/functions.web';
@@ -266,6 +267,12 @@ MiddlewareRegistry.register(store => next => action => {
         const dominantSpeaker = getDominantSpeakerParticipant(state);
 
         if (dominantSpeaker?.id === id || id === local?.id || currentLayout === LAYOUTS.TILE_VIEW) {
+            break;
+        }
+
+        // Don't auto-add dominant speaker to stage when follow-me is active
+        // as follow-me controls the stage participants
+        if (isFollowMeActive(state)) {
             break;
         }
 
