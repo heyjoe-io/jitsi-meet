@@ -1,4 +1,4 @@
-import { differenceWith, isEqual } from 'lodash-es';
+import { isEqual } from 'lodash-es';
 
 import { IStore } from '../app/types';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
@@ -7,7 +7,7 @@ import { pinParticipant } from '../base/participants/actions';
 import { getParticipantById, getPinnedParticipant } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import { updateSettings } from '../base/settings/actions';
-import { addStageParticipant, removeStageParticipant, setFilmstripVisible } from '../filmstrip/actions';
+import { setFilmstripVisible, setStageParticipants } from '../filmstrip/actions';
 import { setTileView } from '../video-layout/actions.any';
 
 import {
@@ -190,13 +190,9 @@ function _onFollowMeCommand(attributes: any = {}, id: string, store: IStore) {
         }
 
         if (!isEqual(stageParticipants, oldStageParticipants)) {
-            const toRemove = differenceWith(oldStageParticipants, stageParticipants, isEqual);
-            const toAdd = differenceWith(stageParticipants, oldStageParticipants, isEqual);
-
-            toRemove.forEach((p: { participantId: string; }) =>
-                store.dispatch(removeStageParticipant(p.participantId)));
-            toAdd.forEach((p: { participantId: string; }) =>
-                store.dispatch(addStageParticipant(p.participantId, true)));
+            // Use setStageParticipants to update the entire list at once
+            // This avoids the flicker caused by removing and re-adding participants individually
+            store.dispatch(setStageParticipants(stageParticipants));
         }
     }
 
