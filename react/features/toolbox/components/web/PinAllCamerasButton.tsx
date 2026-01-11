@@ -6,8 +6,9 @@ import { IReduxState } from '../../../app/types';
 import { translate } from '../../../base/i18n/functions';
 import { IconPin, IconPinned } from '../../../base/icons/svg';
 import { MEDIA_TYPE, VIDEO_TYPE } from '../../../base/media/constants';
-import { getRemoteParticipants, isLocalParticipantModerator } from '../../../base/participants/functions';
+import { getLocalParticipant, getRemoteParticipants, isLocalParticipantModerator } from '../../../base/participants/functions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
+import { getLocalVideoTrack, getTrackState } from '../../../base/tracks/functions.any';
 import { addStageParticipant, removeStageParticipant } from '../../../filmstrip/actions.web';
 import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
 
@@ -101,6 +102,7 @@ class PinAllCamerasButton extends AbstractButton<IProps> {
  */
 function mapStateToProps(state: IReduxState) {
     const remoteParticipants = getRemoteParticipants(state);
+    const localParticipant = getLocalParticipant(state);
     const participantsWithCamera: string[] = [];
     const stageFilmstripAvailable = isStageFilmstripAvailable(state);
     const { activeParticipants } = state['features/filmstrip'];
@@ -110,6 +112,22 @@ function mapStateToProps(state: IReduxState) {
     console.log('PinAllCamerasButton: Stage filmstrip available:', stageFilmstripAvailable);
     console.log('PinAllCamerasButton: Is moderator:', isModerator);
 
+    // Check if local participant has camera enabled
+    if (localParticipant) {
+        const tracks = getTrackState(state);
+        const localVideoTrack = getLocalVideoTrack(tracks);
+        const hasLocalCameraEnabled = localVideoTrack
+            && !localVideoTrack.muted
+            && localVideoTrack.videoType === VIDEO_TYPE.CAMERA;
+
+        console.log('PinAllCamerasButton: Local participant has camera:', hasLocalCameraEnabled, 'localVideoTrack:', localVideoTrack);
+
+        if (hasLocalCameraEnabled) {
+            participantsWithCamera.push(localParticipant.id);
+        }
+    }
+
+    // Check remote participants
     remoteParticipants.forEach((participant, id) => {
         if (participant.sources) {
             const videoSources = participant.sources.get(MEDIA_TYPE.VIDEO);
@@ -135,7 +153,7 @@ function mapStateToProps(state: IReduxState) {
         .filter(p => p.pinned)
         .map(p => p.participantId);
 
-    const allCamerasPinned = participantsWithCamera.length > 0 
+    const allCamerasPinned = participantsWithCamera.length > 0
         && participantsWithCamera.every(id => pinnedParticipantIds.includes(id));
 
     console.log('PinAllCamerasButton: Pinned participants:', pinnedParticipantIds);
