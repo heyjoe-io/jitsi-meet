@@ -332,6 +332,11 @@ public class RecordModule extends ReactContextBaseJavaModule {
             try {
                 setupEncoder();
                 videoSink = new RecordingVideoSink();
+
+                // Add the sink to the video track to receive frames
+                videoTrack.addSink(videoSink);
+                Log.d(TAG, "VideoSink added to VideoTrack");
+
                 isRecording = true;
                 startDrainThread();
                 startAudioDrainThread();
@@ -357,11 +362,8 @@ public class RecordModule extends ReactContextBaseJavaModule {
         Log.d(TAG, "Using video bitrate: " + videoBitrate);
 
         mediaMuxer = new MediaMuxer(filePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-
-        if (requestedHeight > requestedWidth) {
-            Log.d(TAG, "Setting rotation hint to 90 degrees for portrait video");
-            mediaMuxer.setOrientationHint(90);
-        }
+        // Note: Don't set rotation hint - VideoFrameDrawer handles frame rotation
+        // and the encoder dimensions already match the output orientation
 
         MediaFormat videoFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, encoderWidth, encoderHeight);
         videoFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
@@ -602,6 +604,16 @@ public class RecordModule extends ReactContextBaseJavaModule {
         isStoppingRecording = true;
         isVideoDrainRunning = false;
         isAudioDrainRunning = false;
+
+        // Remove the sink from the video track
+        if (videoTrack != null && videoSink != null) {
+            try {
+                videoTrack.removeSink(videoSink);
+                Log.d(TAG, "VideoSink removed from VideoTrack");
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing VideoSink: " + e.getMessage());
+            }
+        }
 
         if (audioCapture != null) {
             audioCapture.stop();
