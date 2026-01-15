@@ -77,7 +77,7 @@ class PinAllCamerasButton extends AbstractButton<IProps> {
                 // First, update the maxStageParticipants setting
                 dispatch(updateSettings({ maxStageParticipants: newMaxStageParticipants }));
 
-                // Then, pin all camera participants
+                // Then, pin all camera participants (addStageParticipant will handle updating existing ones)
                 participantsWithCamera.forEach(participantId => {
                     console.log('PinAllCamerasButton: Adding participant to stage:', participantId);
                     dispatch(addStageParticipant(participantId, true));

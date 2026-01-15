@@ -11,7 +11,7 @@ import { getLocalParticipant, getRemoteParticipants, isLocalParticipantModerator
 import { updateSettings } from '../../../base/settings/actions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { getLocalVideoTrack, getTrackState } from '../../../base/tracks/functions.any';
-import { addStageParticipant } from '../../../filmstrip/actions.web';
+import { addStageParticipant, removeStageParticipant } from '../../../filmstrip/actions.web';
 import { MAX_ACTIVE_PARTICIPANTS } from '../../../filmstrip/constants';
 import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
 
@@ -24,6 +24,11 @@ interface IProps extends AbstractButtonProps {
      * Array of participant IDs with camera enabled.
      */
     participantsWithCamera: string[];
+
+    /**
+     * Array of participant IDs currently pinned on stage.
+     */
+    currentlyPinnedParticipants: string[];
 
     /**
      * Current maximum stage participants setting.
@@ -47,22 +52,35 @@ class UpdatePinnedCamerasButton extends AbstractButton<IProps> {
      * @returns {void}
      */
     override _handleClick() {
-        const { dispatch, participantsWithCamera } = this.props;
+        const { dispatch, participantsWithCamera, currentlyPinnedParticipants } = this.props;
 
         sendAnalytics(createToolbarEvent('update.pinned.cameras'));
 
         const cameraCount = participantsWithCamera.length;
         const newMaxStageParticipants = Math.min(cameraCount, MAX_ACTIVE_PARTICIPANTS);
 
+        // Find participants who are pinned but no longer have cameras enabled
+        const participantsToRemove = currentlyPinnedParticipants.filter(
+            pinnedId => !participantsWithCamera.includes(pinnedId)
+        );
+
         console.log('UpdatePinnedCamerasButton: Camera count:', cameraCount);
+        console.log('UpdatePinnedCamerasButton: Currently pinned:', currentlyPinnedParticipants);
+        console.log('UpdatePinnedCamerasButton: Participants to remove:', participantsToRemove);
         console.log('UpdatePinnedCamerasButton: Setting maxStageParticipants to:', newMaxStageParticipants);
         console.log('UpdatePinnedCamerasButton: Participants to pin:', participantsWithCamera);
 
         batch(() => {
-            // First, update the maxStageParticipants setting
+            // First, remove participants who no longer have cameras enabled
+            participantsToRemove.forEach(participantId => {
+                console.log('UpdatePinnedCamerasButton: Removing participant from stage:', participantId);
+                dispatch(removeStageParticipant(participantId));
+            });
+
+            // Then, update the maxStageParticipants setting
             dispatch(updateSettings({ maxStageParticipants: newMaxStageParticipants }));
 
-            // Then, pin all camera participants
+            // Finally, pin all camera participants
             participantsWithCamera.forEach(participantId => {
                 console.log('UpdatePinnedCamerasButton: Pinning participant:', participantId);
                 dispatch(addStageParticipant(participantId, true));
@@ -95,11 +113,18 @@ function mapStateToProps(state: IReduxState) {
     const stageFilmstripAvailable = isStageFilmstripAvailable(state);
     const isModerator = isLocalParticipantModerator(state);
     const currentMaxStageParticipants = state['features/base/settings'].maxStageParticipants ?? 1;
+    const { activeParticipants } = state['features/filmstrip'];
+
+    // Get currently pinned participant IDs
+    const currentlyPinnedParticipants = activeParticipants
+        .filter(p => p.pinned)
+        .map(p => p.participantId);
 
     console.log('UpdatePinnedCamerasButton: Total remote participants:', remoteParticipants.size);
     console.log('UpdatePinnedCamerasButton: Stage filmstrip available:', stageFilmstripAvailable);
     console.log('UpdatePinnedCamerasButton: Is moderator:', isModerator);
     console.log('UpdatePinnedCamerasButton: Current maxStageParticipants:', currentMaxStageParticipants);
+    console.log('UpdatePinnedCamerasButton: Currently pinned participants:', currentlyPinnedParticipants);
 
     // Check if local participant has camera enabled
     if (localParticipant) {
@@ -139,6 +164,7 @@ function mapStateToProps(state: IReduxState) {
 
     return {
         participantsWithCamera,
+        currentlyPinnedParticipants,
         currentMaxStageParticipants,
         visible: isModerator && stageFilmstripAvailable && participantsWithCamera.length > 0
     };
