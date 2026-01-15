@@ -30,23 +30,23 @@ export const THRESHOLDS = [
     },
     {
         width: 565,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'updatepinnedcameras', 'followme' ]
     },
     {
         width: 520,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'updatepinnedcameras', 'followme' ]
     },
     {
         width: 470,
-        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'updatepinnedcameras', 'followme' ]
     },
     {
         width: 420,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
+        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'updatepinnedcameras', 'followme' ]
     },
     {
         width: 370,
-        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
+        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'updatepinnedcameras', 'followme' ]
     },
     {
         width: 225,
@@ -168,6 +168,7 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'profile',
     'raisehand',
     'pinallcameras',
+    'updatepinnedcameras',
     'followme',
     'recording',
     'security',
