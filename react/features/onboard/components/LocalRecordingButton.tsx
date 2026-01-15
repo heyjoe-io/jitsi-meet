@@ -13,7 +13,13 @@ import { addWsListener, removeWsListener, sendMessage, uploadLocalRecordingNativ
 
 console.log("NativeModules", NativeModules)
 
-const Recorder = NativeModules.Recorder
+// Use HighResRecorder for iOS (native 4K with H.265), fallback to legacy Recorder for Android
+const HighResRecorder = NativeModules.HighResRecorder
+const LegacyRecorder = NativeModules.Recorder
+
+// iOS uses HighResRecorder (direct camera capture at native resolution)
+// Android uses legacy Recorder (WebRTC-based)
+const useHighResRecorder = Platform.OS === 'ios' && HighResRecorder != null
 
 let active = true
 
@@ -50,33 +56,52 @@ const LocalRecordingButton = ({
     const startRecording = useCallback(() => {
         if (!videoTrack) { return }
 
-        // The videoTrack._constraints.width, videoTrack._constraints.height doesn't respond well to orientation on IOS
-        // Within ios I just ignore those params, and use actual video track buffer's width, height.
-        const isLandScape = Dimensions.get('screen').width > Dimensions.get('screen').height
-        let width = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
-        let height = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
-        if (!isLandScape) {
-            width = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
-            height = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
-        }
         startTime.current = new Date()
-        Recorder.startRecording(
-            videoTrack.id,
-            width,
-            height,
-            videoTrack._constraints.frameRate,
-            mirror === true,  // Explicitly convert to boolean, defaults to false
-            roomName + "_" + (+new Date()),
-            enable1080p === true  // Explicitly convert to boolean, defaults to false
-        ).then((filePath: string) => {
-            recordingFilePath.current = filePath
-            setCurrentReccordingPath(filePath)
-            startNativeLocalRecording()
-        })
-    }, [enable1080p, videoTrack, nativeLocalRecordings])
+        const fileName = roomName + "_" + (+new Date())
+
+        if (useHighResRecorder) {
+            // iOS: Use HighResRecorder for native 4K with H.265
+            // Records directly from camera at best native resolution
+            console.log('[HighResRecorder] Starting high-res recording...')
+            HighResRecorder.startRecording(
+                videoTrack.id,
+                fileName
+            ).then((result: { filePath: string, width: number, height: number }) => {
+                console.log('[HighResRecorder] Recording started:', result)
+                recordingFilePath.current = result.filePath
+                setCurrentReccordingPath(result.filePath)
+                startNativeLocalRecording()
+            }).catch((error: any) => {
+                console.error('[HighResRecorder] Error starting recording:', error)
+                Alert.alert("Recording Error", error.message || "Could not start recording")
+            })
+        } else {
+            // Android/Fallback: Use legacy Recorder (WebRTC-based)
+            const isLandScape = Dimensions.get('screen').width > Dimensions.get('screen').height
+            let width = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
+            let height = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
+            if (!isLandScape) {
+                width = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
+                height = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
+            }
+            LegacyRecorder.startRecording(
+                videoTrack.id,
+                width,
+                height,
+                videoTrack._constraints.frameRate,
+                mirror === true,
+                fileName,
+                enable1080p === true
+            ).then((filePath: string) => {
+                recordingFilePath.current = filePath
+                setCurrentReccordingPath(filePath)
+                startNativeLocalRecording()
+            })
+        }
+    }, [enable1080p, videoTrack, nativeLocalRecordings, roomName, mirror])
 
     const stopRecording = useCallback(() => {
-        Recorder.stopRecording().then((fileSize: string) => {
+        const handleStopResult = (fileSize: string) => {
             if (fileSize.startsWith("ERROR:")) {
                 Alert.alert("Error!", fileSize)
             }
@@ -92,9 +117,26 @@ const LocalRecordingButton = ({
                     }, 1000)
                 }
             }
-        })
+        }
 
-    }, [videoTrack, sessionId, talentId, autoUploadLocalRecording])
+        if (useHighResRecorder) {
+            // iOS: Use HighResRecorder
+            console.log('[HighResRecorder] Stopping recording...')
+            HighResRecorder.stopRecording().then((result: { filePath: string, fileSize: string, width: number, height: number }) => {
+                console.log('[HighResRecorder] Recording stopped:', result)
+                handleStopResult(result.fileSize)
+            }).catch((error: any) => {
+                console.error('[HighResRecorder] Error stopping recording:', error)
+                Alert.alert("Recording Error", error.message || "Could not stop recording")
+                stopNativeLocalRecording()
+            })
+        } else {
+            // Android/Fallback: Use legacy Recorder
+            LegacyRecorder.stopRecording().then((fileSize: string) => {
+                handleStopResult(fileSize)
+            })
+        }
+    }, [videoTrack, sessionId, talentId, autoUploadLocalRecording, state])
 
     const handleRecordPress = () => {
         if (!isNativeLocalRecording) {

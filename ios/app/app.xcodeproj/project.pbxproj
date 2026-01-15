@@ -14,6 +14,7 @@
 		4341A9062CF0D63200940D93 /* hermes.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; };
 		4341A9072CF0D63200940D93 /* hermes.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65962E4CF3D700FF99D2 /* RecordModule.m */; };
+		58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */; };
 		DEA0B7122D7EF16E0062A9F6 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */; };
 		DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7132D7EF7590062A9F6 /* AppDelegate.swift */; };
 		DEA9F289258A6EA800D4CD74 /* JitsiMeetSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEA9F288258A6EA800D4CD74 /* JitsiMeetSDK.framework */; };
@@ -49,14 +50,14 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4EC49B9025BED71300E76218 /* Embed App Extensions */ = {
+		4EC49B9025BED71300E76218 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -79,6 +80,8 @@
 		4EB0603B260E09D000F524C5 /* SampleUploader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SampleUploader.swift; sourceTree = "<group>"; };
 		4EC49B8625BED71300E76218 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
 		58CF65962E4CF3D700FF99D2 /* RecordModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = RecordModule.m; path = ../sdk/src/RecordModule.m; sourceTree = SOURCE_ROOT; };
+		58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = HighResRecordModule.m; path = ../sdk/src/HighResRecordModule.m; sourceTree = SOURCE_ROOT; };
+		58CF65992E4CF3D700FF99D2 /* HighResRecordModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HighResRecordModule.h; path = ../sdk/src/HighResRecordModule.h; sourceTree = SOURCE_ROOT; };
 		5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		756FCE06C08D9B947653C98A /* Pods-JitsiMeet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-JitsiMeet.debug.xcconfig"; path = "Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet.debug.xcconfig"; sourceTree = "<group>"; };
 		B3B083EB1D4955FF0069CEE7 /* app.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = app.entitlements; sourceTree = "<group>"; };
@@ -165,6 +168,8 @@
 			isa = PBXGroup;
 			children = (
 				58CF65962E4CF3D700FF99D2 /* RecordModule.m */,
+				58CF65992E4CF3D700FF99D2 /* HighResRecordModule.h */,
+				58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */,
 				B3B083EB1D4955FF0069CEE7 /* app.entitlements */,
 				0B26BE711EC5BC4D00EEFB41 /* Frameworks */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -210,7 +215,7 @@
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				0B26BE701EC5BC3C00EEFB41 /* Embed Frameworks */,
 				0BEA5C491F7B8F73000D0AB4 /* Embed Watch Content */,
-				4EC49B9025BED71300E76218 /* Embed App Extensions */,
+				4EC49B9025BED71300E76218 /* Embed Foundation Extensions */,
 				4E81688528A408E600F8FA9E /* Update App Entitlements */,
 				DE11877A21EE09640078D059 /* Setup Google reverse URL handler */,
 				0BB7DA181EC9E695007AAE98 /* Adjust ATS */,
@@ -232,8 +237,9 @@
 		83CBB9F71A601CBA00E9B192 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1240;
-				LastUpgradeCheck = 1020;
+				LastUpgradeCheck = 2620;
 				ORGANIZATIONNAME = Jitsi;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
@@ -402,13 +408,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -425,6 +427,7 @@
 				DEA0B7122D7EF16E0062A9F6 /* ViewController.swift in Sources */,
 				DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */,
 				58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */,
+				58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -453,8 +456,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
-				DEAD_CODE_STRIPPING = NO;
-				DEVELOPMENT_TEAM = U4Y6P4359B;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = src/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HeyJoe;
@@ -469,7 +471,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.hey.meet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yasith.heyjoe.dev;
 				PRODUCT_NAME = "jitsi-meet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -494,7 +496,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = U4Y6P4359B;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = src/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HeyJoe;
@@ -509,7 +511,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.hey.meet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yasith.heyjoe.dev;
 				PRODUCT_NAME = "jitsi-meet";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -547,6 +549,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -555,8 +558,10 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				CXX = "";
+				DEVELOPMENT_TEAM = CKZ5SN95YR;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -588,6 +593,7 @@
 				OTHER_LDFLAGS = "$(inherited)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USE_HERMES = true;
@@ -619,6 +625,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -627,8 +634,10 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
 				CXX = "";
+				DEVELOPMENT_TEAM = CKZ5SN95YR;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -655,6 +664,7 @@
 				OTHER_LDFLAGS = "$(inherited)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USE_HERMES = true;
