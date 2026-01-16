@@ -112,6 +112,68 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
     NSLog(@"[HeyJoeCapturer] Deallocated");
 }
 
+#pragma mark - Orientation Handling
+
+- (UIDeviceOrientation)currentDeviceOrientation {
+    // Get device orientation - must be called on main thread
+    __block UIDeviceOrientation deviceOrientation;
+    if ([NSThread isMainThread]) {
+        deviceOrientation = [UIDevice currentDevice].orientation;
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            deviceOrientation = [UIDevice currentDevice].orientation;
+        });
+    }
+    return deviceOrientation;
+}
+
+- (RTCVideoRotation)rtcVideoRotationForCurrentDeviceOrientation {
+    UIDeviceOrientation deviceOrientation = [self currentDeviceOrientation];
+
+    // Convert device orientation to RTCVideoRotation
+    // Note: AVCaptureConnection.videoOrientation is set to Portrait, so pixel buffer
+    // is already in portrait orientation. RTCVideoRotation tells WebRTC how to
+    // display the frame based on current device orientation.
+    switch (deviceOrientation) {
+        case UIDeviceOrientationPortrait:
+            return RTCVideoRotation_0;
+        case UIDeviceOrientationPortraitUpsideDown:
+            return RTCVideoRotation_180;
+        case UIDeviceOrientationLandscapeLeft:
+            // Device rotated left = screen shows landscape right
+            return RTCVideoRotation_270;
+        case UIDeviceOrientationLandscapeRight:
+            // Device rotated right = screen shows landscape left
+            return RTCVideoRotation_90;
+        default:
+            // Face up, face down, or unknown - default to no rotation
+            return RTCVideoRotation_0;
+    }
+}
+
+- (CGAffineTransform)videoTransformForCurrentDeviceOrientation {
+    UIDeviceOrientation deviceOrientation = [self currentDeviceOrientation];
+
+    // The pixel buffer is in portrait orientation (due to videoConnection.videoOrientation = Portrait)
+    // We need to apply a transform so the recorded video displays correctly based on how the user
+    // is holding the device.
+    switch (deviceOrientation) {
+        case UIDeviceOrientationPortrait:
+            return CGAffineTransformIdentity;
+        case UIDeviceOrientationPortraitUpsideDown:
+            return CGAffineTransformMakeRotation(M_PI);
+        case UIDeviceOrientationLandscapeLeft:
+            // Device rotated left = rotate video 90 degrees counter-clockwise
+            return CGAffineTransformMakeRotation(-M_PI_2);
+        case UIDeviceOrientationLandscapeRight:
+            // Device rotated right = rotate video 90 degrees clockwise
+            return CGAffineTransformMakeRotation(M_PI_2);
+        default:
+            // Face up, face down, or unknown - default to no rotation
+            return CGAffineTransformIdentity;
+    }
+}
+
 #pragma mark - Capture Control
 
 - (void)startCaptureWithDevice:(AVCaptureDevice *)device
@@ -414,11 +476,12 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                                                              sourceFormatHint:formatDesc];
     self.videoWriterInput.expectsMediaDataInRealTime = YES;
 
-    // No additional transform needed - the AVCaptureConnection's videoOrientation
-    // property already rotates the pixel buffer content to portrait orientation.
-    // Setting a transform here would cause double-rotation.
-    // See: https://developer.apple.com/library/archive/qa/qa1744/_index.html
-    self.videoWriterInput.transform = CGAffineTransformIdentity;
+    // Apply rotation transform based on current device orientation
+    // The pixel buffer is always in portrait orientation (due to videoConnection.videoOrientation = Portrait)
+    // but we need to rotate the recorded video to match how the user is holding the device
+    CGAffineTransform videoTransform = [self videoTransformForCurrentDeviceOrientation];
+    self.videoWriterInput.transform = videoTransform;
+    NSLog(@"[HeyJoeCapturer] Video writer transform set for device orientation");
 
     // Audio input - encode to AAC
     AudioChannelLayout acl;
@@ -623,7 +686,23 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
               self.assetWriter ? @"exists" : @"nil",
               (long)(self.assetWriter ? self.assetWriter.status : -1));
 
-        if (self.assetWriter && self.assetWriter.status == AVAssetWriterStatusWriting) {
+        // Handle case where recording stopped before any frames were written
+        if (self.needsWriterSetup || !self.assetWriter) {
+            NSLog(@"[HeyJoeCapturer] Recording stopped before any frames were processed");
+            [self cleanupRecordingResources];
+
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    // Return nil URL but no error - recording was just too short
+                    completionHandler(nil, nil);
+                });
+            }
+            return;
+        }
+
+        AVAssetWriterStatus status = self.assetWriter.status;
+
+        if (status == AVAssetWriterStatusWriting) {
             NSLog(@"[HeyJoeCapturer] Finishing asset writer...");
             [self.videoWriterInput markAsFinished];
             [self.audioWriterInput markAsFinished];
@@ -653,24 +732,30 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                     });
                 }
             }];
-        } else {
-            NSLog(@"[HeyJoeCapturer] Asset writer not in writing state - assetWriter=%@, status=%ld, error=%@",
-                  self.assetWriter ? @"exists" : @"nil",
-                  (long)(self.assetWriter ? self.assetWriter.status : -1),
-                  self.assetWriter.error);
-
-            // If needsWriterSetup is still YES, no frames were ever processed
-            if (self.needsWriterSetup) {
-                NSLog(@"[HeyJoeCapturer] Recording stopped before any frames were processed (needsWriterSetup still YES)");
-            }
-
+        } else if (status == AVAssetWriterStatusCompleted) {
+            // Already completed - this can happen in edge cases
+            NSLog(@"[HeyJoeCapturer] Asset writer already completed");
             [self cleanupRecordingResources];
-            NSLog(@"[HeyJoeCapturer] Cleanup complete, calling completion handler with error");
 
             if (completionHandler) {
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    NSLog(@"[HeyJoeCapturer] Completion handler called with error");
-                    completionHandler(nil, [NSError errorWithDomain:@"HeyJoeCapturer" code:8 userInfo:@{NSLocalizedDescriptionKey: @"Recording failed"}]);
+                    completionHandler(outputURL, nil);
+                });
+            }
+        } else {
+            NSLog(@"[HeyJoeCapturer] Asset writer in unexpected state: %ld, error=%@",
+                  (long)status, self.assetWriter.error);
+
+            [self cleanupRecordingResources];
+
+            if (completionHandler) {
+                NSError *writerError = self.assetWriter.error;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (writerError) {
+                        completionHandler(nil, writerError);
+                    } else {
+                        completionHandler(nil, [NSError errorWithDomain:@"HeyJoeCapturer" code:8 userInfo:@{NSLocalizedDescriptionKey: @"Recording failed - writer not in expected state"}]);
+                    }
                 });
             }
         }
@@ -694,9 +779,12 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         int64_t timeStampNs = CMTimeGetSeconds(timestamp) * NSEC_PER_SEC;
 
         // Feed to WebRTC (always, regardless of recording)
+        // Get current device orientation and convert to RTCVideoRotation
+        RTCVideoRotation rotation = [self rtcVideoRotationForCurrentDeviceOrientation];
+
         RTCCVPixelBuffer *rtcPixelBuffer = [[RTCCVPixelBuffer alloc] initWithPixelBuffer:pixelBuffer];
         RTCVideoFrame *videoFrame = [[RTCVideoFrame alloc] initWithBuffer:rtcPixelBuffer
-                                                                 rotation:RTCVideoRotation_0
+                                                                 rotation:rotation
                                                               timeStampNs:timeStampNs];
         [self.delegate capturer:self didCaptureVideoFrame:videoFrame];
 

@@ -106,9 +106,7 @@
     CMVideoDimensions dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
     RCTLog(@"[VideoCaptureController] Starting capture at %dx%d (native resolution)", dims.width, dims.height);
 
-    // Start HeyJoeVideoCapturer instead of RTCCameraVideoCapturer
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-
+    // Start HeyJoeVideoCapturer - fully async, no blocking
     __weak VideoCaptureController *weakSelf = self;
     [self.heyJoeCapturer startCaptureWithDevice:self.device
                                          format:format
@@ -120,10 +118,7 @@
                                       RCTLog(@"[VideoCaptureController] Capture started with HeyJoeVideoCapturer");
                                       weakSelf.running = YES;
                                   }
-                                  dispatch_semaphore_signal(semaphore);
                               }];
-
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 }
 
 - (void)stopCapture {
@@ -131,18 +126,14 @@
         return;
 
     RCTLog(@"[VideoCaptureController] Capture will stop");
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
+    // Fully async - no blocking
     __weak VideoCaptureController *weakSelf = self;
     [self.heyJoeCapturer stopCaptureWithCompletionHandler:^{
         RCTLog(@"[VideoCaptureController] Capture stopped");
         weakSelf.running = NO;
         weakSelf.device = nil;
-
-        dispatch_semaphore_signal(semaphore);
     }];
-
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 }
 
 - (void)switchCamera {
