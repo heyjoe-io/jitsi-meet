@@ -27,6 +27,7 @@ import {
     CLEAR_STAGE_PARTICIPANTS,
     REMOVE_STAGE_PARTICIPANT,
     RESIZE_FILMSTRIP,
+    SET_STAGE_PARTICIPANTS,
     SET_USER_FILMSTRIP_WIDTH,
     TOGGLE_PIN_STAGE_PARTICIPANT
 } from './actionTypes';
@@ -342,6 +343,24 @@ MiddlewareRegistry.register(store => next => action => {
         }
         break;
     }
+    case SET_STAGE_PARTICIPANTS: {
+        // Process the action first
+        result = next(action);
+
+        // Reapply speaker mute state after stage participants change
+        // This is needed because DOM elements may be recreated/reordered when pinning participants
+        const state = store.getState();
+        const speakerMuted = state['features/toolbox']?.speakerMuted;
+
+        if (speakerMuted) {
+            // Use a short delay to ensure DOM elements are updated
+            setTimeout(() => {
+                _reapplySpeakerMuteToAudioElements(speakerMuted);
+            }, 100);
+        }
+
+        break;
+    }
     case CLEAR_STAGE_PARTICIPANTS: {
         const activeParticipants = getActiveParticipantsIds(store.getState());
 
@@ -356,3 +375,34 @@ MiddlewareRegistry.register(store => next => action => {
 
     return result ?? next(action);
 });
+
+/**
+ * Reapplies speaker mute state to all audio elements.
+ * This is needed when DOM elements are recreated or reordered (e.g., when pinning participants).
+ *
+ * @param {boolean} speakerMuted - Whether speaker should be muted or not.
+ * @private
+ * @returns {void}
+ */
+function _reapplySpeakerMuteToAudioElements(speakerMuted: boolean) {
+    if (typeof document !== 'undefined') {
+        const audioElements = document.querySelectorAll('audio');
+
+        console.log('[SPEAKER_MUTE_FIX] Reapplying speaker mute state:', {
+            speakerMuted,
+            audioElementCount: audioElements.length
+        });
+
+        audioElements.forEach((audioElement: HTMLAudioElement, index) => {
+            const wasMuted = audioElement.muted;
+            audioElement.muted = speakerMuted;
+
+            console.log(`[SPEAKER_MUTE_FIX] Audio element ${index}:`, {
+                wasMuted,
+                nowMuted: audioElement.muted,
+                src: audioElement.src || 'no src'
+            });
+        });
+    }
+}
+

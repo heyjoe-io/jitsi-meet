@@ -11,7 +11,7 @@ import { getLocalParticipant, getRemoteParticipants, isLocalParticipantModerator
 import { updateSettings } from '../../../base/settings/actions';
 import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
 import { getLocalVideoTrack, getTrackState } from '../../../base/tracks/functions.any';
-import { addStageParticipant, removeStageParticipant } from '../../../filmstrip/actions.web';
+import { addStageParticipant, clearStageParticipants, removeStageParticipant } from '../../../filmstrip/actions.web';
 import { MAX_ACTIVE_PARTICIPANTS } from '../../../filmstrip/constants';
 import { isStageFilmstripAvailable } from '../../../filmstrip/functions.web';
 
@@ -59,28 +59,21 @@ class UpdatePinnedCamerasButton extends AbstractButton<IProps> {
         const cameraCount = participantsWithCamera.length;
         const newMaxStageParticipants = Math.min(cameraCount, MAX_ACTIVE_PARTICIPANTS);
 
-        // Find participants who are pinned but no longer have cameras enabled
-        const participantsToRemove = currentlyPinnedParticipants.filter(
-            pinnedId => !participantsWithCamera.includes(pinnedId)
-        );
-
         console.log('UpdatePinnedCamerasButton: Camera count:', cameraCount);
         console.log('UpdatePinnedCamerasButton: Currently pinned:', currentlyPinnedParticipants);
-        console.log('UpdatePinnedCamerasButton: Participants to remove:', participantsToRemove);
         console.log('UpdatePinnedCamerasButton: Setting maxStageParticipants to:', newMaxStageParticipants);
         console.log('UpdatePinnedCamerasButton: Participants to pin:', participantsWithCamera);
 
         batch(() => {
-            // First, remove participants who no longer have cameras enabled
-            participantsToRemove.forEach(participantId => {
-                console.log('UpdatePinnedCamerasButton: Removing participant from stage:', participantId);
-                dispatch(removeStageParticipant(participantId));
-            });
+            // First, clear all stage participants to ensure clean state
+            console.log('UpdatePinnedCamerasButton: Clearing all stage participants');
+            dispatch(clearStageParticipants());
 
             // Then, update the maxStageParticipants setting
+            console.log('UpdatePinnedCamerasButton: Updating maxStageParticipants to:', newMaxStageParticipants);
             dispatch(updateSettings({ maxStageParticipants: newMaxStageParticipants }));
 
-            // Finally, pin all camera participants
+            // Finally, pin only the camera-enabled participants
             participantsWithCamera.forEach(participantId => {
                 console.log('UpdatePinnedCamerasButton: Pinning participant:', participantId);
                 dispatch(addStageParticipant(participantId, true));
