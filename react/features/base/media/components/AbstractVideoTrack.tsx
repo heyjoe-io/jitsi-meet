@@ -109,8 +109,24 @@ export default class AbstractVideoTrack<P extends IProps> extends Component<P> {
                 && videoTrack
                 && videoTrack.videoType === 'desktop';
 
+        // Check if this is a local camera video (not desktop share)
+        // This enables pinch-to-zoom on the camera hardware
+        const isLocalCamera
+            = Boolean(stream
+                && videoTrack
+                && videoTrack.local
+                && videoTrack.videoType !== 'desktop');
+
+        // Debug logging
+        if (videoTrack) {
+            console.log('[AbstractVideoTrack] videoTrack.local:', videoTrack.local,
+                'videoType:', videoTrack.videoType,
+                'isLocalCamera:', isLocalCamera);
+        }
+
         return (
             <Video
+                isLocalCamera = { isLocalCamera }
                 mirror = { videoTrack?.mirror }
                 onPlaying = { this._onVideoPlaying }
 

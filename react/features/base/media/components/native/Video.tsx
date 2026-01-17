@@ -4,6 +4,7 @@ import { MediaStream, RTCView } from 'react-native-webrtc';
 
 import Pressable from '../../../react/components/native/Pressable';
 
+import CameraPinchZoom from './CameraPinchZoom';
 import VideoTransform from './VideoTransform';
 import styles from './styles';
 
@@ -11,6 +12,12 @@ import styles from './styles';
  * The type of the React {@code Component} props of {@link Video}.
  */
 interface IProps {
+    /**
+     * Whether this is a local camera video (not desktop share).
+     * When true, enables pinch-to-zoom on the camera hardware.
+     */
+    isLocalCamera?: boolean;
+
     mirror: boolean;
 
     onPlaying: Function;
@@ -109,6 +116,24 @@ export default class Video extends Component<IProps> {
                         style = { style }>
                         { rtcView }
                     </VideoTransform>
+                );
+            }
+
+            // For local camera video with onPress (main large video view),
+            // enable pinch-to-zoom on the camera hardware.
+            // This affects both WebRTC stream and local recording.
+            // Skip CameraPinchZoom for filmstrip tiles (no onPress) to allow
+            // parent gesture handlers to work for tile selection.
+            console.log('[Video] isLocalCamera:', this.props.isLocalCamera, 'mirror:', this.props.mirror, 'hasOnPress:', !!onPress);
+            if (this.props.isLocalCamera && onPress) {
+                console.log('[Video] Rendering with CameraPinchZoom wrapper');
+
+                return (
+                    <CameraPinchZoom
+                        enabled = { true }
+                        onPress = { onPress }>
+                        { rtcView }
+                    </CameraPinchZoom>
                 );
             }
 

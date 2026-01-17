@@ -962,6 +962,122 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     return bestFormat;
 }
 
+#pragma mark - Zoom Control
+
+- (void)setZoomFactor:(CGFloat)zoomFactor
+    completionHandler:(nullable void (^)(CGFloat actualZoom, CGFloat minZoom, CGFloat maxZoom, NSError * _Nullable error))completionHandler {
+
+    // Validate input - reject NaN, Infinity, or negative values
+    if (isnan(zoomFactor) || isinf(zoomFactor) || zoomFactor < 0) {
+        NSLog(@"[HeyJoeCapturer] setZoomFactor: Invalid zoom value: %f", zoomFactor);
+        if (completionHandler) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(1.0, 1.0, 1.0, [NSError errorWithDomain:@"HeyJoeCapturer"
+                                                                     code:10
+                                                                 userInfo:@{NSLocalizedDescriptionKey: @"Invalid zoom factor"}]);
+            });
+        }
+        return;
+    }
+
+    dispatch_async(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        if (!device) {
+            NSLog(@"[HeyJoeCapturer] setZoomFactor: No device available");
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler(1.0, 1.0, 1.0, [NSError errorWithDomain:@"HeyJoeCapturer"
+                                                                         code:11
+                                                                     userInfo:@{NSLocalizedDescriptionKey: @"No device available"}]);
+                });
+            }
+            return;
+        }
+
+        NSError *error = nil;
+        if ([device lockForConfiguration:&error]) {
+            CGFloat minZoom = device.minAvailableVideoZoomFactor;
+            CGFloat maxZoom = device.maxAvailableVideoZoomFactor;
+            CGFloat clampedZoom = MAX(minZoom, MIN(zoomFactor, maxZoom));
+
+            // Use smooth zoom animation (rate = zoom change per second)
+            // Rate of 4.0 means 4x zoom change per second
+            [device rampToVideoZoomFactor:clampedZoom withRate:4.0];
+
+            [device unlockForConfiguration];
+            NSLog(@"[HeyJoeCapturer] Zoom set to %.2f (range: %.2f-%.2f)", clampedZoom, minZoom, maxZoom);
+
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler(clampedZoom, minZoom, maxZoom, nil);
+                });
+            }
+        } else {
+            NSLog(@"[HeyJoeCapturer] Failed to lock device for zoom: %@", error);
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler(1.0, 1.0, 1.0, error);
+                });
+            }
+        }
+    });
+}
+
+- (void)getZoomInfoWithCompletionHandler:(void (^)(CGFloat currentZoom, CGFloat minZoom, CGFloat maxZoom))completionHandler {
+    dispatch_async(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        CGFloat currentZoom = 1.0;
+        CGFloat minZoom = 1.0;
+        CGFloat maxZoom = 1.0;
+
+        if (device) {
+            currentZoom = device.videoZoomFactor;
+            minZoom = device.minAvailableVideoZoomFactor;
+            maxZoom = device.maxAvailableVideoZoomFactor;
+        }
+
+        if (completionHandler) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(currentZoom, minZoom, maxZoom);
+            });
+        }
+    });
+}
+
+// Legacy sync getters - use with caution, prefer async versions
+- (CGFloat)currentZoomFactor {
+    __block CGFloat result = 1.0;
+    dispatch_sync(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        if (device) {
+            result = device.videoZoomFactor;
+        }
+    });
+    return result;
+}
+
+- (CGFloat)minZoomFactor {
+    __block CGFloat result = 1.0;
+    dispatch_sync(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        if (device) {
+            result = device.minAvailableVideoZoomFactor;
+        }
+    });
+    return result;
+}
+
+- (CGFloat)maxZoomFactor {
+    __block CGFloat result = 1.0;
+    dispatch_sync(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        if (device) {
+            result = device.maxAvailableVideoZoomFactor;
+        }
+    });
+    return result;
+}
+
 @end
 
 #pragma mark - VTCompressionSession Callback

@@ -54,6 +54,27 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable AVCaptureDeviceFormat *)bestFormatForDevice:(AVCaptureDevice *)device
                                         targetFrameRate:(NSInteger)fps;
 
+#pragma mark - Zoom Control
+
+/// Set the camera zoom factor (clamped to device limits) with async completion
+/// @param zoomFactor The desired zoom factor
+/// @param completionHandler Called on main thread with actual zoom applied, zoom range, and any error
+- (void)setZoomFactor:(CGFloat)zoomFactor
+    completionHandler:(nullable void (^)(CGFloat actualZoom, CGFloat minZoom, CGFloat maxZoom, NSError * _Nullable error))completionHandler;
+
+/// Get zoom info asynchronously (thread-safe)
+/// @param completionHandler Called on main thread with current zoom, min, and max values
+- (void)getZoomInfoWithCompletionHandler:(void (^)(CGFloat currentZoom, CGFloat minZoom, CGFloat maxZoom))completionHandler;
+
+/// Get the current zoom factor (synchronous, blocks on session queue)
+- (CGFloat)currentZoomFactor;
+
+/// Get the minimum zoom factor for the current device (synchronous, blocks on session queue)
+- (CGFloat)minZoomFactor;
+
+/// Get the maximum zoom factor for the current device (synchronous, blocks on session queue)
+- (CGFloat)maxZoomFactor;
+
 @end
 
 NS_ASSUME_NONNULL_END

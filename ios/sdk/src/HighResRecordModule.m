@@ -241,6 +241,62 @@ RCT_EXPORT_METHOD(getRecordingCapabilities:(RCTPromiseResolveBlock)resolve
     });
 }
 
+#pragma mark - Zoom Control
+
+RCT_EXPORT_METHOD(setZoomFactor:(double)zoomFactor
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    RCTLogInfo(@"[HighResRecorder] setZoomFactor called with: %.2f", zoomFactor);
+
+    // Validate input on JS side as well
+    if (isnan(zoomFactor) || isinf(zoomFactor)) {
+        reject(@"invalid_input", @"Zoom factor must be a valid number", nil);
+        return;
+    }
+
+    HeyJoeVideoCapturer *capturer = [HeyJoeVideoCapturer sharedInstance];
+
+    if (!capturer) {
+        reject(@"no_capturer", @"No active video capturer. Start a video call first.", nil);
+        return;
+    }
+
+    // Use async method with completion handler to get accurate values
+    [capturer setZoomFactor:(CGFloat)zoomFactor
+          completionHandler:^(CGFloat actualZoom, CGFloat minZoom, CGFloat maxZoom, NSError *error) {
+        if (error) {
+            reject(@"zoom_error", error.localizedDescription, error);
+        } else {
+            resolve(@{
+                @"zoomFactor": @(actualZoom),
+                @"minZoom": @(minZoom),
+                @"maxZoom": @(maxZoom)
+            });
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(getZoomInfo:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    HeyJoeVideoCapturer *capturer = [HeyJoeVideoCapturer sharedInstance];
+
+    if (!capturer) {
+        reject(@"no_capturer", @"No active video capturer. Start a video call first.", nil);
+        return;
+    }
+
+    // Use async method to ensure thread-safe access
+    [capturer getZoomInfoWithCompletionHandler:^(CGFloat currentZoom, CGFloat minZoom, CGFloat maxZoom) {
+        resolve(@{
+            @"currentZoom": @(currentZoom),
+            @"minZoom": @(minZoom),
+            @"maxZoom": @(maxZoom)
+        });
+    }];
+}
+
 #pragma mark - Helper Methods
 
 - (BOOL)isRecording {
