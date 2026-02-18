@@ -8,6 +8,7 @@
 @property (nonatomic, strong) NSString *currentFilePath;
 @property (nonatomic, strong) dispatch_queue_t recordingQueue;
 @property (nonatomic, strong) NSLock *stateLock;
+@property (nonatomic, assign) BOOL hasListeners;
 
 @end
 
@@ -24,8 +25,40 @@ RCT_EXPORT_MODULE(HighResRecorder);
     if (self) {
         _recordingQueue = dispatch_queue_create("com.heyjoe.highres.recording", DISPATCH_QUEUE_SERIAL);
         _stateLock = [[NSLock alloc] init];
+        _hasListeners = NO;
+
+        // Listen for recording interruptions caused by capture stop (room transitions)
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handleRecordingInterrupted:)
+                                                     name:@"HeyJoeRecordingInterruptedDuringCaptureStop"
+                                                   object:nil];
     }
     return self;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+#pragma mark - RCTEventEmitter
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[@"onRecordingInterrupted"];
+}
+
+- (void)startObserving {
+    self.hasListeners = YES;
+}
+
+- (void)stopObserving {
+    self.hasListeners = NO;
+}
+
+- (void)handleRecordingInterrupted:(NSNotification *)notification {
+    RCTLogInfo(@"[HighResRecorder] Recording interrupted during capture stop (room transition)");
+    if (self.hasListeners) {
+        [self sendEventWithName:@"onRecordingInterrupted" body:@{@"reason": @"captureStop"}];
+    }
 }
 
 #pragma mark - Input Sanitization
@@ -56,10 +89,11 @@ RCT_EXPORT_MODULE(HighResRecorder);
 
 RCT_EXPORT_METHOD(startRecording:(NSString *)trackId
                   fileName:(NSString *)fileName
+                  enable4K:(BOOL)enable4K
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
 
-    RCTLogInfo(@"[HighResRecorder] startRecording called with fileName: %@", fileName);
+    RCTLogInfo(@"[HighResRecorder] startRecording called with fileName: %@, enable4K: %d", fileName, enable4K);
 
     dispatch_async(self.recordingQueue, ^{
         // Get the shared HeyJoeVideoCapturer instance
@@ -121,6 +155,12 @@ RCT_EXPORT_METHOD(startRecording:(NSString *)trackId
 
         NSURL *outputURL = [NSURL fileURLWithPath:self.currentFilePath];
 
+        // Set recording resolution based on enable4K flag
+        capturer.recordingTargetResolution = enable4K
+            ? HeyJoeRecordingResolution4K
+            : HeyJoeRecordingResolution1080p;
+        RCTLogInfo(@"[HighResRecorder] Recording resolution set to: %s", enable4K ? "4K" : "1080p");
+
         // Start recording via the shared capturer
         [capturer startRecordingToURL:outputURL completionHandler:^(NSError *recordError) {
             if (recordError) {
@@ -169,6 +209,20 @@ RCT_EXPORT_METHOD(stopRecording:(RCTPromiseResolveBlock)resolve
                 RCTLogError(@"[HighResRecorder] Failed to stop recording: %@", error);
                 dispatch_async(dispatch_get_main_queue(), ^{
                     reject(@"recording_error", error.localizedDescription, error);
+                });
+                return;
+            }
+
+            // Handle case where recording stopped before any frames were written
+            if (!fileURL) {
+                RCTLogInfo(@"[HighResRecorder] Recording stopped before any frames were captured");
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    resolve(@{
+                        @"filePath": @"",
+                        @"fileSize": @"0 B",
+                        @"width": @(capturer.videoWidth),
+                        @"height": @(capturer.videoHeight)
+                    });
                 });
                 return;
             }
@@ -239,6 +293,37 @@ RCT_EXPORT_METHOD(getRecordingCapabilities:(RCTPromiseResolveBlock)resolve
             resolve(capabilities);
         });
     });
+}
+
+#pragma mark - Recording State Reset
+
+RCT_EXPORT_METHOD(forceResetRecordingState:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    RCTLogInfo(@"[HighResRecorder] forceResetRecordingState called");
+
+    HeyJoeVideoCapturer *capturer = [HeyJoeVideoCapturer sharedInstance];
+
+    if (capturer && capturer.isRecording) {
+        RCTLogInfo(@"[HighResRecorder] Force-stopping stale native recording");
+        [capturer stopRecordingWithCompletionHandler:^(NSURL *fileURL, NSError *error) {
+            // Completion is already dispatched to main queue by the capturer
+            if (error) {
+                RCTLogInfo(@"[HighResRecorder] Force-stop completed with error (expected): %@", error);
+            } else {
+                RCTLogInfo(@"[HighResRecorder] Force-stop completed, file: %@", fileURL);
+            }
+            resolve(@{
+                @"wasRecording": @(YES),
+                @"isRecordingNow": @(capturer.isRecording)
+            });
+        }];
+    } else {
+        resolve(@{
+            @"wasRecording": @(NO),
+            @"isRecordingNow": @(NO)
+        });
+    }
 }
 
 #pragma mark - Zoom Control

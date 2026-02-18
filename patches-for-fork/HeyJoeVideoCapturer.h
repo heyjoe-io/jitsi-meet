@@ -5,6 +5,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
+    HeyJoeRecordingResolution4K = 0,
+    HeyJoeRecordingResolution1080p = 1,
+};
+
 /**
  * HeyJoeVideoCapturer - Single-session video capturer with 4K recording support
  *
@@ -74,6 +79,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Get the maximum zoom factor for the current device (synchronous, blocks on session queue)
 - (CGFloat)maxZoomFactor;
+
+/// Target recording resolution (default: 1080p for smaller file sizes)
+@property (nonatomic, assign) HeyJoeRecordingResolution recordingTargetResolution;
 
 @end
 

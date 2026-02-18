@@ -16,6 +16,7 @@ import {
     UPLOAD_NATIVE_LOCAL_RECORDING_START,
     UPDATE_UPLOAD_PROGRESS,
     SET_UPLOAD_ERROR,
+    SET_IOS_RECORDING_QUALITY,
 } from './actionTypes';
 
 /**
@@ -34,7 +35,8 @@ PersistenceRegistry.register(STORE_NAME);
  */
 ReducerRegistry.register(STORE_NAME, (state = {
     autoUploadLocalRecording: true,
-    enable1080p: true
+    enable1080p: true,
+    iosRecordingQuality: '1080p'
 }, action) => {
     let idx = -1;
     console.log('action ', action)
@@ -151,6 +153,12 @@ ReducerRegistry.register(STORE_NAME, (state = {
             return {
                 ...state,
                 enable1080p: action.enabled
+            }
+
+        case SET_IOS_RECORDING_QUALITY:
+            return {
+                ...state,
+                iosRecordingQuality: action.quality
             }
 
         default:

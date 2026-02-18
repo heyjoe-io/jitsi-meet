@@ -43,6 +43,10 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
 
 @property (nonatomic, copy, nullable) void (^recordingCompletionHandler)(NSURL * _Nullable, NSError * _Nullable);
 
+// Per-session counters (replaces statics to avoid cross-session confusion)
+@property (nonatomic, assign) int encodedFrameCount;
+@property (nonatomic, assign) int compressedCallbackCount;
+
 @end
 
 @implementation HeyJoeVideoCapturer
@@ -73,11 +77,14 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
         _videoHeight = 720;
         _hasWrittenFirstVideoFrame = NO;
         _recordingStartTime = kCMTimeInvalid;
+        _recordingTargetResolution = HeyJoeRecordingResolution1080p;
+        _encodedFrameCount = 0;
+        _compressedCallbackCount = 0;
 
         // Set as shared instance
         [HeyJoeVideoCapturer setSharedInstance:self];
 
-        NSLog(@"[HeyJoeCapturer] Initialized with 20 Mbps bitrate control");
+        NSLog(@"[HeyJoeCapturer] Initialized with recording quality support (default: 1080p)");
     }
     return self;
 }
@@ -328,6 +335,8 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
 
         // Stop recording first if active - must properly finalize to avoid corrupted files
         if (self.isRecording) {
+            NSLog(@"[HeyJoeCapturer] Recording was active during capture stop - cleaning up and notifying JS");
+
             // Set isRecording to NO FIRST to stop accepting new frames
             self.isRecording = NO;
 
@@ -363,6 +372,13 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
             self.needsWriterSetup = NO;
             self.hasWrittenFirstVideoFrame = NO;
             self.recordingStartTime = kCMTimeInvalid;
+
+            // Notify bridge module so it can sync JS recording state
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [[NSNotificationCenter defaultCenter]
+                    postNotificationName:@"HeyJoeRecordingInterruptedDuringCaptureStop"
+                    object:nil];
+            });
         }
 
         [self.captureSession stopRunning];
@@ -386,7 +402,7 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
 
 #pragma mark - Recording Control
 
-- (BOOL)setupCompressionSessionWithWidth:(int)width height:(int)height {
+- (BOOL)setupCompressionSessionWithWidth:(int)width height:(int)height bitrate:(int)bitrate {
     // HEVC encoding requires iOS 11.0+
     if (@available(iOS 11.0, *)) {
         // iOS 11+ - use HEVC
@@ -413,8 +429,7 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
         return NO;
     }
 
-    // Set 20 Mbps bitrate for high quality recording
-    int bitrate = 20000000;
+    // Set bitrate for recording quality
     VTSessionSetProperty(_compressionSession, kVTCompressionPropertyKey_AverageBitRate,
                          (__bridge CFNumberRef)@(bitrate));
 
@@ -446,7 +461,7 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
 
     VTCompressionSessionPrepareToEncodeFrames(_compressionSession);
 
-    NSLog(@"[HeyJoeCapturer] Compression session created: %dx%d @ 20 Mbps H.265", width, height);
+    NSLog(@"[HeyJoeCapturer] Compression session created: %dx%d @ %d Mbps H.265", width, height, bitrate / 1000000);
     return YES;
 }
 
@@ -616,6 +631,26 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
             return;
         }
 
+        // Pre-recording cleanup: force-clean any stale resources from a previous
+        // session that was interrupted by a room transition
+        if (self.compressionSession) {
+            NSLog(@"[HeyJoeCapturer] Cleaning up stale compression session before new recording");
+            VTCompressionSessionInvalidate(self.compressionSession);
+            CFRelease(self.compressionSession);
+            self.compressionSession = NULL;
+        }
+        if (self.assetWriter) {
+            NSLog(@"[HeyJoeCapturer] Cleaning up stale asset writer before new recording (status=%ld)",
+                  (long)self.assetWriter.status);
+            [self.assetWriter cancelWriting];
+            self.assetWriter = nil;
+            self.videoWriterInput = nil;
+            self.audioWriterInput = nil;
+        }
+        self.needsWriterSetup = NO;
+        self.hasWrittenFirstVideoFrame = NO;
+        self.recordingStartTime = kCMTimeInvalid;
+
         // Delete existing file if present
         NSFileManager *fileManager = [NSFileManager defaultManager];
         if ([fileManager fileExistsAtPath:outputURL.path]) {
@@ -625,6 +660,8 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
         self.recordingURL = outputURL;
         self.hasWrittenFirstVideoFrame = NO;
         self.recordingStartTime = kCMTimeInvalid;
+        self.encodedFrameCount = 0;
+        self.compressedCallbackCount = 0;
 
         // Defer BOTH compression session AND asset writer setup until first pixel buffer
         // This ensures we use the actual pixel buffer dimensions (which may be rotated
@@ -632,7 +669,9 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
         self.needsWriterSetup = YES;
 
         self.isRecording = YES;
-        NSLog(@"[HeyJoeCapturer] Recording started at 20 Mbps to: %@ (writer setup deferred)", outputURL.path);
+        NSLog(@"[HeyJoeCapturer] Recording started (target: %s) to: %@ (writer setup deferred)",
+              self.recordingTargetResolution == HeyJoeRecordingResolution4K ? "4K" : "1080p",
+              outputURL.path);
 
         if (completionHandler) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -743,18 +782,23 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                 });
             }
         } else {
+            // Capture error BEFORE cleanup nils the assetWriter
+            NSError *writerError = self.assetWriter.error;
+            AVAssetWriterStatus writerStatus = status;
             NSLog(@"[HeyJoeCapturer] Asset writer in unexpected state: %ld, error=%@",
-                  (long)status, self.assetWriter.error);
+                  (long)writerStatus, writerError);
 
             [self cleanupRecordingResources];
 
             if (completionHandler) {
-                NSError *writerError = self.assetWriter.error;
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (writerError) {
                         completionHandler(nil, writerError);
                     } else {
-                        completionHandler(nil, [NSError errorWithDomain:@"HeyJoeCapturer" code:8 userInfo:@{NSLocalizedDescriptionKey: @"Recording failed - writer not in expected state"}]);
+                        NSString *desc = [NSString stringWithFormat:
+                            @"Recording failed - writer in state %ld (0=Unknown,3=Failed,4=Cancelled)",
+                            (long)writerStatus];
+                        completionHandler(nil, [NSError errorWithDomain:@"HeyJoeCapturer" code:8 userInfo:@{NSLocalizedDescriptionKey: desc}]);
                     }
                 });
             }
@@ -778,11 +822,32 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         CMTime timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
         int64_t timeStampNs = CMTimeGetSeconds(timestamp) * NSEC_PER_SEC;
 
-        // Feed to WebRTC (always, regardless of recording)
-        // Get current device orientation and convert to RTCVideoRotation
+        // Feed to WebRTC at 720p (always, regardless of recording)
+        // Camera stays at native resolution for local recording, but WebRTC
+        // only needs 720p. RTCCVPixelBuffer handles the scaling efficiently.
         RTCVideoRotation rotation = [self rtcVideoRotationForCurrentDeviceOrientation];
 
-        RTCCVPixelBuffer *rtcPixelBuffer = [[RTCCVPixelBuffer alloc] initWithPixelBuffer:pixelBuffer];
+        int pbWidth = (int)CVPixelBufferGetWidth(pixelBuffer);
+        int pbHeight = (int)CVPixelBufferGetHeight(pixelBuffer);
+
+        // Target 720p for WebRTC: 1280x720 landscape, 720x1280 portrait
+        int adaptedWidth, adaptedHeight;
+        if (pbWidth > pbHeight) {
+            adaptedWidth = MIN(pbWidth, 1280);
+            adaptedHeight = MIN(pbHeight, 720);
+        } else {
+            adaptedWidth = MIN(pbWidth, 720);
+            adaptedHeight = MIN(pbHeight, 1280);
+        }
+
+        RTCCVPixelBuffer *rtcPixelBuffer = [[RTCCVPixelBuffer alloc]
+            initWithPixelBuffer:pixelBuffer
+                   adaptedWidth:adaptedWidth
+                  adaptedHeight:adaptedHeight
+                      cropWidth:pbWidth
+                     cropHeight:pbHeight
+                          cropX:0
+                          cropY:0];
         RTCVideoFrame *videoFrame = [[RTCVideoFrame alloc] initWithBuffer:rtcPixelBuffer
                                                                  rotation:rotation
                                                               timeStampNs:timeStampNs];
@@ -791,12 +856,34 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         // If recording, encode frame with VTCompressionSession
         if (self.isRecording) {
             // Deferred compression session setup - use actual pixel buffer dimensions
+            // Apply resolution cap based on recordingTargetResolution setting
             if (self.needsWriterSetup && !self.compressionSession) {
                 int actualWidth = (int)CVPixelBufferGetWidth(pixelBuffer);
                 int actualHeight = (int)CVPixelBufferGetHeight(pixelBuffer);
-                NSLog(@"[HeyJoeCapturer] Setting up compression session with actual pixel buffer dimensions: %dx%d", actualWidth, actualHeight);
+                NSLog(@"[HeyJoeCapturer] Actual pixel buffer dimensions: %dx%d", actualWidth, actualHeight);
 
-                if (![self setupCompressionSessionWithWidth:actualWidth height:actualHeight]) {
+                int targetWidth = actualWidth;
+                int targetHeight = actualHeight;
+                int bitrate = 20000000; // 20 Mbps for 4K
+
+                if (self.recordingTargetResolution == HeyJoeRecordingResolution1080p) {
+                    if (actualWidth > actualHeight) {
+                        // Landscape
+                        targetWidth = MIN(actualWidth, 1920);
+                        targetHeight = MIN(actualHeight, 1080);
+                    } else {
+                        // Portrait
+                        targetWidth = MIN(actualWidth, 1080);
+                        targetHeight = MIN(actualHeight, 1920);
+                    }
+                    bitrate = 8000000; // 8 Mbps for 1080p
+                }
+
+                NSLog(@"[HeyJoeCapturer] Setting up compression session: %dx%d @ %d Mbps (target: %s)",
+                      targetWidth, targetHeight, bitrate / 1000000,
+                      self.recordingTargetResolution == HeyJoeRecordingResolution4K ? "4K" : "1080p");
+
+                if (![self setupCompressionSessionWithWidth:targetWidth height:targetHeight bitrate:bitrate]) {
                     NSLog(@"[HeyJoeCapturer] Failed to setup compression session");
                     self.isRecording = NO;
                     self.needsWriterSetup = NO;
@@ -805,18 +892,13 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
             }
 
             if (self.compressionSession) {
-                static int frameCount = 0;
-                // Reset frame count at start of new recording
-                if (self.needsWriterSetup) {
-                    frameCount = 0;
-                }
-                frameCount++;
-                if (frameCount <= 3) {
+                self.encodedFrameCount++;
+                if (self.encodedFrameCount <= 3) {
                     size_t pbWidth = CVPixelBufferGetWidth(pixelBuffer);
                     size_t pbHeight = CVPixelBufferGetHeight(pixelBuffer);
-                    NSLog(@"[HeyJoeCapturer] Frame #%d - PixelBuffer: %zux%zu", frameCount, pbWidth, pbHeight);
-                } else if (frameCount % 30 == 0) {
-                    NSLog(@"[HeyJoeCapturer] Encoding video frame #%d", frameCount);
+                    NSLog(@"[HeyJoeCapturer] Frame #%d - PixelBuffer: %zux%zu", self.encodedFrameCount, pbWidth, pbHeight);
+                } else if (self.encodedFrameCount % 30 == 0) {
+                    NSLog(@"[HeyJoeCapturer] Encoding video frame #%d", self.encodedFrameCount);
                 }
                 OSStatus status = VTCompressionSessionEncodeFrame(
                     self.compressionSession,
@@ -1087,10 +1169,11 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                                        OSStatus status,
                                        VTEncodeInfoFlags infoFlags,
                                        CMSampleBufferRef sampleBuffer) {
-    static int callbackCount = 0;
-    callbackCount++;
-    if (callbackCount <= 3 || callbackCount % 30 == 0) {
-        NSLog(@"[HeyJoeCapturer] Compression callback #%d, status=%d", callbackCount, (int)status);
+    if (!outputCallbackRefCon) return;
+    HeyJoeVideoCapturer *capturer = (__bridge HeyJoeVideoCapturer *)outputCallbackRefCon;
+    capturer.compressedCallbackCount++;
+    if (capturer.compressedCallbackCount <= 3 || capturer.compressedCallbackCount % 30 == 0) {
+        NSLog(@"[HeyJoeCapturer] Compression callback #%d, status=%d", capturer.compressedCallbackCount, (int)status);
     }
 
     if (status != noErr) {
@@ -1106,7 +1189,6 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
     // Retain sample buffer for async handling
     CFRetain(sampleBuffer);
 
-    HeyJoeVideoCapturer *capturer = (__bridge HeyJoeVideoCapturer *)outputCallbackRefCon;
     [capturer handleCompressedFrame:sampleBuffer];
 
     CFRelease(sampleBuffer);

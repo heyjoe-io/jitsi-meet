@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 #import <AVFoundation/AVFoundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -17,9 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
  * - Both can access the camera simultaneously on iOS
  * - Uses AVCaptureMovieFileOutput for optimal performance
  */
-@interface HighResRecordModule : NSObject <RCTBridgeModule>
-
-@property (nonatomic, weak) RCTBridge *bridge;
+@interface HighResRecordModule : RCTEventEmitter <RCTBridgeModule>
 
 // Recording state (readonly for external access)
 @property (nonatomic, assign, readonly) BOOL isRecording;

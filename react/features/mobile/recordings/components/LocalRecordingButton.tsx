@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, View, Text, NativeModules, Dimensions,
+import { Alert, View, Text, NativeModules, NativeEventEmitter, Dimensions,
     TouchableOpacity, Platform } from 'react-native'
 import { connect } from 'react-redux'
 import DeviceInfo from 'react-native-device-info'
@@ -20,6 +20,11 @@ const LegacyRecorder = NativeModules.Recorder
 // iOS uses HighResRecorder (direct camera capture at native resolution)
 // Android uses legacy Recorder (WebRTC-based)
 const useHighResRecorder = Platform.OS === 'ios' && HighResRecorder != null
+
+// Event emitter for native recording interruption events (iOS only)
+const highResRecorderEmitter = useHighResRecorder
+    ? new NativeEventEmitter(HighResRecorder)
+    : null
 
 let active = true
 
@@ -47,7 +52,8 @@ const LocalRecordingButton = ({
     stopNativeLocalRecording,
     addNativeLocalRecording,
     uploadRecording,
-    enable1080p
+    enable1080p,
+    iosRecordingQuality
 }) => {
     const recordingFilePath = useRef(currentRecordingPath)
     const [enabled, setEnabled]= useState(false)
@@ -61,12 +67,19 @@ const LocalRecordingButton = ({
 
         if (useHighResRecorder) {
             // iOS: Use HighResRecorder for native 4K with H.265
-            // Records directly from camera at best native resolution
-            console.log('[HighResRecorder] Starting high-res recording...')
-            HighResRecorder.startRecording(
-                videoTrack.id,
-                fileName
-            ).then((result: { filePath: string, width: number, height: number }) => {
+            // Pre-flight: force-reset any stale native recording state from room transitions
+            const enable4K = iosRecordingQuality === '4K'
+            console.log(`[HighResRecorder] Starting recording (${enable4K ? '4K' : '1080p'})...`)
+            HighResRecorder.forceResetRecordingState().then((resetResult: any) => {
+                if (resetResult.wasRecording) {
+                    console.log('[HighResRecorder] Cleaned up stale recording state before starting')
+                }
+                return HighResRecorder.startRecording(
+                    videoTrack.id,
+                    fileName,
+                    enable4K
+                )
+            }).then((result: { filePath: string, width: number, height: number }) => {
                 console.log('[HighResRecorder] Recording started:', result)
                 recordingFilePath.current = result.filePath
                 setCurrentReccordingPath(result.filePath)
@@ -98,7 +111,7 @@ const LocalRecordingButton = ({
                 startNativeLocalRecording()
             })
         }
-    }, [enable1080p, videoTrack, nativeLocalRecordings, roomName, mirror])
+    }, [enable1080p, iosRecordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror])
 
     const stopRecording = useCallback(() => {
         const handleStopResult = (fileSize: string) => {
@@ -187,6 +200,38 @@ const LocalRecordingButton = ({
         }
     }, [enabled, startRecording, stopRecording])
 
+    // Listen for native recording interruption events (room transitions on iOS)
+    useEffect(() => {
+        if (!highResRecorderEmitter) return
+        const subscription = highResRecorderEmitter.addListener(
+            'onRecordingInterrupted',
+            (event: any) => {
+                console.log('[HighResRecorder] Recording interrupted by native:', event.reason)
+                if (isNativeLocalRecording) {
+                    stopNativeLocalRecording()
+                }
+            }
+        )
+        return () => {
+            subscription.remove()
+        }
+    }, [isNativeLocalRecording, stopNativeLocalRecording])
+
+    // Guard: when videoTrack is lost during a room transition, sync recording state
+    useEffect(() => {
+        if (!videoTrack && isNativeLocalRecording && useHighResRecorder) {
+            console.log('[HighResRecorder] videoTrack lost while recording - checking native state')
+            HighResRecorder.getRecordingCapabilities().then((caps: any) => {
+                if (!caps.isRecording) {
+                    console.log('[HighResRecorder] Native not recording - syncing JS state')
+                    stopNativeLocalRecording()
+                }
+            }).catch(() => {
+                stopNativeLocalRecording()
+            })
+        }
+    }, [videoTrack, isNativeLocalRecording, stopNativeLocalRecording])
+
     useEffect(() => {
         if (!sessionId || !talentId) return
         let intervalHandler: NodeJS.Timeout | null = null
@@ -240,6 +285,7 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
     const sessionId = state['features/talent'].session?._id
     const talentId = state['features/talent'].talent?._id
     const enable1080p = state['features/talent'].enable1080p
+    const iosRecordingQuality = state['features/talent'].iosRecordingQuality || '1080p'
 
     const roomName = state['features/base/conference'].room
 
@@ -258,7 +304,8 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
         autoUploadLocalRecording,
         sessionId,
         talentId,
-        enable1080p
+        enable1080p,
+        iosRecordingQuality
     };
 }
 
