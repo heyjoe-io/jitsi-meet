@@ -32,6 +32,12 @@ RCT_EXPORT_MODULE(HighResRecorder);
                                                  selector:@selector(handleRecordingInterrupted:)
                                                      name:@"HeyJoeRecordingInterruptedDuringCaptureStop"
                                                    object:nil];
+
+        // Listen for mid-stream recording failures (writer setup/append failures)
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handleRecordingFailed:)
+                                                     name:@"HeyJoeRecordingFailedMidStream"
+                                                   object:nil];
     }
     return self;
 }
@@ -43,7 +49,7 @@ RCT_EXPORT_MODULE(HighResRecorder);
 #pragma mark - RCTEventEmitter
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"onRecordingInterrupted"];
+    return @[@"onRecordingInterrupted", @"onRecordingFailed"];
 }
 
 - (void)startObserving {
@@ -58,6 +64,14 @@ RCT_EXPORT_MODULE(HighResRecorder);
     RCTLogInfo(@"[HighResRecorder] Recording interrupted during capture stop (room transition)");
     if (self.hasListeners) {
         [self sendEventWithName:@"onRecordingInterrupted" body:@{@"reason": @"captureStop"}];
+    }
+}
+
+- (void)handleRecordingFailed:(NSNotification *)notification {
+    NSString *errorMsg = notification.userInfo[@"error"] ?: @"Unknown error";
+    RCTLogInfo(@"[HighResRecorder] Recording failed mid-stream: %@", errorMsg);
+    if (self.hasListeners) {
+        [self sendEventWithName:@"onRecordingFailed" body:@{@"reason": @"writerFailed", @"error": errorMsg}];
     }
 }
 
@@ -286,7 +300,8 @@ RCT_EXPORT_METHOD(getRecordingCapabilities:(RCTPromiseResolveBlock)resolve
             @"codec": @"H.265/HEVC",
             @"supportsHEVC": @(YES),
             @"isRecording": @(isRecording),
-            @"capturerActive": @(capturer != nil)
+            @"capturerActive": @(capturer != nil),
+            @"isCapturing": @(capturer != nil && capturer.isCapturing)
         };
 
         dispatch_async(dispatch_get_main_queue(), ^{

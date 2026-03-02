@@ -86,7 +86,7 @@ const LocalRecordingButton = ({
                 startNativeLocalRecording()
             }).catch((error: any) => {
                 console.error('[HighResRecorder] Error starting recording:', error)
-                Alert.alert("Recording Error", error.message || "Could not start recording")
+                Alert.alert("Recording Error", `Could not start recording: ${error.message || "Unknown error"}`)
             })
         } else {
             // Android/Fallback: Use legacy Recorder (WebRTC-based)
@@ -140,7 +140,7 @@ const LocalRecordingButton = ({
                 handleStopResult(result.fileSize)
             }).catch((error: any) => {
                 console.error('[HighResRecorder] Error stopping recording:', error)
-                Alert.alert("Recording Error", error.message || "Could not stop recording")
+                Alert.alert("Recording Error", `Could not stop recording: ${error.message || "Unknown error"}`)
                 stopNativeLocalRecording()
             })
         } else {
@@ -183,11 +183,39 @@ const LocalRecordingButton = ({
 
     useEffect(() => {
         if (!enabled) return
-        const wsHandler = (ev: any) => { 
+        const wsHandler = (ev: any) => {
             const type = ev.message?.type
             switch (type) {
                 case 'start-local-recording':
-                    startRecording()
+                    // When triggered via WS (from CD), the message may arrive before
+                    // the capture session is fully ready after a room transition.
+                    // Check native capturer readiness and retry if not ready.
+                    if (useHighResRecorder) {
+                        const attemptStart = (retries: number) => {
+                            HighResRecorder.getRecordingCapabilities()
+                                .then((caps: any) => {
+                                    if (caps.isCapturing && !caps.isRecording) {
+                                        startRecording()
+                                    } else if (retries < 3) {
+                                        console.log(`[HighResRecorder] WS start: capturer not ready (isCapturing=${caps.isCapturing}, isRecording=${caps.isRecording}), retry ${retries + 1}/3`)
+                                        setTimeout(() => attemptStart(retries + 1), 1500)
+                                    } else {
+                                        console.warn('[HighResRecorder] WS start: capturer not ready after 3 retries, attempting anyway')
+                                        startRecording()
+                                    }
+                                })
+                                .catch(() => {
+                                    if (retries < 3) {
+                                        setTimeout(() => attemptStart(retries + 1), 1500)
+                                    } else {
+                                        startRecording()
+                                    }
+                                })
+                        }
+                        attemptStart(0)
+                    } else {
+                        startRecording()
+                    }
                     break
                 case 'stop-local-recording':
                     stopRecording()
@@ -217,6 +245,26 @@ const LocalRecordingButton = ({
         }
     }, [isNativeLocalRecording, stopNativeLocalRecording])
 
+    // Listen for mid-stream recording failures (writer setup/append errors).
+    // Without this, JS thinks recording is active but native has already stopped,
+    // causing the error to only surface when stop is triggered (often from CD via WS).
+    useEffect(() => {
+        if (!highResRecorderEmitter) return
+        const subscription = highResRecorderEmitter.addListener(
+            'onRecordingFailed',
+            (event: any) => {
+                console.error('[HighResRecorder] Recording failed mid-stream:', event.error)
+                if (isNativeLocalRecording) {
+                    stopNativeLocalRecording()
+                    Alert.alert("Recording Error", `Recording failed: ${event.error || "Unknown error"}`)
+                }
+            }
+        )
+        return () => {
+            subscription.remove()
+        }
+    }, [isNativeLocalRecording, stopNativeLocalRecording])
+
     // Guard: when videoTrack is lost during a room transition, sync recording state
     useEffect(() => {
         if (!videoTrack && isNativeLocalRecording && useHighResRecorder) {
@@ -231,6 +279,21 @@ const LocalRecordingButton = ({
             })
         }
     }, [videoTrack, isNativeLocalRecording, stopNativeLocalRecording])
+
+    // Fix #4: Sync recording state on mount / new room join.
+    // If the component remounts after a room transition and JS still thinks
+    // recording is active (notification was missed), check native state and reset.
+    useEffect(() => {
+        if (!useHighResRecorder || !videoTrack) return
+        if (isNativeLocalRecording) {
+            HighResRecorder.getRecordingCapabilities().then((caps: any) => {
+                if (!caps.isRecording) {
+                    console.log('[HighResRecorder] Mount sync: JS says recording but native is not - resetting')
+                    stopNativeLocalRecording()
+                }
+            }).catch(() => {})
+        }
+    }, [videoTrack])
 
     useEffect(() => {
         if (!sessionId || !talentId) return
