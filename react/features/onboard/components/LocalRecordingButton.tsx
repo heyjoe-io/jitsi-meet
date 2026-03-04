@@ -125,9 +125,7 @@ const LocalRecordingButton = ({
                 const upKey = `${state['features/talent'].studio?.jitsi_meeting_id}_${formatDateString(startTime.current?.toISOString())}_to_${formatDateString(endTime.toISOString())}.${ext}`
                 addNativeLocalRecording(recordingFilePath.current, fileSize, startTime.current, endTime, upKey)
                 if (autoUploadLocalRecording) {
-                    setTimeout(() => {
-                        uploadRecording(state, recordingFilePath.current, sessionId, talentId, upKey)
-                    }, 1000)
+                    uploadRecording(state, recordingFilePath.current, sessionId, talentId, upKey)
                 }
             }
         }
