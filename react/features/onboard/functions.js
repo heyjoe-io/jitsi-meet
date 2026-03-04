@@ -407,15 +407,27 @@ export async function uploadLocalRecordingNative(
         }
 
         console.log('📦 FormData prepared successfully');
-        
+
+        // Notify CD that upload is starting
+        sendMessage(`talent-session-${sessionId}`, { type: 'upload-started', talentId, sessionId });
+
+        // Track last sent progress bucket to throttle WS messages
+        let lastSentProgress = -1;
+
         // Upload file
-        await uploadFile(fullUrl, formData, token, 
+        await uploadFile(fullUrl, formData, token,
             (progress) => {
                 dispatch({
                     type: UPDATE_UPLOAD_PROGRESS,
                     key: localFilePath,
                     progress
                 });
+                // Throttle WS progress messages to 10% increments
+                const bucket = Math.floor(progress / 10) * 10;
+                if (bucket !== lastSentProgress) {
+                    lastSentProgress = bucket;
+                    sendMessage(`talent-session-${sessionId}`, { type: 'upload-progress', talentId, sessionId, progress });
+                }
             },
             (error) => {
                 console.error('🚨 Upload failed with error:', {
@@ -425,6 +437,7 @@ export async function uploadLocalRecordingNative(
                     status: error.response?.status,
                     stack: error.stack
                 });
+                // upload-failed WS message is sent by the outer catch block
                 dispatch({
                     type: SET_UPLOAD_ERROR,
                     key: localFilePath,
@@ -439,6 +452,7 @@ export async function uploadLocalRecordingNative(
             (result) => {
                 console.log('🎉 Upload completed successfully!');
                 console.log('📥 Server response:', JSON.stringify(result, null, 2));
+                sendMessage(`talent-session-${sessionId}`, { type: 'upload-complete', talentId, sessionId });
                 dispatch({
                     type: UPLOAD_NATIVE_LOCAL_RECORDING_FINISH,
                     key: localFilePath,
@@ -454,6 +468,7 @@ export async function uploadLocalRecordingNative(
             stack: error.stack,
             toString: error.toString()
         });
+        sendMessage(`talent-session-${sessionId}`, { type: 'upload-failed', talentId, sessionId });
         dispatch({
             type: SET_UPLOAD_ERROR,
             key: localFilePath,
