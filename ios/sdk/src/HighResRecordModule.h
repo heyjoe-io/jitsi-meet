@@ -8,21 +8,16 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * HighResRecordModule - High resolution local recording for HeyJoe
  *
- * Creates an independent AVCaptureSession for recording at native resolution
- * (4K where supported) using hardware HEVC encoding, completely separate from
- * WebRTC's streaming session.
+ * Uses the shared HeyJoeVideoCapturer singleton for recording at native
+ * resolution (4K where supported) using hardware HEVC encoding.
  *
- * Architecture (Riverside-style):
- * - WebRTC uses its own capture session for low-res streaming
- * - HighResRecorder creates a separate session for high-res local recording
- * - Both can access the camera simultaneously on iOS
- * - Uses AVCaptureMovieFileOutput for optimal performance
+ * No internal queues or locks — delegates all recording state to the
+ * capturer's recordingQueue and uses atomic recordingActive for fast checks.
  */
 @interface HighResRecordModule : RCTEventEmitter <RCTBridgeModule>
 
-// Recording state (readonly for external access)
+/// Recording state — derived from the shared capturer's recordingActive flag
 @property (nonatomic, assign, readonly) BOOL isRecording;
-@property (nonatomic, strong, readonly, nullable) NSString *currentFilePath;
 
 @end
 
