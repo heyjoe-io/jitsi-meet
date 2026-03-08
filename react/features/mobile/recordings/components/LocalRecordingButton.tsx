@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, View, Text, NativeModules, NativeEventEmitter,
+import { Alert, View, Text, NativeModules, NativeEventEmitter, Dimensions,
     TouchableOpacity, Platform } from 'react-native'
 import { connect } from 'react-redux'
 import DeviceInfo from 'react-native-device-info'
@@ -13,13 +13,15 @@ import { addWsListener, removeWsListener, sendMessage, uploadLocalRecordingNativ
 
 console.log("NativeModules", NativeModules)
 
-// HighResRecorder is available on both iOS and Android
+// Use HighResRecorder for iOS (native 4K with H.265), fallback to legacy Recorder for Android
 const HighResRecorder = NativeModules.HighResRecorder
+const LegacyRecorder = NativeModules.Recorder
 
-// Use HighResRecorder on any platform where it's available
-const useHighResRecorder = HighResRecorder != null
+// iOS uses HighResRecorder (direct camera capture at native resolution)
+// Android uses legacy Recorder (WebRTC-based)
+const useHighResRecorder = Platform.OS === 'ios' && HighResRecorder != null
 
-// Event emitter for native recording events (interruption, failure)
+// Event emitter for native recording interruption events (iOS only)
 const highResRecorderEmitter = useHighResRecorder
     ? new NativeEventEmitter(HighResRecorder)
     : null
@@ -50,7 +52,8 @@ const LocalRecordingButton = ({
     stopNativeLocalRecording,
     addNativeLocalRecording,
     uploadRecording,
-    recordingQuality
+    enable1080p,
+    iosRecordingQuality
 }) => {
     const recordingFilePath = useRef(currentRecordingPath)
     const [enabled, setEnabled]= useState(false)
@@ -63,9 +66,9 @@ const LocalRecordingButton = ({
         const fileName = roomName + "_" + (+new Date())
 
         if (useHighResRecorder) {
-            // Use HighResRecorder for native high-res recording (both iOS and Android)
+            // iOS: Use HighResRecorder for native 4K with H.265
             // Pre-flight: force-reset any stale native recording state from room transitions
-            const enable4K = recordingQuality === '4K'
+            const enable4K = iosRecordingQuality === '4K'
             console.log(`[HighResRecorder] Starting recording (${enable4K ? '4K' : '1080p'})...`)
             HighResRecorder.forceResetRecordingState().then((resetResult: any) => {
                 if (resetResult.wasRecording) {
@@ -85,8 +88,30 @@ const LocalRecordingButton = ({
                 console.error('[HighResRecorder] Error starting recording:', error)
                 Alert.alert("Recording Error", `Could not start recording: ${error.message || "Unknown error"}`)
             })
+        } else {
+            // Android/Fallback: Use legacy Recorder (WebRTC-based)
+            const isLandScape = Dimensions.get('screen').width > Dimensions.get('screen').height
+            let width = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
+            let height = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
+            if (!isLandScape) {
+                width = Math.min(videoTrack._constraints.width, videoTrack._constraints.height)
+                height = Math.max(videoTrack._constraints.width, videoTrack._constraints.height)
+            }
+            LegacyRecorder.startRecording(
+                videoTrack.id,
+                width,
+                height,
+                videoTrack._constraints.frameRate,
+                mirror === true,
+                fileName,
+                enable1080p === true
+            ).then((filePath: string) => {
+                recordingFilePath.current = filePath
+                setCurrentReccordingPath(filePath)
+                startNativeLocalRecording()
+            })
         }
-    }, [recordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror])
+    }, [enable1080p, iosRecordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror])
 
     const stopRecording = useCallback(() => {
         const handleStopResult = (fileSize: string) => {
@@ -108,6 +133,7 @@ const LocalRecordingButton = ({
         }
 
         if (useHighResRecorder) {
+            // iOS: Use HighResRecorder
             console.log('[HighResRecorder] Stopping recording...')
             HighResRecorder.stopRecording().then((result: { filePath: string, fileSize: string, width: number, height: number }) => {
                 console.log('[HighResRecorder] Recording stopped:', result)
@@ -116,6 +142,11 @@ const LocalRecordingButton = ({
                 console.error('[HighResRecorder] Error stopping recording:', error)
                 Alert.alert("Recording Error", `Could not stop recording: ${error.message || "Unknown error"}`)
                 stopNativeLocalRecording()
+            })
+        } else {
+            // Android/Fallback: Use legacy Recorder
+            LegacyRecorder.stopRecording().then((fileSize: string) => {
+                handleStopResult(fileSize)
             })
         }
     }, [videoTrack, sessionId, talentId, autoUploadLocalRecording, state])
@@ -222,13 +253,10 @@ const LocalRecordingButton = ({
         const subscription = highResRecorderEmitter.addListener(
             'onRecordingFailed',
             (event: any) => {
-                console.error('[HighResRecorder] Recording failed mid-stream:', event.error, event)
+                console.error('[HighResRecorder] Recording failed mid-stream:', event.error)
                 if (isNativeLocalRecording) {
                     stopNativeLocalRecording()
-                    const point = event.failurePoint ? ` [${event.failurePoint}]` : ''
-                    const code = event.code ? ` (${event.domain} ${event.code})` : ''
-                    const underlying = event.underlyingError ? `\n\nUnderlying: ${event.underlyingError}` : ''
-                    Alert.alert("Recording Error", `Recording failed${point}: ${event.error || "Unknown error"}${code}${underlying}`)
+                    Alert.alert("Recording Error", `Recording failed: ${event.error || "Unknown error"}`)
                 }
             }
         )
@@ -319,7 +347,8 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
     const autoUploadLocalRecording = state['features/talent'].autoUploadLocalRecording
     const sessionId = state['features/talent'].session?._id
     const talentId = state['features/talent'].talent?._id
-    const recordingQuality = state['features/talent'].recordingQuality || '1080p'
+    const enable1080p = state['features/talent'].enable1080p
+    const iosRecordingQuality = state['features/talent'].iosRecordingQuality || '1080p'
 
     const roomName = state['features/base/conference'].room
 
@@ -338,7 +367,8 @@ function _mapStateToProps(state: IReduxState, ownProps: any) {
         autoUploadLocalRecording,
         sessionId,
         talentId,
-        recordingQuality
+        enable1080p,
+        iosRecordingQuality
     };
 }
 
