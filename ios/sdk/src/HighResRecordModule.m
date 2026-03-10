@@ -65,9 +65,20 @@ RCT_EXPORT_MODULE(HighResRecorder);
 
 - (void)handleRecordingFailed:(NSNotification *)notification {
     NSString *errorMsg = notification.userInfo[@"error"] ?: @"Unknown error";
-    RCTLogInfo(@"[HighResRecorder] Recording failed mid-stream: %@", errorMsg);
+    RCTLogInfo(@"[HighResRecorder] Recording failed mid-stream: %@ (point=%@, domain=%@, code=%@)",
+               errorMsg,
+               notification.userInfo[@"failurePoint"] ?: @"unknown",
+               notification.userInfo[@"domain"] ?: @"",
+               notification.userInfo[@"code"] ?: @0);
     if (self.hasListeners) {
-        [self sendEventWithName:@"onRecordingFailed" body:@{@"reason": @"writerFailed", @"error": errorMsg}];
+        NSMutableDictionary *body = [NSMutableDictionary dictionary];
+        body[@"reason"] = @"writerFailed";
+        body[@"error"] = notification.userInfo[@"error"] ?: @"Unknown error";
+        body[@"domain"] = notification.userInfo[@"domain"] ?: @"";
+        body[@"code"] = notification.userInfo[@"code"] ?: @0;
+        body[@"underlyingError"] = notification.userInfo[@"underlyingError"] ?: @"";
+        body[@"failurePoint"] = notification.userInfo[@"failurePoint"] ?: @"unknown";
+        [self sendEventWithName:@"onRecordingFailed" body:body];
     }
 }
 
@@ -114,8 +125,10 @@ RCT_EXPORT_METHOD(startRecording:(NSString *)trackId
         return;
     }
 
-    // Fast atomic check — no locks needed
-    if (capturer.recordingActive) {
+    // Fast atomic check — both flags are atomic, safe to read from any thread.
+    // recordingActive is NO during Starting phase, so also check recordingStarting
+    // to prevent double-start when JS calls startRecording twice rapidly.
+    if (capturer.recordingActive || capturer.recordingStarting) {
         reject(@"already_recording", @"Recording is already in progress", nil);
         return;
     }
@@ -124,7 +137,7 @@ RCT_EXPORT_METHOD(startRecording:(NSString *)trackId
     NSError *error = nil;
 
     // Setup file path
-    NSString *fileNameWithExt = [safeFileName stringByAppendingPathExtension:@"mp4"];
+    NSString *fileNameWithExt = [safeFileName stringByAppendingPathExtension:@"mov"];
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documentsDirectory = [paths firstObject];
     NSString *recordingsDirectory = [documentsDirectory stringByAppendingPathComponent:@"recordings"];
