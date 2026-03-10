@@ -8,7 +8,7 @@ import {
     SET_LOCAL_RECORD_AUTO_UPLOAD,
     SET_ONBOARD,
     SET_TALENT_INFO,
-    SET_ENABLE_1080P,
+    SET_RECORDING_QUALITY,
     START_NATIVE_LOCAL_RECORDING,
     STOP_NATIVE_LOCAL_RECORDING,
     UPDATE_LOCAL_RECORDING_STATUS,
@@ -16,7 +16,6 @@ import {
     UPLOAD_NATIVE_LOCAL_RECORDING_START,
     UPDATE_UPLOAD_PROGRESS,
     SET_UPLOAD_ERROR,
-    SET_IOS_RECORDING_QUALITY,
 } from './actionTypes';
 
 /**
@@ -35,8 +34,7 @@ PersistenceRegistry.register(STORE_NAME);
  */
 ReducerRegistry.register(STORE_NAME, (state = {
     autoUploadLocalRecording: true,
-    enable1080p: true,
-    iosRecordingQuality: '1080p'
+    recordingQuality: '1080p'
 }, action) => {
     let idx = -1;
     console.log('action ', action)
@@ -149,16 +147,10 @@ ReducerRegistry.register(STORE_NAME, (state = {
                 autoUploadLocalRecording: action.enabled
             }
         
-        case SET_ENABLE_1080P:
+        case SET_RECORDING_QUALITY:
             return {
                 ...state,
-                enable1080p: action.enabled
-            }
-
-        case SET_IOS_RECORDING_QUALITY:
-            return {
-                ...state,
-                iosRecordingQuality: action.quality
+                recordingQuality: action.quality
             }
 
         default:

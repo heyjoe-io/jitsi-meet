@@ -10,7 +10,7 @@ import Video from 'react-native-video'
 import BaseTheme from '../../base/ui/components/BaseTheme.native';
 import moment from 'moment'
 import { IconCheck, IconCloudUpload, IconPlay, IconRestore, IconShare } from '../../base/icons/svg'
-import { SET_LOCAL_RECORD_AUTO_UPLOAD, SET_ENABLE_1080P, SET_IOS_RECORDING_QUALITY, REMOVE_NATIVE_LOCAL_RECORDING } from '../actionTypes'
+import { SET_LOCAL_RECORD_AUTO_UPLOAD, SET_RECORDING_QUALITY, REMOVE_NATIVE_LOCAL_RECORDING } from '../actionTypes'
 import Switch from '../../base/ui/components/native/Switch'
 
 const VideoPlayer = ({ video, manualRotation }) => {
@@ -160,7 +160,7 @@ const RecordingItem = ({ item, onPress, onUpload }) => {
 
 const LocalRecordingList = ({
     state, data, uploadRecording, autoUploadLocalRecording, setAutoUpload,
-    enable1080p, setEnable1080p, iosRecordingQuality, setIosRecordingQuality,
+    recordingQuality, setRecordingQuality,
     removeLocalRecordings
 }) => {
     const [video, showVideo] = useState(null)
@@ -174,9 +174,9 @@ const LocalRecordingList = ({
             console.log('Opening video:', filename);
             
             // Try to get video info first
-            if (NativeModules.Recorder && NativeModules.Recorder.getRecordingInfo) {
+            if (NativeModules.HighResRecorder && NativeModules.HighResRecorder.getRecordingInfo) {
                 try {
-                    const info = await NativeModules.Recorder.getRecordingInfo(filename);
+                    const info = await NativeModules.HighResRecorder.getRecordingInfo(filename);
                     console.log('Video info:', info);
                     
                     // Check if dimensions indicate portrait
@@ -254,25 +254,14 @@ const LocalRecordingList = ({
 
             <View style={style.optionItem}>
                 <Text style={{ color: 'white', fontSize: 16 }}>Quality</Text>
-                {Platform.OS === 'ios' ? (
-                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                        <Text style={{ color: 'white' }}>1080p</Text>
-                        <Switch
-                            checked = { iosRecordingQuality === '4K' }
-                            onChange = {() => { setIosRecordingQuality(iosRecordingQuality === '4K' ? '1080p' : '4K') }}
-                        />
-                        <Text style={{ color: 'white' }}>4K</Text>
-                    </View>
-                ) : (
-                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                        <Text style={{ color: 'white' }}>720p</Text>
-                        <Switch
-                            checked = { enable1080p }
-                            onChange = {() => { setEnable1080p(!enable1080p) }}
-                        />
-                        <Text style={{ color: 'white' }}>1080p</Text>
-                    </View>
-                )}
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Text style={{ color: 'white' }}>1080p</Text>
+                    <Switch
+                        checked = { recordingQuality === '4K' }
+                        onChange = {() => { setRecordingQuality(recordingQuality === '4K' ? '1080p' : '4K') }}
+                    />
+                    <Text style={{ color: 'white' }}>4K</Text>
+                </View>
             </View>
 
             <View style={style.optionItem}>
@@ -389,15 +378,13 @@ function _mapStateToProps(state, ownProps) {
             return new Date(b.timestamp) - new Date(a.timestamp)
         })
     const autoUploadLocalRecording = state['features/talent'].autoUploadLocalRecording
-    const enable1080p = state['features/talent'].enable1080p
-    const iosRecordingQuality = state['features/talent'].iosRecordingQuality || '1080p'
+    const recordingQuality = state['features/talent'].recordingQuality || '1080p'
 
     return {
         state,
         data,
         autoUploadLocalRecording,
-        enable1080p,
-        iosRecordingQuality
+        recordingQuality
     }
 }
 
@@ -413,11 +400,8 @@ function _mapDispatchToProps(dispatch) {
         setAutoUpload (enabled) {
             dispatch({ type: SET_LOCAL_RECORD_AUTO_UPLOAD, enabled })
         },
-        setEnable1080p (enabled) {
-            dispatch({ type: SET_ENABLE_1080P, enabled })
-        },
-        setIosRecordingQuality (quality) {
-            dispatch({ type: SET_IOS_RECORDING_QUALITY, quality })
+        setRecordingQuality (quality) {
+            dispatch({ type: SET_RECORDING_QUALITY, quality })
         },
         removeLocalRecordings (keys = []) {
             dispatch({ type: REMOVE_NATIVE_LOCAL_RECORDING, keys })
