@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is HeyJoe's fork of Jitsi Meet, customized for the casting platform's video calling and local recording features. It builds iOS and Android apps that are distributed via TestFlight / App Store.
+This is HeyJoe's fork of Jitsi Meet, customized for the casting platform's video calling and local recording features. It builds iOS and Android apps that are distributed via TestFlight / App Store / direct APK.
 
 ## Development Commands
 
@@ -47,16 +47,56 @@ cd ios && pod install
 - `android/` — Gradle project, native Android code
 - `react/` — React Native JS source (Jitsi Meet UI + HeyJoe customizations)
 - `node_modules/react-native-webrtc/ios/RCTWebRTC/HeyJoeVideoCapturer.m` — Custom iOS recording implementation (from fork)
+- `node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/HeyJoeVideoCapturer.java` — Custom Android recording implementation (from fork)
+- `android/sdk/src/main/java/org/jitsi/meet/sdk/HighResRecordModule.java` — Android RN bridge for high-res recording
 
-## Build & Deploy Checklist
+## Version Bumping
 
-Before building for TestFlight:
+iOS app version: update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (both Debug and Release) in `ios/app/app.xcodeproj/project.pbxproj`.
+
+## Build & Deploy
+
+### iOS (TestFlight / App Store)
 
 1. Ensure `package-lock.json` points to the latest fork commits (see above)
 2. Run `npm install` then `cd ios && pod install`
-3. Build and archive in Xcode
-4. After uploading, verify the fix is in the installed module:
+3. Build and archive in Xcode (`ios/jitsi-meet.xcworkspace`)
+4. Upload to TestFlight
+
+### Android (APK)
+
+1. Ensure `package-lock.json` points to the latest fork commits (see above)
+2. Run `npm install`
+3. Rebuild the JS bundle (required after any JS changes):
    ```bash
-   # Example: check that the recording cleanup fix is present
-   grep "Cleaning up stale compression session" node_modules/react-native-webrtc/ios/RCTWebRTC/HeyJoeVideoCapturer.m
+   npx react-native bundle --platform android --dev false \
+     --entry-file index.android.js \
+     --bundle-output android/app/src/main/assets/index.android.bundle \
+     --assets-dest android/app/src/main/res/
    ```
+4. Build the release APK:
+   ```bash
+   cd android && ./gradlew assembleRelease
+   ```
+5. Output APK: `android/app/build/outputs/apk/release/app-release.apk`
+6. Install via USB (requires USB debugging enabled):
+   ```bash
+   ~/Library/Android/sdk/platform-tools/adb install -r android/app/build/outputs/apk/release/app-release.apk
+   ```
+
+**Important:** The Android JS bundle at `android/app/src/main/assets/index.android.bundle` is NOT auto-rebuilt by Gradle. You must run the `npx react-native bundle` command manually after any JS/React changes, otherwise the APK will contain a stale bundle.
+
+### Signing
+
+- Release keystore: `android/keystores/release.keystore`
+- Config: `android/keystores/release.keystore.properties`
+
+### Verify fork is included
+
+```bash
+# iOS: check recording implementation is present
+grep "Cleaning up stale compression session" node_modules/react-native-webrtc/ios/RCTWebRTC/HeyJoeVideoCapturer.m
+
+# Android: check HeyJoeVideoCapturer is present
+ls node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/HeyJoeVideoCapturer.java
+```
