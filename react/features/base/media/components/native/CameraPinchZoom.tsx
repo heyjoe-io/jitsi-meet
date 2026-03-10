@@ -6,19 +6,31 @@ const { HighResRecorder } = NativeModules;
 // Minimum distance between fingers to consider it a valid pinch (avoid division issues)
 const MIN_PINCH_DISTANCE = 10;
 
-// Minimum zoom change threshold to trigger native call (debounce)
-const ZOOM_CHANGE_THRESHOLD = 0.05;
+// Throttle interval for native zoom calls (ms)
+const NATIVE_CALL_THROTTLE_MS = 50;
+
+// Max consecutive native call failures before triggering a full reset
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+// Retry delays for zoom info initialization (ms)
+const ZOOM_INFO_RETRY_DELAYS = [500, 1000, 2000];
 
 /**
  * Interface for zoom state tracking.
  */
 interface ZoomState {
     currentZoom: number;
+    lastConfirmedZoom: number;
     minZoom: number;
     maxZoom: number;
     initialDistance: number;
     baseZoom: number;
     isMounted: boolean;
+    lastNativeCallTime: number;
+    pendingZoom: number | null;
+    pendingTimer: ReturnType<typeof setTimeout> | null;
+    consecutiveFailures: number;
+    zoomInfoReady: boolean;
 }
 
 /**
@@ -29,6 +41,10 @@ interface IProps {
     enabled?: boolean;
     onPress?: () => void;
 }
+
+// Tap detection thresholds
+const TAP_MAX_DURATION_MS = 300;
+const TAP_MAX_MOVEMENT = 10;
 
 /**
  * Calculate the distance between two touch points.
@@ -42,9 +58,8 @@ const getTouchDistance = (touches: any[]): number => {
     const touch1 = touches[0];
     const touch2 = touches[1];
 
-    // Validate touch objects have required properties
-    if (typeof touch1?.pageX !== 'number' || typeof touch1?.pageY !== 'number' ||
-        typeof touch2?.pageX !== 'number' || typeof touch2?.pageY !== 'number') {
+    if (typeof touch1?.pageX !== 'number' || typeof touch1?.pageY !== 'number'
+        || typeof touch2?.pageX !== 'number' || typeof touch2?.pageY !== 'number') {
         return 0;
     }
 
@@ -52,6 +67,32 @@ const getTouchDistance = (touches: any[]): number => {
     const dy = touch1.pageY - touch2.pageY;
 
     return Math.sqrt(dx * dx + dy * dy);
+};
+
+/**
+ * Fetch zoom info from the native module.
+ * Returns null on failure.
+ */
+const fetchZoomInfo = async (): Promise<{
+    currentZoom: number;
+    minZoom: number;
+    maxZoom: number;
+} | null> => {
+    try {
+        if (HighResRecorder?.getZoomInfo) {
+            const info = await HighResRecorder.getZoomInfo();
+
+            return {
+                currentZoom: info.currentZoom ?? 1.0,
+                minZoom: info.minZoom ?? 1.0,
+                maxZoom: info.maxZoom ?? 5.0
+            };
+        }
+    } catch {
+        // caller handles retry
+    }
+
+    return null;
 };
 
 /**
@@ -63,149 +104,234 @@ const getTouchDistance = (touches: any[]): number => {
  *
  * Note: This only works on iOS via the HighResRecorder native module.
  */
-// Tap detection thresholds
-const TAP_MAX_DURATION_MS = 300;
-const TAP_MAX_MOVEMENT = 10;
-
 const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }) => {
-    // Store onPress in a ref so PanResponder always has the latest callback
     const onPressRef = useRef(onPress);
 
     onPressRef.current = onPress;
 
-    // Track tap gesture
     const tapState = useRef({
         startTime: 0,
         startX: 0,
         startY: 0,
         isSingleFinger: false
     });
-    // Use ref to persist zoom state across renders without causing re-renders
+
     const zoomState = useRef<ZoomState>({
         currentZoom: 1.0,
+        lastConfirmedZoom: 1.0,
         minZoom: 1.0,
         maxZoom: 5.0,
         initialDistance: 0,
         baseZoom: 1.0,
-        isMounted: true
+        isMounted: true,
+        lastNativeCallTime: 0,
+        pendingZoom: null,
+        pendingTimer: null,
+        consecutiveFailures: 0,
+        zoomInfoReady: false
     });
 
-    // Initialize zoom info on mount and cleanup on unmount
+    /**
+     * Apply zoom info from native to state.
+     */
+    const applyZoomInfo = useCallback((info: { currentZoom: number; minZoom: number; maxZoom: number }) => {
+        const state = zoomState.current;
+
+        state.currentZoom = info.currentZoom;
+        state.lastConfirmedZoom = info.currentZoom;
+        state.minZoom = info.minZoom;
+        state.maxZoom = info.maxZoom;
+        state.baseZoom = info.currentZoom;
+        state.zoomInfoReady = true;
+    }, []);
+
+    /**
+     * Full state reset: re-fetch zoom info and reset all tracking state.
+     */
+    const resetZoomState = useCallback(async () => {
+        const state = zoomState.current;
+
+        if (!state.isMounted) {
+            return;
+        }
+
+        const info = await fetchZoomInfo();
+
+        if (info && state.isMounted) {
+            applyZoomInfo(info);
+            state.consecutiveFailures = 0;
+            state.initialDistance = 0;
+            state.pendingZoom = null;
+            if (state.pendingTimer) {
+                clearTimeout(state.pendingTimer);
+                state.pendingTimer = null;
+            }
+        }
+    }, [ applyZoomInfo ]);
+
+    // Initialize zoom info on mount with retry
     useEffect(() => {
-        console.log('[CameraPinchZoom] Component mounted, enabled:', enabled, 'platform:', Platform.OS);
-
         if (Platform.OS !== 'ios' || !enabled) {
-            console.log('[CameraPinchZoom] Skipping initialization - not iOS or not enabled');
-
             return;
         }
 
         zoomState.current.isMounted = true;
-        console.log('[CameraPinchZoom] Initializing zoom info...');
 
-        const getZoomInfo = async () => {
-            try {
-                if (HighResRecorder?.getZoomInfo) {
-                    const info = await HighResRecorder.getZoomInfo();
+        const initWithRetry = async () => {
+            const info = await fetchZoomInfo();
 
-                    // Only update if component is still mounted
-                    if (zoomState.current.isMounted) {
-                        zoomState.current.currentZoom = info.currentZoom ?? 1.0;
-                        zoomState.current.minZoom = info.minZoom ?? 1.0;
-                        zoomState.current.maxZoom = info.maxZoom ?? 1.0;
-                        zoomState.current.baseZoom = info.currentZoom ?? 1.0;
-                    }
-                }
-            } catch {
-                // Silently handle errors - zoom will use defaults
+            if (info && zoomState.current.isMounted) {
+                applyZoomInfo(info);
+
+                return;
             }
+
+            // Retry with increasing delays
+            for (const delay of ZOOM_INFO_RETRY_DELAYS) {
+                if (!zoomState.current.isMounted) {
+                    return;
+                }
+
+                await new Promise<void>(resolve => {
+                    setTimeout(resolve, delay);
+                });
+
+                if (!zoomState.current.isMounted) {
+                    return;
+                }
+
+                const retryInfo = await fetchZoomInfo();
+
+                if (retryInfo && zoomState.current.isMounted) {
+                    applyZoomInfo(retryInfo);
+
+                    return;
+                }
+            }
+
+            console.warn('[CameraPinchZoom] Failed to get zoom info after retries, using defaults');
         };
 
-        getZoomInfo();
+        initWithRetry();
 
-        // Cleanup on unmount
         return () => {
             zoomState.current.isMounted = false;
+            if (zoomState.current.pendingTimer) {
+                clearTimeout(zoomState.current.pendingTimer);
+                zoomState.current.pendingTimer = null;
+            }
         };
-    }, [ enabled ]);
+    }, [ enabled, applyZoomInfo ]);
 
     /**
-     * Apply zoom to the camera hardware.
+     * Send a zoom value to the native module and handle the result.
+     */
+    const sendNativeZoom = useCallback((zoom: number) => {
+        const state = zoomState.current;
+
+        if (!state.isMounted) {
+            return;
+        }
+
+        state.lastNativeCallTime = Date.now();
+
+        HighResRecorder?.setZoomFactor?.(zoom)
+            ?.then((result: any) => {
+                if (!state.isMounted) {
+                    return;
+                }
+                state.consecutiveFailures = 0;
+                if (result?.zoomFactor != null) {
+                    state.currentZoom = result.zoomFactor;
+                    state.lastConfirmedZoom = result.zoomFactor;
+                }
+            })
+            ?.catch(() => {
+                if (!state.isMounted) {
+                    return;
+                }
+                // Revert to last confirmed zoom
+                state.currentZoom = state.lastConfirmedZoom;
+                state.consecutiveFailures++;
+
+                if (state.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    console.warn('[CameraPinchZoom] Too many failures, resetting zoom state');
+                    resetZoomState();
+                }
+            });
+    }, [ resetZoomState ]);
+
+    /**
+     * Apply zoom to the camera hardware with time-based throttling.
      */
     const applyZoom = useCallback((newZoom: number) => {
-        // Validate input
         if (!Number.isFinite(newZoom) || newZoom <= 0) {
-            console.log('[CameraPinchZoom] applyZoom - invalid input:', newZoom);
-
             return;
         }
 
-        const { minZoom, maxZoom, currentZoom, isMounted } = zoomState.current;
+        const state = zoomState.current;
 
-        if (!isMounted) {
-            console.log('[CameraPinchZoom] applyZoom - not mounted');
-
+        if (!state.isMounted) {
             return;
         }
 
-        const clampedZoom = Math.max(minZoom, Math.min(newZoom, maxZoom));
+        const clampedZoom = Math.max(state.minZoom, Math.min(newZoom, state.maxZoom));
+        const now = Date.now();
+        const elapsed = now - state.lastNativeCallTime;
 
-        // Only update if the change is significant (debounce small changes)
-        if (Math.abs(clampedZoom - currentZoom) > ZOOM_CHANGE_THRESHOLD) {
-            console.log('[CameraPinchZoom] applyZoom - calling native setZoomFactor:', clampedZoom.toFixed(2));
-            zoomState.current.currentZoom = clampedZoom;
+        // Optimistically update currentZoom so gesture math stays correct
+        state.currentZoom = clampedZoom;
 
-            HighResRecorder?.setZoomFactor?.(clampedZoom)
-                .then((result: any) => {
-                    console.log('[CameraPinchZoom] setZoomFactor result:', result);
-                    // Update with the actual zoom value from the device
-                    if (zoomState.current.isMounted && result?.zoomFactor != null) {
-                        zoomState.current.currentZoom = result.zoomFactor;
-                    }
-                })
-                .catch((error: any) => {
-                    console.log('[CameraPinchZoom] setZoomFactor error:', error);
-                });
+        if (elapsed >= NATIVE_CALL_THROTTLE_MS) {
+            // Enough time has passed — send immediately
+            if (state.pendingTimer) {
+                clearTimeout(state.pendingTimer);
+                state.pendingTimer = null;
+            }
+            state.pendingZoom = null;
+            sendNativeZoom(clampedZoom);
         } else {
-            console.log('[CameraPinchZoom] applyZoom - change too small, skipping. current:', currentZoom.toFixed(2), 'new:', clampedZoom.toFixed(2));
-        }
-    }, []);
+            // Within throttle window — store and flush after remaining time
+            state.pendingZoom = clampedZoom;
+            if (!state.pendingTimer) {
+                const remaining = NATIVE_CALL_THROTTLE_MS - elapsed;
 
-    // Create pan responder for pinch gesture detection AND tap handling
+                state.pendingTimer = setTimeout(() => {
+                    state.pendingTimer = null;
+                    if (state.isMounted && state.pendingZoom !== null) {
+                        const zoom = state.pendingZoom;
+
+                        state.pendingZoom = null;
+                        sendNativeZoom(zoom);
+                    }
+                }, remaining);
+            }
+        }
+    }, [ sendNativeZoom ]);
+
     const panResponder = useRef(
         PanResponder.create({
-            // Only capture immediately if we have an onPress handler
-            // Otherwise, let single taps bubble up to parent (for filmstrip tile selection)
             onStartShouldSetPanResponder: (evt: GestureResponderEvent) => {
                 const touchCount = evt.nativeEvent.touches?.length ?? 0;
 
-                // Always capture two-finger gestures for pinch
                 if (touchCount >= 2) {
                     return true;
                 }
 
-                // For single finger, only capture if we have an onPress handler
                 return !!onPressRef.current;
             },
 
-            // Capture two-finger gestures during movement (for pinch zoom)
             onMoveShouldSetPanResponder: (_: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-                // Always capture two-finger gestures
                 return gestureState.numberActiveTouches >= 2;
             },
 
-            // Don't let other views steal the responder once we have it
             onPanResponderTerminationRequest: () => false,
 
-            // When gesture starts
             onPanResponderGrant: (evt: GestureResponderEvent) => {
                 const touches = evt.nativeEvent.touches;
                 const touchCount = touches?.length ?? 0;
 
-                console.log('[CameraPinchZoom] onPanResponderGrant - touches:', touchCount);
-
                 if (touchCount === 1) {
-                    // Single finger - might be a tap, track it
                     const touch = touches[0];
 
                     tapState.current = {
@@ -215,39 +341,46 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
                         isSingleFinger: true
                     };
                 } else if (touchCount === 2) {
-                    // Two fingers - start pinch
                     tapState.current.isSingleFinger = false;
                     const distance = getTouchDistance(touches as any);
 
                     if (distance >= MIN_PINCH_DISTANCE) {
-                        zoomState.current.initialDistance = distance;
-                        zoomState.current.baseZoom = zoomState.current.currentZoom;
-                        console.log('[CameraPinchZoom] Pinch started, distance:', distance.toFixed(0));
+                        const state = zoomState.current;
+
+                        state.initialDistance = distance;
+                        // Use lastConfirmedZoom as the base to avoid desync
+                        state.baseZoom = state.lastConfirmedZoom;
+
+                        // Opportunistically refresh zoom info if not yet ready
+                        if (!state.zoomInfoReady) {
+                            fetchZoomInfo().then(info => {
+                                if (info && state.isMounted) {
+                                    applyZoomInfo(info);
+                                }
+                            });
+                        }
                     }
                 }
             },
 
-            // When fingers move
             onPanResponderMove: (evt: GestureResponderEvent, gestureState: PanResponderGestureState) => {
                 const touches = evt.nativeEvent.touches;
                 const touchCount = touches?.length ?? 0;
 
-                // Check if second finger was added
                 if (touchCount === 2 && zoomState.current.initialDistance === 0) {
-                    // Second finger just added - start pinch
                     tapState.current.isSingleFinger = false;
                     const distance = getTouchDistance(touches as any);
 
                     if (distance >= MIN_PINCH_DISTANCE) {
-                        zoomState.current.initialDistance = distance;
-                        zoomState.current.baseZoom = zoomState.current.currentZoom;
-                        console.log('[CameraPinchZoom] Pinch started (during move), distance:', distance.toFixed(0));
+                        const state = zoomState.current;
+
+                        state.initialDistance = distance;
+                        state.baseZoom = state.lastConfirmedZoom;
                     }
 
                     return;
                 }
 
-                // Handle pinch zoom
                 if (touchCount === 2 && zoomState.current.initialDistance >= MIN_PINCH_DISTANCE) {
                     const currentDistance = getTouchDistance(touches as any);
 
@@ -257,13 +390,11 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
                         if (Number.isFinite(scale) && scale > 0.1 && scale < 10) {
                             const newZoom = zoomState.current.baseZoom * scale;
 
-                            console.log('[CameraPinchZoom] Pinch move - scale:', scale.toFixed(2), 'zoom:', newZoom.toFixed(2));
                             applyZoom(newZoom);
                         }
                     }
                 }
 
-                // Check if single finger moved too much (not a tap anymore)
                 if (tapState.current.isSingleFinger) {
                     const { dx, dy } = gestureState;
                     const movement = Math.sqrt(dx * dx + dy * dy);
@@ -274,37 +405,26 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
                 }
             },
 
-            // When gesture ends
             onPanResponderRelease: () => {
-                console.log('[CameraPinchZoom] onPanResponderRelease, isSingleFinger:', tapState.current.isSingleFinger);
-
-                // Check if it was a tap
                 if (tapState.current.isSingleFinger) {
                     const duration = Date.now() - tapState.current.startTime;
 
-                    console.log('[CameraPinchZoom] Tap check - duration:', duration, 'max:', TAP_MAX_DURATION_MS, 'hasOnPress:', !!onPressRef.current);
-
                     if (duration < TAP_MAX_DURATION_MS && onPressRef.current) {
-                        console.log('[CameraPinchZoom] Tap detected, calling onPress');
                         onPressRef.current();
                     }
                 }
 
-                // Reset states
                 zoomState.current.initialDistance = 0;
                 tapState.current.isSingleFinger = false;
             },
 
-            // When gesture is terminated
             onPanResponderTerminate: () => {
-                console.log('[CameraPinchZoom] onPanResponderTerminate');
                 zoomState.current.initialDistance = 0;
                 tapState.current.isSingleFinger = false;
             }
         })
     ).current;
 
-    // Skip on non-iOS platforms or when disabled
     if (Platform.OS !== 'ios' || !enabled) {
         return <>{children}</>;
     }

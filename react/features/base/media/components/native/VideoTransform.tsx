@@ -185,7 +185,8 @@ class VideoTransform extends Component<IProps, IState> {
             onPanResponderGrant: this._onPanResponderGrant,
             onPanResponderMove: this._onPanResponderMove,
             onPanResponderRelease: this._onPanResponderRelease,
-            onPanResponderTerminationRequest: () => true,
+            onPanResponderTerminationRequest: () =>
+                this.initialDistance === undefined,
             onMoveShouldSetPanResponder: this._onMoveShouldSetPanResponder,
             onShouldBlockNativeResponder: () => false,
             onStartShouldSetPanResponder: this._onStartShouldSetPanResponder
@@ -316,6 +317,10 @@ class VideoTransform extends Component<IProps, IState> {
      * @returns {number}
      */
     _getTouchDistance({ nativeEvent: { touches } }: any) {
+        if (!touches || touches.length < 2) {
+            return 0;
+        }
+
         const dx = Math.abs(touches[0].pageX - touches[1].pageX);
         const dy = Math.abs(touches[0].pageY - touches[1].pageY);
 
@@ -330,6 +335,10 @@ class VideoTransform extends Component<IProps, IState> {
      * @returns {Object}
      */
     _getTouchPosition({ nativeEvent: { touches } }: any) {
+        if (!touches || touches.length < 1) {
+            return { x: 0, y: 0 };
+        }
+
         return {
             x: touches[0].pageX,
             y: touches[0].pageY
@@ -624,7 +633,7 @@ class VideoTransform extends Component<IProps, IState> {
             this._onGesture('press');
         }
 
-        delete this.initialDistance;
+        this.initialDistance = undefined;
         this.initialPosition = {
             x: 0,
             y: 0
