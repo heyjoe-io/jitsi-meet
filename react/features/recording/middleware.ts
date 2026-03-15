@@ -483,6 +483,7 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
         const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
         const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
         const { updateSettings } = await import('../base/settings/actions');
+        const { MAX_ACTIVE_PARTICIPANTS } = await import('../filmstrip/constants');
 
         const state = getState();
 
@@ -510,10 +511,17 @@ async function _pinParticipantsWithCameraEnabled(dispatch: IStore['dispatch'], g
             return;
         }
 
-        logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
+        const cameraCount = participantsToPinIds.length;
+        const newMaxStageParticipants = Math.min(cameraCount, MAX_ACTIVE_PARTICIPANTS);
+
+        logger.info(`Starting auto-pin process for ${cameraCount} participants`);
+        logger.info(`Setting maxStageParticipants to ${newMaxStageParticipants} to accommodate all cameras`);
 
         // Wait for Jibri to fully join and stabilize before making any layout changes
         await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Update maxStageParticipants to accommodate all camera-enabled participants
+        dispatch(updateSettings({ maxStageParticipants: newMaxStageParticipants }));
 
         // Disable tile view
         const { setTileView } = await import('../video-layout/actions.web');
