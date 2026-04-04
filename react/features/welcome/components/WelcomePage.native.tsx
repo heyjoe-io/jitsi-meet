@@ -8,6 +8,7 @@ import {
     Linking,
     NativeSyntheticEvent,
     SafeAreaView,
+    StatusBar,
     StyleProp,
     TextInputFocusEventData,
     TextStyle,
@@ -299,12 +300,15 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             );
         } else {
             joinButton = (
-                <Button
-                    accessibilityLabel = { 'welcomepage.accessibilityLabel.join' }
-                    labelKey = { 'welcomepage.join' }
-                    labelStyle = { styles.joinButtonLabel }
-                    onClick = { this._onJoin }
-                    type = { BUTTON_TYPES.PRIMARY } />
+                <TouchableOpacity
+                    accessibilityLabel = { t('welcomepage.accessibilityLabel.join') }
+                    activeOpacity = { 0.7 }
+                    onPress = { this._onJoin }
+                    style = { styles.button as ViewStyle }>
+                    <Text style = { styles.buttonText as TextStyle }>
+                        { t('welcomepage.join').toUpperCase() }
+                    </Text>
+                </TouchableOpacity>
             );
         }
 
@@ -329,7 +333,7 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     { opacity: this.state.roomNameInputAnimation }
                 ] as StyleProp<ViewStyle> }>
                 <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
-                    <TouchableHighlight onPress = { () => this._onMoreOptions(false) }>
+                    <TouchableOpacity activeOpacity = { 0.6 } onPress = { () => this._onMoreOptions(false) }>
                         <View
                             style = {{
                                 flexDirection: 'row',
@@ -338,11 +342,12 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                                 marginBottom: 10,
                             } as ViewStyle}>
                             <Icon
+                                color = '#000000'
                                 size = { 24 }
                                 src = { IconArrowLeft } />
-                            <Text style = {{ color: 'white' } as ViewStyle}>Back</Text>
+                            <Text style = {{ color: '#000000' } as ViewStyle}>Back</Text>
                         </View>
-                    </TouchableHighlight>
+                    </TouchableOpacity>
                     <View style = { styles.joinControls } >
                         <Text style = { styles.enterRoomText as StyleProp<TextStyle> }>
                             Enter room number(admin use only)
@@ -396,13 +401,14 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
         );
 
         const renderMoreOptionsButton = () => (
-            <TouchableHighlight
+            <TouchableOpacity
+                activeOpacity = { 0.7 }
                 onPress = { () => this._onMoreOptions(true) }
                 style = { styles.optionsButton as ViewStyle }>
-                <Text style = { styles.buttonText as TextStyle }>
+                <Text style = { styles.optionsButtonText as TextStyle }>
                     More Options
                 </Text>
-            </TouchableHighlight>
+            </TouchableOpacity>
         );
 
         return (
@@ -453,9 +459,10 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
             <SafeAreaView style = { styles.safeAreaView as ViewStyle }>
                 <View style = { styles.welcomePage as ViewStyle }>
                     <Image
+                        resizeMode = 'contain'
                         source = { HEY_JOE_LOGO }
                         style = { styles.logo as ImageStyle } />
-                    <Text style = { styles.welcomeText as TextStyle }>Welcome to Hey Joe!</Text>
+                    <Text style = { styles.welcomeText as TextStyle }>Welcome to HeyJoe!</Text>
                     { this.state.showEnterRoomNumber ? this._renderRoomNameInput() : this._renderOnboardView() }
                 </View>
             </SafeAreaView>

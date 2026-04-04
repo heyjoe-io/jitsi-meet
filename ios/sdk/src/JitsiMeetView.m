@@ -99,8 +99,8 @@ static NSString *recordingModeToString(RecordingMode mode);
  * - registers necessary observers
  */
 - (void)doInitialize {
-    // Set a background color which matches the one used in JS.
-    self.backgroundColor = [UIColor colorWithHex:0x040404 alpha:1];
+    // Set a background color which matches the welcome screen in JS.
+    self.backgroundColor = [UIColor colorWithHex:0xfcf4e6 alpha:1];
     
     [self registerObservers];
 }

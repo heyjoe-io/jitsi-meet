@@ -15,6 +15,10 @@
 		4341A9072CF0D63200940D93 /* hermes.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65962E4CF3D700FF99D2 /* RecordModule.m */; };
 		58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */; };
+		AA0001012E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */; };
+		AA0001022E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */; };
+		AA0001032E4F000100BRAND1 /* MyriadPro-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */; };
+		AA0001042E4F000100BRAND1 /* MyriadPro-Regular_2.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */; };
 		DEA0B7122D7EF16E0062A9F6 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */; };
 		DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7132D7EF7590062A9F6 /* AppDelegate.swift */; };
 		DEA9F289258A6EA800D4CD74 /* JitsiMeetSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEA9F288258A6EA800D4CD74 /* JitsiMeetSDK.framework */; };
@@ -84,6 +88,10 @@
 		58CF65992E4CF3D700FF99D2 /* HighResRecordModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HighResRecordModule.h; path = ../sdk/src/HighResRecordModule.h; sourceTree = SOURCE_ROOT; };
 		5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		756FCE06C08D9B947653C98A /* Pods-JitsiMeet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-JitsiMeet.debug.xcconfig"; path = "Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet.debug.xcconfig"; sourceTree = "<group>"; };
+		AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "RedHatDisplay-VariableFont_wght.ttf"; sourceTree = "<group>"; };
+		AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadVariableConcept-Roman.otf"; sourceTree = "<group>"; };
+		AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadPro-Bold.otf"; sourceTree = "<group>"; };
+		AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadPro-Regular_2.otf"; sourceTree = "<group>"; };
 		B3B083EB1D4955FF0069CEE7 /* app.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = app.entitlements; sourceTree = "<group>"; };
 		D6152FF9E9F7B0E86F70A21D /* libPods-JitsiMeet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-JitsiMeet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE050388256E904600DEE3A5 /* WebRTC.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = WebRTC.xcframework; path = "../../node_modules/react-native-webrtc/apple/WebRTC.xcframework"; sourceTree = "<group>"; };
@@ -135,6 +143,10 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */,
+				AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */,
+				AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */,
+				AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */,
+				AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -281,6 +293,10 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				13B07FBD1A68108700A75B9A /* LaunchScreen.storyboard in Resources */,
 				361974E2A13624D7735D619D /* PrivacyInfo.xcprivacy in Resources */,
+				AA0001012E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf in Resources */,
+				AA0001022E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf in Resources */,
+				AA0001032E4F000100BRAND1 /* MyriadPro-Bold.otf in Resources */,
+				AA0001042E4F000100BRAND1 /* MyriadPro-Regular_2.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

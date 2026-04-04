@@ -4,6 +4,7 @@
  * Podfile are wrong.
  */
 module.exports = {
+    assets: ['./fonts'],
     // Exclude some dependencies from auto-linking for the lite SDK.
     dependencies: {
         '@giphy/react-native-sdk': {

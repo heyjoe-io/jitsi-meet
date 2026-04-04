@@ -1,4 +1,4 @@
-import BaseTheme from '../../../base/ui/components/BaseTheme.native';
+import { HJBorderRadius, HJColors, HJFonts, HJShadow } from '../../../welcome/components/brandConstants';
 
 export default {
     nativeRecordingButtonWrapper: {
@@ -14,18 +14,22 @@ export default {
     },
     container: {
         flex: 1,
-        backgroundColor: BaseTheme.palette.uiBackground
+        backgroundColor: HJColors.beige
     },
     optionItem: {
         flexDirection: 'row' as const,
         justifyContent: 'space-between' as const,
         alignItems: 'center' as const,
-        paddingVertical: 8,
+        paddingVertical: 12,
         paddingHorizontal: 18,
+        backgroundColor: HJColors.white,
         borderBottomWidth: 1,
+        borderBottomColor: HJColors.gray200,
     },
     optionText: {
-        color: BaseTheme.palette.text01,
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
+        fontWeight: '500' as const,
         fontSize: 16
     },
     qualityContainer: {
@@ -34,60 +38,105 @@ export default {
         gap: 8
     },
     qualityText: {
-        color: BaseTheme.palette.text01,
+        color: HJColors.gray600,
+        fontFamily: HJFonts.body,
         fontSize: 14
     },
     studioName: {
-        color: BaseTheme.palette.text01,
+        color: HJColors.primary,
+        fontFamily: HJFonts.headline,
         fontSize: 18,
         fontWeight: 'bold' as const
     },
     recordingsContainer: {
         flex: 1,
-        backgroundColor: '#1f2937',
-        borderColor: '#374151',
-        borderTopWidth: 1,
-        marginTop: 12
+        backgroundColor: HJColors.beige,
     },
     emptyContainer: {
         flex: 1,
-        justifyContent: 'start' as const,
+        justifyContent: 'center' as const,
         alignItems: 'center' as const,
         padding: 20,
-        color: 'white'
     },
     emptyText: {
-        color: BaseTheme.palette.text02,
+        color: HJColors.gray500,
+        fontFamily: HJFonts.body,
         fontSize: 16,
         textAlign: 'center' as const
     },
     recordingsList: {
         flex: 1
     },
+    recordingItem: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: HJColors.white,
+        marginTop: 8,
+        marginHorizontal: 12,
+        borderRadius: HJBorderRadius.lg,
+        borderColor: HJColors.gray200,
+        borderWidth: 1,
+        gap: 8,
+        ...HJShadow.card,
+    },
     recordingItemText: {
-        color: 'white'
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
+    },
+    recordingItemDate: {
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
+        fontWeight: '500' as const,
+        fontSize: 16,
+    },
+    recordingItemSize: {
+        color: HJColors.gray500,
+        fontFamily: HJFonts.body,
+        fontSize: 14,
     },
     button: {
         width: 40,
         height: 40,
-        backgroundColor: BaseTheme.palette.action01,
+        backgroundColor: HJColors.primary,
         borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    },
+    warningButton: {
+        width: 40,
+        height: 40,
+        backgroundColor: '#d97706',
+        borderRadius: 20,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
     },
     uploadButton: {
-        backgroundColor: BaseTheme.palette.ui09,
-        borderRadius: 8,
-        borderColor: BaseTheme.palette.action01,
+        backgroundColor: HJColors.white,
+        borderRadius: HJBorderRadius.lg,
+        borderColor: HJColors.primary,
         borderWidth: 1,
-        alignItems: 'center',
+        alignItems: 'center' as const,
         height: 36,
         paddingHorizontal: 16,
-        justifyContent: 'center',
-        flexDirection: 'row',
+        justifyContent: 'center' as const,
+        flexDirection: 'row' as const,
         gap: 8
     },
     uploadButtonText: {
-        color: BaseTheme.palette.action01,
-    }
+        color: HJColors.primary,
+        fontFamily: HJFonts.body,
+        fontWeight: '500' as const,
+    },
+    uploadProgressText: {
+        color: HJColors.gray600,
+        fontFamily: HJFonts.body,
+        fontSize: 12,
+    },
+    actionButtonRow: {
+        flexDirection: 'row' as const,
+        gap: 12,
+    },
 };

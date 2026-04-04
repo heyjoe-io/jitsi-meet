@@ -34,9 +34,9 @@ import org.jitsi.meet.sdk.log.JitsiMeetLogger;
 public class JitsiMeetView extends FrameLayout {
 
     /**
-     * Background color. Should match the background color set in JS.
+     * Background color. Should match the welcome screen background in JS.
      */
-    private static final int BACKGROUND_COLOR = 0xFF040404;
+    private static final int BACKGROUND_COLOR = 0xFFFCF4E6;
 
     /**
      * React Native root view.
