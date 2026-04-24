@@ -134,6 +134,7 @@ import {
     isLocalTrackMuted,
     isUserInteractionRequiredForUnmute
 } from './react/features/base/tracks/functions';
+import { getLocalJitsiAudioTrackSettings } from './react/features/base/tracks/functions.web';
 import { downloadJSON } from './react/features/base/util/downloadJSON';
 import { getJitsiMeetGlobalNSConnectionTimes } from './react/features/base/util/helpers';
 import { openLeaveReasonDialog } from './react/features/conference/actions.web';
@@ -158,13 +159,14 @@ import { disableReceiver, stopReceiver } from './react/features/remote-control/a
 import { setScreenAudioShareState } from './react/features/screen-share/actions.web';
 import { isScreenAudioShared } from './react/features/screen-share/functions';
 import { toggleScreenshotCaptureSummary } from './react/features/screenshot-capture/actions';
+import { setAudioSettings } from './react/features/settings/actions.web';
 import { AudioMixerEffect } from './react/features/stream-effects/audio-mixer/AudioMixerEffect';
 import { createRnnoiseProcessor } from './react/features/stream-effects/rnnoise';
 import { handleToggleVideoMuted } from './react/features/toolbox/actions.any';
 import { transcriberJoined, transcriberLeft } from './react/features/transcribing/actions';
 import { muteLocal } from './react/features/video-menu/actions.any';
 
-const logger = Logger.getLogger(__filename);
+const logger = Logger.getLogger('app:conference-web');
 let room;
 
 /*
@@ -387,6 +389,7 @@ export default {
      * Returns an object containing a promise which resolves with the created tracks &
      * the errors resulting from that process.
      * @param {object} options
+     * @param {boolean} option.isBreakoutRoom - true if we are creating the initial local tracks in breakout room.
      * @param {boolean} options.startAudioOnly=false - if <tt>true</tt> then
      * only audio track will be created and the audio only mode will be turned
      * on.
@@ -401,14 +404,16 @@ export default {
      */
     createInitialLocalTracks(options = {}, recordTimeMetrics = false) {
         const errors = {};
+        const { isBreakoutRoom = false } = options;
 
         // Always get a handle on the audio input device so that we have statistics (such as "No audio input" or
         // "Are you trying to speak?" ) even if the user joins the conference muted.
-        const initialDevices = config.startSilent || config.disableInitialGUM ? [] : [ MEDIA_TYPE.AUDIO ];
-        const requestedAudio = !config.disableInitialGUM;
+        const initialDevices
+            = config.startSilent || (config.disableInitialGUM && !isBreakoutRoom) ? [] : [ MEDIA_TYPE.AUDIO ];
+        const requestedAudio = !config.disableInitialGUM || isBreakoutRoom;
         let requestedVideo = false;
 
-        if (!config.disableInitialGUM
+        if ((!config.disableInitialGUM || isBreakoutRoom)
                 && !options.startWithVideoMuted
                 && !options.startAudioOnly
                 && !options.startScreenSharing) {
@@ -566,7 +571,15 @@ export default {
                 if (browser.isWebKitBased()) {
                     this.muteAudio(true, true);
                 } else {
-                    localTracks = localTracks.filter(track => track.getType() !== MEDIA_TYPE.AUDIO);
+                    localTracks = localTracks.filter(track => {
+                        if (track.getType() === MEDIA_TYPE.AUDIO) {
+                            track.stopStream();
+
+                            return false;
+                        }
+
+                        return true;
+                    });
                 }
             }
 
@@ -1365,7 +1378,7 @@ export default {
             }
 
             APP.store.dispatch(updateRemoteParticipantFeatures(user));
-            logger.log(`USER ${id} connected:`, user);
+            logger.log(`USER ${id} connected`);
             APP.UI.addUser(user);
         });
 
@@ -1631,12 +1644,6 @@ export default {
             JitsiE2ePingEvents.E2E_RTT_CHANGED,
             (...args) => APP.store.dispatch(e2eRttChanged(...args)));
 
-        room.addCommandListener(this.commands.defaults.ETHERPAD,
-            ({ value }) => {
-                APP.UI.initEtherpad(value);
-            }
-        );
-
         room.addCommandListener(this.commands.defaults.EMAIL, (data, from) => {
             APP.store.dispatch(participantUpdated({
                 conference: room,
@@ -1710,15 +1717,7 @@ export default {
             }
         );
 
-        room.on(JitsiConferenceEvents.PERMISSIONS_RECEIVED, p => {
-            const localParticipant = getLocalParticipant(APP.store.getState());
 
-            APP.store.dispatch(participantUpdated({
-                id: localParticipant.id,
-                local: true,
-                features: p
-            }));
-        });
     },
 
     /**
@@ -1763,7 +1762,11 @@ export default {
             return this.useAudioStream(stream);
         })
         .then(() => {
-            const localAudio = getLocalJitsiAudioTrack(APP.store.getState());
+            const state = APP.store.getState();
+            const localAudio = getLocalJitsiAudioTrack(state);
+            const settings = getLocalJitsiAudioTrackSettings(state);
+
+            APP.store.dispatch(setAudioSettings(settings));
 
             if (localAudio && isDefaultMicSelected) {
                 // workaround for the default device to be shown as selected in the

@@ -6,7 +6,6 @@ import { makeStyles } from 'tss-react/mui';
 import { IReduxState } from '../../../app/types';
 import participantsPaneTheme from '../../../base/components/themes/participantsPaneTheme.json';
 import { getParticipantById, isScreenShareParticipant } from '../../../base/participants/functions';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import Input from '../../../base/ui/components/web/Input';
 import useContextMenu from '../../../base/ui/hooks/useContextMenu.web';
 import { normalizeAccents } from '../../../base/util/strings.web';
@@ -14,7 +13,7 @@ import { getBreakoutRooms, getCurrentRoomId, isInBreakoutRoom } from '../../../b
 import { isButtonEnabled, showOverflowDrawer } from '../../../toolbox/functions.web';
 import { iAmVisitor } from '../../../visitors/functions';
 import { getSortedParticipantIds, isCurrentRoomRenamable, shouldRenderInviteButton } from '../../functions';
-import { useParticipantDrawer } from '../../hooks';
+import { useParticipantDrawer } from '../../hooks.web';
 import RenameButton from '../breakout-rooms/components/web/RenameButton';
 
 import { InviteButton } from './InviteButton';
@@ -24,15 +23,15 @@ import MeetingParticipantItems from './MeetingParticipantItems';
 const useStyles = makeStyles()(theme => {
     return {
         headingW: {
-            color: theme.palette.warning02
+            color: theme.palette.participantWarningText
         },
         heading: {
-            color: theme.palette.text02,
-            ...withPixelLineHeight(theme.typography.bodyShortBold),
+            color: theme.palette.participantSectionText,
+            ...theme.typography.bodyShortBold,
             marginBottom: theme.spacing(3),
 
             [`@media(max-width: ${participantsPaneTheme.MD_BREAKPOINT})`]: {
-                ...withPixelLineHeight(theme.typography.bodyShortBoldLarge)
+                ...theme.typography.bodyShortBoldLarge
             }
         },
 

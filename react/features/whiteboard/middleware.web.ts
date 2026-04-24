@@ -1,4 +1,3 @@
-import { generateCollaborationLinkData } from '@jitsi/excalidraw';
 import { AnyAction } from 'redux';
 
 import { IStore } from '../app/types';
@@ -73,8 +72,8 @@ MiddlewareRegistry.register((store: IStore) => (next: Function) => (action: AnyA
 
         if (enforceUserLimit) {
             dispatch(restrictWhiteboard(false));
-            dispatch(openDialog(WhiteboardLimitDialog));
-            iAmRecorder && setTimeout(() => dispatch(hideDialog(WhiteboardLimitDialog)), 3000);
+            dispatch(openDialog('WhiteboardLimitDialog', WhiteboardLimitDialog));
+            iAmRecorder && setTimeout(() => dispatch(hideDialog('WhiteboardLimitDialog', WhiteboardLimitDialog)), 3000);
 
             return next(action);
         }
@@ -97,7 +96,7 @@ MiddlewareRegistry.register((store: IStore) => (next: Function) => (action: AnyA
             }
 
             if (isDialogOpen(state, WhiteboardLimitDialog)) {
-                dispatch(hideDialog(WhiteboardLimitDialog));
+                dispatch(hideDialog('WhiteboardLimitDialog', WhiteboardLimitDialog));
             }
 
             focusWhiteboard(store);
@@ -142,6 +141,7 @@ function raiseWhiteboardNotification(status: WhiteboardStatus) {
  */
 async function setNewWhiteboardOpen(store: IStore) {
     const { dispatch, getState } = store;
+    const { generateCollaborationLinkData } = await import(/* webpackChunkName: "excalidraw" */ '@jitsi/excalidraw');
     const collabLinkData = await generateCollaborationLinkData();
     const state = getState();
     const conference = getCurrentConference(state);

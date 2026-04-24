@@ -9,7 +9,6 @@ import { makeStyles } from 'tss-react/mui';
 import { IReduxState } from '../../../app/types';
 import Icon from '../../../base/icons/components/Icon';
 import { IconArrowDown, IconArrowUp } from '../../../base/icons/svg';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import { normalizeAccents } from '../../../base/util/strings.web';
 import { subscribeVisitorsList } from '../../../visitors/actions';
 import {
@@ -45,12 +44,12 @@ const useStyles = makeStyles()(theme => {
             justifyContent: 'space-between',
             cursor: 'pointer',
             padding: `${theme.spacing(1)} 0`,
-            ...withPixelLineHeight(theme.typography.bodyShortBold),
-            color: theme.palette.text02,
+            ...theme.typography.bodyShortBold,
+            color: theme.palette.participantSectionText,
             flexShrink: 0
         },
         arrowContainer: {
-            backgroundColor: theme.palette.ui03,
+            backgroundColor: theme.palette.visitorsArrowBackground,
             width: '24px',
             height: '24px',
             borderRadius: '6px',

@@ -19,8 +19,6 @@ import {
     endConference,
     sendTones,
     setAssumedBandwidthBps,
-    setFollowMe,
-    setFollowMeRecorder,
     setLocalSubject,
     setPassword,
     setSubject
@@ -91,6 +89,7 @@ import {
     togglePinStageParticipant
 } from '../../react/features/filmstrip/actions.web';
 import { getPinnedActiveParticipants, isStageFilmstripAvailable } from '../../react/features/filmstrip/functions.web';
+import { setFollowMe, setFollowMeRecorder } from '../../react/features/follow-me/actions';
 import { invite } from '../../react/features/invite/actions.any';
 import {
     selectParticipantInLargeVideo
@@ -108,9 +107,10 @@ import {
     open as openParticipantsPane
 } from '../../react/features/participants-pane/actions';
 import { getParticipantsPaneOpen } from '../../react/features/participants-pane/functions';
+import { hidePiP, showPiP } from '../../react/features/pip/actions';
 import { startLocalVideoRecording, stopLocalVideoRecording } from '../../react/features/recording/actions.any';
 import { grantRecordingConsent, grantRecordingConsentAndUnmute } from '../../react/features/recording/actions.web';
-import { RECORDING_METADATA_ID, RECORDING_TYPES } from '../../react/features/recording/constants';
+import { RECORDING_TYPES } from '../../react/features/recording/constants';
 import { getActiveSession, supportsLocalRecording } from '../../react/features/recording/functions';
 import { startAudioScreenShareFlow, startScreenShareFlow } from '../../react/features/screen-share/actions';
 import { isScreenAudioSupported } from '../../react/features/screen-share/functions';
@@ -126,7 +126,7 @@ import { extractYoutubeIdOrURL } from '../../react/features/shared-video/functio
 import { setRequestingSubtitles, toggleRequestingSubtitles } from '../../react/features/subtitles/actions';
 import { isAudioMuteButtonDisabled } from '../../react/features/toolbox/functions';
 import { setTileView, toggleTileView } from '../../react/features/video-layout/actions.any';
-import { muteAllParticipants } from '../../react/features/video-menu/actions';
+import { muteAllParticipants, muteRemote } from '../../react/features/video-menu/actions';
 import { setVideoQuality } from '../../react/features/video-quality/actions';
 import { toggleBackgroundEffect, toggleBlurredBackgroundEffect } from '../../react/features/virtual-background/actions';
 import { VIRTUAL_BACKGROUND_TYPE } from '../../react/features/virtual-background/constants';
@@ -138,7 +138,7 @@ import {
     ENDPOINT_TEXT_MESSAGE_NAME
 } from './constants';
 
-const logger = Logger.getLogger(__filename);
+const logger = Logger.getLogger('api:core');
 
 /**
  * List of the available commands.
@@ -238,6 +238,31 @@ function initCommands() {
             }
 
             APP.store.dispatch(muteAllParticipants(exclude, muteMediaType));
+        },
+        'mute-remote-participant': (participantId, mediaType) => {
+            const state = APP.store.getState();
+            const muteMediaType = mediaType ? mediaType : MEDIA_TYPE.AUDIO;
+            const localParticipant = getLocalParticipant(state);
+
+            // Check if targeting the local participant
+            if (participantId === localParticipant?.id) {
+
+                if (muteMediaType === MEDIA_TYPE.AUDIO) {
+                    APP.conference.toggleAudioMuted(false);
+                } else if (muteMediaType === MEDIA_TYPE.VIDEO) {
+                    APP.conference.toggleVideoMuted(false, true);
+                }
+
+                return;
+            }
+
+            if (!isLocalParticipantModerator(state)) {
+                logger.error('Missing moderator rights to mute remote participant');
+
+                return;
+            }
+
+            APP.store.dispatch(muteRemote(participantId, muteMediaType));
         },
         'toggle-lobby': isLobbyEnabled => {
             APP.store.dispatch(toggleLobbyMode(isLobbyEnabled));
@@ -341,6 +366,7 @@ function initCommands() {
 
             APP.store.dispatch(setAssumedBandwidthBps(value));
         },
+
         'set-blurred-background': blurType => {
             const tracks = APP.store.getState()['features/base/tracks'];
             const videoTrack = getLocalVideoTrack(tracks)?.jitsiTrack;
@@ -779,9 +805,6 @@ function initCommands() {
 
             if (transcription) {
                 APP.store.dispatch(setRequestingSubtitles(true, false, null, true));
-                conference.getMetadataHandler().setMetadata(RECORDING_METADATA_ID, {
-                    isTranscribingEnabled: true
-                });
             }
         },
 
@@ -803,10 +826,7 @@ function initCommands() {
             }
 
             if (transcription) {
-                APP.store.dispatch(setRequestingSubtitles(false, false, null));
-                conference.getMetadataHandler().setMetadata(RECORDING_METADATA_ID, {
-                    isTranscribingEnabled: false
-                });
+                APP.store.dispatch(setRequestingSubtitles(false, false, null, true));
             }
 
             if (mode === 'local') {
@@ -823,12 +843,8 @@ function initCommands() {
 
             const activeSession = getActiveSession(state, mode);
 
-            if (activeSession && activeSession.id) {
-                APP.store.dispatch(toggleScreenshotCaptureSummary(false));
-                conference.stopRecording(activeSession.id);
-            } else {
-                logger.error('No recording or streaming session found');
-            }
+            APP.store.dispatch(toggleScreenshotCaptureSummary(false));
+            conference.stopRecording(activeSession?.id);
         },
         'initiate-private-chat': participantId => {
             const state = APP.store.getState();
@@ -907,6 +923,12 @@ function initCommands() {
                 backgroundType: VIRTUAL_BACKGROUND_TYPE.IMAGE,
                 virtualSource: backgroundImage
             }, jitsiTrack));
+        },
+        'show-pip': () => {
+            APP.store.dispatch(showPiP());
+        },
+        'hide-pip': () => {
+            APP.store.dispatch(hidePiP());
         }
     };
     transport.on('event', ({ data, name }) => {
@@ -1243,6 +1265,20 @@ class API {
     }
 
     /**
+     * Notify external application (if API is enabled) that the in-page toolbox
+     * visibility changed.
+     *
+     * @param {boolean} visible - True if the toolbox is visible, false otherwise.
+     * @returns {void}
+     */
+    notifyToolbarVisibilityChanged(visible) {
+        this._sendEvent({
+            name: 'toolbar-visibility-changed',
+            visible
+        });
+    }
+
+    /**
      * Notifies the external application (spot) that the local jitsi-participant
      * has a status update.
      *
@@ -1387,6 +1423,23 @@ class API {
     }
 
     /**
+     * Notify the external application that a participant's mute status changed.
+     *
+     * @param {string} participantId - The ID of the participant.
+     * @param {boolean} isMuted - True if muted, false if unmuted.
+     * @param {string} mediaType - Media type that was muted ('audio' or 'video').
+     * @returns {void}
+     */
+    notifyParticipantMuted(participantId, isMuted, mediaType) {
+        this._sendEvent({
+            name: 'participant-muted',
+            id: participantId,
+            isMuted,
+            mediaType
+        });
+    }
+
+    /**
      * Notify the external app that a notification has been triggered.
      *
      * @param {string} title - The notification title.
@@ -1436,19 +1489,29 @@ class API {
      * @returns {void}
      */
     notifyReceivedChatMessage(
-            { body, from, nick, privateMessage, ts } = {}) {
+            { body, from, nick, privateMessage, ts, messageId, replyToMessageId } = {}) {
         if (APP.conference.isLocalId(from)) {
             return;
         }
 
-        this._sendEvent({
+        const event = {
             name: 'incoming-message',
             from,
             message: body,
             nick,
             privateMessage,
             stamp: ts
-        });
+        };
+
+        if (typeof messageId === 'string' && messageId !== '') {
+            event.messageId = messageId;
+        }
+
+        if (typeof replyToMessageId === 'string' && replyToMessageId !== '') {
+            event.replyToMessageId = replyToMessageId;
+        }
+
+        this._sendEvent(event);
     }
 
     /**
@@ -2197,6 +2260,32 @@ class API {
     }
 
     /**
+     * Notify the external application that a file has been uploaded.
+     *
+     * @param {Object} fileMetadata - The file metadata.
+     * @returns {void}
+     */
+    notifyFileUploaded(fileMetadata) {
+        this._sendEvent({
+            name: 'file-uploaded',
+            file: fileMetadata
+        });
+    }
+
+    /**
+     * Notify the external application that a file has been deleted.
+     *
+     * @param {string} fileId - The ID of the deleted file.
+     * @returns {void}
+     */
+    notifyFileDeleted(fileId) {
+        this._sendEvent({
+            name: 'file-deleted',
+            fileId
+        });
+    }
+
+    /**
      * Notify the external application that the audio or video is being shared by a participant.
      *
      * @param {string} mediaType - Whether the content which is being shared is audio or video.
@@ -2232,6 +2321,43 @@ class API {
             name: 'peer-connection-failure',
             isP2P,
             wasConnected
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that Picture-in-Picture was requested.
+     * Used by Electron to handle PiP requests with proper user gesture context.
+     *
+     * @returns {void}
+     */
+    notifyPictureInPictureRequested() {
+        logger.debug('Sending _pip-requested event to External API');
+        this._sendEvent({
+            name: '_pip-requested'
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that Picture-in-Picture mode was entered.
+     *
+     * @returns {void}
+     */
+    notifyPictureInPictureEntered() {
+        logger.debug('Sending pip-entered event to External API');
+        this._sendEvent({
+            name: 'pip-entered'
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that Picture-in-Picture mode was exited.
+     *
+     * @returns {void}
+     */
+    notifyPictureInPictureLeft() {
+        logger.debug('Sending pip-left event to External API');
+        this._sendEvent({
+            name: 'pip-left'
         });
     }
 

@@ -4,7 +4,6 @@ import { IStore } from '../../app/types';
 import { _RESET_BREAKOUT_ROOMS } from '../../breakout-rooms/actionTypes';
 import { getCurrentConference } from '../conference/functions';
 import {
-    SET_AUDIO_MUTED,
     SET_CAMERA_FACING_MODE,
     SET_SCREENSHARE_MUTED,
     SET_VIDEO_MUTED,
@@ -28,13 +27,12 @@ import {
     destroyLocalTracks,
     trackMuteUnmuteFailed,
     trackRemoved
-} from './actions';
+} from './actions.any';
 import {
     getLocalTrack,
     isUserInteractionRequiredForUnmute,
     setTrackMuted
-} from './functions';
-import './subscriber';
+} from './functions.any';
 
 /**
  * Middleware that captures LIB_DID_DISPOSE and LIB_DID_INIT actions and,
@@ -46,15 +44,6 @@ import './subscriber';
  */
 MiddlewareRegistry.register(store => next => action => {
     switch (action.type) {
-    case SET_AUDIO_MUTED:
-        if (!action.muted
-                && isUserInteractionRequiredForUnmute(store.getState())) {
-            return;
-        }
-
-        _setMuted(store, action, MEDIA_TYPE.AUDIO);
-        break;
-
     case SET_CAMERA_FACING_MODE: {
         // XXX The camera facing mode of a MediaStreamTrack can be specified
         // only at initialization time and then it can only be toggled. So in

@@ -17,6 +17,7 @@ local filters = require 'util.filters';
 local array = require 'util.array';
 local set = require 'util.set';
 local json = require 'cjson.safe';
+local datetime = require 'util.datetime';
 
 local util = module:require 'util';
 local is_admin = util.is_admin;
@@ -53,6 +54,7 @@ local muc_domain_prefix = module:get_option_string('muc_mapper_domain_prefix', '
 local local_muc_domain = muc_domain_prefix..'.'..local_domain;
 
 local NICK_NS = 'http://jabber.org/protocol/nick';
+local DISPLAY_NAME_NS = 'http://jitsi.org/protocol/display-name';
 
 -- in certain cases we consider participants with token as moderators, this is the default behavior which can be turned off
 local auto_promoted_with_token = module:get_option_boolean('visitors_auto_promoted_with_token', true);
@@ -475,10 +477,74 @@ local function message_handler(event)
     end
 end
 
+-- Receives history messages from the main prosody and adds them to the local history
+-- this happens before the first participant joins and that participant gets the history using the standard flow on join
+local function history_message_handler(event)
+    local origin, stanza = event.origin, event.stanza;
+
+    local delay_elem = stanza:get_child('delay', 'urn:xmpp:delay');
+    if not delay_elem then
+        return;
+    end
+
+    -- now let's add it history, we do not use the event as we want to keep
+    -- the delay element
+    local room = get_room_from_jid(room_jid_match_rewrite(
+        jid.bare(stanza.attr.from):sub(1, -(main_domain:len() + 1))..local_domain));
+
+    if not room then
+        return;
+    end
+
+    if room:get_historylength() == 0 then
+        return;
+    end
+
+    local history = room._history;
+    if not history then history = {}; room._history = history; end
+
+    local history_stanza = st.clone(stanza);
+    history_stanza.attr.to = '';
+
+    local node, host, resource = jid.split(room_jid_match_rewrite(history_stanza.attr.from));
+    history_stanza.attr.from = jid.join(node, local_muc_domain, resource);
+    -- the from in the delay extension is still the main prosody jid, not used for now
+    local entry = { stanza = history_stanza, timestamp = datetime.parse(delay_elem.attr.stamp) };
+    table.insert(history, entry);
+    while #history > room:get_historylength() do table.remove(history, 1) end
+
+    return false;
+end
+module:hook('message/host', history_message_handler);
+
 process_host_module(local_domain, function(host_module, host)
     host_module:hook('iq/host', stanza_handler, 10);
     host_module:hook('message/full', message_handler);
 end);
+
+-- add to message stanza display name for the visitor
+-- remove existing nick to avoid forgery
+local function process_display_name(stanza, occupant)
+    -- TODO drop nick extension used in messages in favor of new display-name extension
+    -- we want mobile client to update before dropping support for nick from messages
+    stanza:remove_children('nick', NICK_NS);
+    stanza:remove_children('display-name', DISPLAY_NAME_NS);
+    local nick_element = occupant:get_presence():get_child('nick', NICK_NS);
+    if nick_element then
+        stanza:add_child(nick_element);
+        stanza:tag('display-name', {
+            xmlns = DISPLAY_NAME_NS,
+            source = 'visitor'
+        }):text(nick_element:get_text()):up();
+    else
+        stanza:tag('nick', { xmlns = NICK_NS })
+            :text('anonymous'):up();
+        stanza:tag('display-name', {
+            xmlns = DISPLAY_NAME_NS,
+            source = 'visitor'
+        }):text('anonymous'):up();
+    end
+end
 
 -- only live chat is supported for visitors
 module:hook('muc-occupant-groupchat', function(event)
@@ -492,16 +558,7 @@ module:hook('muc-occupant-groupchat', function(event)
 
         -- we manage nick only for visitors
         if occupant_host ~= main_domain then
-            -- add to message stanza display name for the visitor
-            -- remove existing nick to avoid forgery
-            stanza:remove_children('nick', NICK_NS);
-            local nick_element = occupant:get_presence():get_child('nick', NICK_NS);
-            if nick_element then
-                stanza:add_child(nick_element);
-            else
-                stanza:tag('nick', { xmlns = NICK_NS })
-                    :text('anonymous'):up();
-            end
+            process_display_name(stanza, occupant);
         end
 
         stanza.attr.from = occupant.nick;
@@ -556,15 +613,7 @@ module:hook('muc-private-message', function(event)
         local original_to = stanza.attr.to;
         local original_from = stanza.attr.from;
 
-        -- Add nick element for visitor identification
-        -- remove existing nick to avoid forgery
-        stanza:remove_children('nick', NICK_NS);
-        local nick_element = sender_occupant:get_presence():get_child('nick', NICK_NS);
-        if nick_element then
-            stanza:add_child(nick_element);
-        else
-            stanza:tag('nick', { xmlns = NICK_NS }):text('anonymous'):up();
-        end
+        process_display_name(stanza, sender_occupant);
 
         -- Forward to main prosody, preserving the resource and original from
         stanza.attr.to = jid.join(jid.node(room.jid), muc_domain_prefix..'.'..main_domain, jid.resource(to));
@@ -690,6 +739,10 @@ local function iq_from_main_handler(event)
     local createdTimestamp = node.attr.createdTimestamp;
     room.created_timestamp = createdTimestamp and tonumber(createdTimestamp) or nil;
 
+    if node.attr.allowUnauthenticatedAccess then
+        room._data.allowUnauthenticatedAccess = node.attr.allowUnauthenticatedAccess == 'true';
+    end
+
     if node.attr.lobby == 'true' then
         room._main_room_lobby_enabled = true;
     elseif node.attr.lobby == 'false' then
@@ -739,6 +792,13 @@ local function iq_from_main_handler(event)
                 room = room; file = received_files[id];
             });
         end
+    end
+
+    local pollsEl = node:get_child('polls');
+    if pollsEl then
+        local polls = json.decode(pollsEl:get_text());
+        -- let's find is there a new poll
+        module:fire_event('jitsi-polls-update', { room = room; polls = polls; });
     end
 
     if fire_jicofo_unlock then
@@ -805,6 +865,36 @@ function route_s2s_stanza(event)
         return;
      end
 end
+
+module:hook('answer-poll', function(answerData)
+    local room = answerData.room;
+    local room_jid = room_jid_match_rewrite(jid.join(jid.node(room.jid), muc_domain_prefix..'.'..main_domain));
+
+    -- now send it to the main prosody
+    local data = {
+        answers = answerData.data.answers;
+        command = 'answer-poll';
+        pollId = answerData.pollId;
+        roomJid = room_jid,
+        senderId = answerData.voterId;
+        senderName = answerData.voterName;
+        type = 'polls';
+    };
+
+    local data_str, error = json.encode(data);
+    if not data_str then
+        module:log('error', 'Error encoding data room:%s error:%s', room.jid, error);
+    end
+
+    local stanza = st.message({
+        from = module.host,
+        to = 'polls.'..main_domain
+    })
+    :tag("json-message", { xmlns = "http://jitsi.org/jitmeet"; roomJid = room_jid; })
+    :text(data_str)
+    :up();
+    room:route_stanza(stanza);
+end);
 
 -- routing to sessions in mod_s2s is -1 and -10, we want to hook before that to make sure to is correct
 -- or if we want to filter that stanza

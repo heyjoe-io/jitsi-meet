@@ -6,7 +6,6 @@ import { makeStyles } from 'tss-react/mui';
 import { IReduxState } from '../../../../app/types';
 import { hideDialog } from '../../../dialog/actions';
 import { IconArrowBack, IconCloseLarge } from '../../../icons/svg';
-import { withPixelLineHeight } from '../../../styles/functions.web';
 
 import BaseDialog, { IProps as IBaseProps } from './BaseDialog';
 import Button from './Button';
@@ -43,7 +42,7 @@ const useStyles = makeStyles()(theme => {
             flexDirection: 'column',
             minWidth: '211px',
             maxWidth: '100%',
-            borderRight: `1px solid ${theme.palette.ui03}`,
+            borderRight: `1px solid ${theme.palette.dialogBorder}`,
 
             [`@media (max-width: ${MOBILE_BREAKPOINT}px)`]: {
                 width: '100%',
@@ -70,8 +69,8 @@ const useStyles = makeStyles()(theme => {
         },
 
         title: {
-            ...withPixelLineHeight(theme.typography.heading5),
-            color: `${theme.palette.text01} !important`,
+            ...theme.typography.heading5,
+            color: `${theme.palette.dialogText} !important`,
             margin: 0,
             padding: 0
         },
@@ -302,7 +301,7 @@ const DialogWithTabs = ({
         }
 
         return null;
-    }, [ selectedTabIndex, tabStates ]);
+    }, [ selectedTabIndex, tabStates, tabs ]);
 
     const closeIcon = useMemo(() => (
         <ClickableIcon

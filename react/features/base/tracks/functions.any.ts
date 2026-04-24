@@ -202,6 +202,48 @@ export function getLocalJitsiAudioTrack(state: IReduxState) {
 }
 
 /**
+ * Returns audio settings from the local Jitsi audio track.
+ *
+ * @param {IReduxState} state - The Redux state.
+ * @returns {IAudioSettings} The extracted audio settings.
+ */
+export function getLocalJitsiAudioTrackSettings(state: IReduxState) {
+    const jitsiTrack = getLocalJitsiAudioTrack(state);
+
+    if (!jitsiTrack) {
+        const {
+            audioQuality,
+            disableAEC = false,
+            disableAGC = false,
+            disableAP = false,
+            disableNS = false
+        } = state['features/base/config'] || {};
+
+        const enableStereo = Boolean(audioQuality?.stereo);
+
+        return {
+            autoGainControl: enableStereo ? false : !disableAP && !disableAGC,
+            channelCount: enableStereo ? 2 : 1,
+            echoCancellation: enableStereo ? false : !disableAP && !disableAEC,
+            noiseSuppression: enableStereo ? false : !disableAP && !disableNS
+        };
+    }
+
+    const hasAudioMixerEffect = Boolean(typeof jitsiTrack._streamEffect?.setMuted === 'function' && jitsiTrack._streamEffect?._originalTrack);
+
+    const track = hasAudioMixerEffect ? jitsiTrack._streamEffect._originalTrack : jitsiTrack.getTrack();
+
+    const { autoGainControl, channelCount, echoCancellation, noiseSuppression } = track.getSettings();
+
+    return {
+        autoGainControl,
+        channelCount,
+        echoCancellation,
+        noiseSuppression
+    };
+}
+
+/**
  * Returns track of specified media type for specified participant.
  *
  * @param {IReduxState} state - The redux state.

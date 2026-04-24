@@ -6,7 +6,6 @@ import { withStyles } from 'tss-react/mui';
 import AbstractDialogTab, {
     IProps as AbstractDialogTabProps } from '../../../base/dialog/components/web/AbstractDialogTab';
 import { translate } from '../../../base/i18n/functions';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import Checkbox from '../../../base/ui/components/web/Checkbox';
 
 /**
@@ -27,11 +26,6 @@ export interface IProps extends AbstractDialogTabProps, WithTranslation {
      * CSS classes object.
      */
     classes?: Partial<Record<keyof ReturnType<typeof styles>, string>>;
-
-    /**
-     * Whether to hide chat with permissions.
-     */
-    disableChatWithPermissions: boolean;
 
     /**
      * If set hides the reactions moderation setting.
@@ -57,6 +51,11 @@ export interface IProps extends AbstractDialogTabProps, WithTranslation {
      * Whether the user has selected the Follow Me Recorder feature to be enabled.
      */
     followMeRecorderEnabled: boolean;
+
+    /**
+     * Whether to hide chat with permissions.
+     */
+    hideChatWithPermissions: boolean;
 
     /**
      * Whether or not the user has selected the Start Audio Muted feature to be
@@ -90,8 +89,8 @@ const styles = (theme: Theme) => {
         },
 
         title: {
-            ...withPixelLineHeight(theme.typography.heading6),
-            color: `${theme.palette.text01} !important`,
+            ...theme.typography.heading6,
+            color: `${theme.palette.settingsTabText} !important`,
             marginBottom: theme.spacing(3)
         },
 
@@ -211,12 +210,12 @@ class ModeratorTab extends AbstractDialogTab<IProps, any> {
         const {
             audioModerationEnabled,
             chatWithPermissionsEnabled,
-            disableChatWithPermissions,
             disableReactionsModeration,
             followMeActive,
             followMeEnabled,
             followMeRecorderActive,
             followMeRecorderEnabled,
+            hideChatWithPermissions,
             startAudioMuted,
             startVideoMuted,
             startReactionsMuted,
@@ -267,7 +266,7 @@ class ModeratorTab extends AbstractDialogTab<IProps, any> {
                             label = { t('settings.startReactionsMuted') }
                             name = 'start-reactions-muted'
                             onChange = { this._onStartReactionsMutedChanged } /> }
-                { !disableChatWithPermissions
+                { !hideChatWithPermissions
                     && <Checkbox
                         checked = { chatWithPermissionsEnabled }
                         className = { classes.checkbox }

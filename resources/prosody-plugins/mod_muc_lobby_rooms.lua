@@ -48,6 +48,8 @@ local NOTIFY_LOBBY_ACCESS_DENIED = 'LOBBY-ACCESS-DENIED';
 local util = module:require "util";
 local ends_with = util.ends_with;
 local get_room_by_name_and_subdomain = util.get_room_by_name_and_subdomain;
+local internal_room_jid_match_rewrite = util.internal_room_jid_match_rewrite;
+local get_room_from_jid = util.get_room_from_jid;
 local is_healthcheck_room = util.is_healthcheck_room;
 local presence_check_status = util.presence_check_status;
 local process_host_module = util.process_host_module;
@@ -105,7 +107,7 @@ end
 
 -- Sends a json message notifying that the jid was granted/denied access in lobby
 -- the message from is the actor that did the operation
-function notify_lobby_access(room, actor, jid, display_name, granted)
+function notify_lobby_access(room_jid, actor, jid, display_name, granted)
     local notify_json = {
         value = jid,
         name = display_name
@@ -114,6 +116,12 @@ function notify_lobby_access(room, actor, jid, display_name, granted)
         notify_json.event = NOTIFY_LOBBY_ACCESS_GRANTED;
     else
         notify_json.event = NOTIFY_LOBBY_ACCESS_DENIED;
+    end
+
+    local room = get_room_from_jid(room_jid);
+    if not room then
+        module:log('error', 'Room not found for %s', room_jid)
+        return;
     end
 
     broadcast_json_msg(room, actor, notify_json);
@@ -227,7 +235,7 @@ function attach_lobby_room(room, actor)
         -- avoid lobby destroy while it is enabled
         new_room:set_persistent(true);
         module:log("info","Lobby room jid = %s created from:%s", lobby_room_jid, actor);
-        new_room.main_room = room;
+        new_room.main_room_jid = room.jid;
         room._data.lobbyroom = new_room.jid;
         room:save(true);
         return true
@@ -245,8 +253,17 @@ function destroy_lobby_room(room, newjid, message)
         if lobby_room_obj then
             lobby_room_obj:set_persistent(false);
             lobby_room_obj:destroy(newjid, message);
+
+            module:log('info', 'Lobby room destroyed %s', lobby_room_obj.jid)
+
+            if room.jitsiMetadata then
+                room.jitsiMetadata.lobbyEnabled = false;
+                module:context(main_muc_component_config):fire_event('room-metadata-changed', { room = room; });
+            end
         end
         room._data.lobbyroom = nil;
+        room._data.lobby_extra_reason = nil;
+        room._data.lobby_skip_display_name_check = nil;
     end
 end
 
@@ -396,11 +413,16 @@ function process_lobby_muc_loaded(lobby_muc, host_module)
     host_module:hook('host-disco-info-node', function (event)
         local session, reply, node = event.origin, event.reply, event.node;
         if node == LOBBY_IDENTITY_TYPE
-            and session.jitsi_web_query_room
-            and check_display_name_required then
+            and session.jitsi_web_query_room then
             local room = get_room_by_name_and_subdomain(session.jitsi_web_query_room, session.jitsi_web_query_prefix);
 
-            if room and room._data.lobbyroom then
+            if room and room._data.lobby_disabled then
+                -- we cannot remove the child from the stanza so let's just change the type
+                local lobby_identity = reply:get_child_with_attr('identity', nil, 'type', LOBBY_IDENTITY_TYPE);
+                lobby_identity.attr.type = 'DISABLED_'..LOBBY_IDENTITY_TYPE;
+            end
+
+            if check_display_name_required and room and room._data.lobbyroom then
                 reply:tag('feature', { var = DISPLAY_NAME_REQUIRED_FEATURE }):up();
             end
         end
@@ -410,13 +432,18 @@ function process_lobby_muc_loaded(lobby_muc, host_module)
     local room_mt = lobby_muc_service.room_mt;
     -- we base affiliations (roles) in lobby muc component to be based on the roles in the main muc
     room_mt.get_affiliation = function(room, jid)
-        if not room.main_room then
+        if not room.main_room_jid then
             module:log('error', 'No main room(%s) for %s!', room.jid, jid);
             return 'none';
         end
 
         -- moderators in main room are moderators here
-        local role = room.main_room.get_affiliation(room.main_room, jid);
+        local main_room = get_room_from_jid(room.main_room_jid);
+        if not main_room then
+            module:log('error', 'Main room not found for %s!', room.main_room_jid);
+            return 'none';
+        end
+        local role = main_room.get_affiliation(main_room, jid);
         if role then
             return role;
         end
@@ -431,7 +458,7 @@ function process_lobby_muc_loaded(lobby_muc, host_module)
             local display_name = occupant:get_presence():get_child_text(
                 'nick', 'http://jabber.org/protocol/nick');
             -- we need to notify in the main room
-            notify_lobby_access(room.main_room, actor, occupant.nick, display_name, false);
+            notify_lobby_access(room.main_room_jid, actor, occupant.nick, display_name, false);
         end
     end);
 end
@@ -467,14 +494,26 @@ process_host_module(main_muc_component_config, function(host_module, host)
         end
         local members_only = event.fields['muc#roomconfig_membersonly'] and true or nil;
         if members_only then
+            -- if lobby disabled just ignore and return
+            if room._data.lobby_disabled then
+                module:log('warn', 'Lobby is disabled for room %s, cannot enable members only', room.jid);
+                return;
+            end
             local lobby_created = attach_lobby_room(room, actor);
             if lobby_created then
                 module:fire_event('jitsi-lobby-enabled', { room = room; });
                 event.status_codes['104'] = true;
                 notify_lobby_enabled(room, actor, true);
+
+                -- let's set it in the metadata and fire the event
+                if not room.jitsiMetadata then
+                    room.jitsiMetadata = {};
+                end
+                room.jitsiMetadata.lobbyEnabled = true;
+                host_module:fire_event('room-metadata-changed', { room = room; });
             end
         elseif room._data.lobbyroom then
-            destroy_lobby_room(room, room.jid);
+            destroy_lobby_room(room, internal_room_jid_match_rewrite(room.jid), nil); --
             module:fire_event('jitsi-lobby-disabled', { room = room; });
             notify_lobby_enabled(room, actor, false);
         end
@@ -484,7 +523,7 @@ process_host_module(main_muc_component_config, function(host_module, host)
         if room._data.lobbyroom then
             destroy_lobby_room(room, nil);
         end
-    end);
+    end, 1); -- prosody handles it at 0
     host_module:hook('muc-disco#info', function (event)
         local room = event.room;
         if (room._data.lobbyroom and room:get_members_only()) then
@@ -587,7 +626,7 @@ process_host_module(main_muc_component_config, function(host_module, host)
                     local display_name = occupant:get_presence():get_child_text(
                             'nick', 'http://jabber.org/protocol/nick');
 
-                    notify_lobby_access(room, from, occupant.nick, display_name, true);
+                    notify_lobby_access(room.jid, from, occupant.nick, display_name, true);
                 end
             end
         end
@@ -632,6 +671,13 @@ function handle_create_lobby(event)
     room:set_members_only(true);
     room._data.lobby_extra_reason = event.reason;
     room._data.lobby_skip_display_name_check = event.skip_display_name_check;
+
+    -- set in metadata without firing room-metadata-changed,
+    -- as this is a backend call and the caller will take care of that
+    if not room.jitsiMetadata then
+        room.jitsiMetadata = {};
+    end
+    room.jitsiMetadata.lobbyEnabled = true;
 
     -- Trigger a presence with 104 so existing participants retrieves new muc#roomconfig
     room:broadcast_message(

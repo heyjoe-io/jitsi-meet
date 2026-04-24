@@ -99,18 +99,14 @@ local function request_promotion_received(room, from_jid, from_vnode, nick, time
             -- Let's do the force_promote checks if requested
             -- if it is vpaas meeting we trust the moderator computation from visitor node (value of force_promote_requested)
             -- if it is not vpaas we need to check further settings only if they exist
-            if is_vpaas(room) or (not room._data.moderator_id and not room._data.moderators)
-                -- _data.moderator_id can be used from external modules to set single moderator for a meeting
-                -- or a whole group of moderators
-                or (room._data.moderator_id
-                    and room._data.moderator_id == user_id or room._data.moderator_id == group_id)
-
+            if is_vpaas(room) or not room._data.moderators
                 -- all moderators are allowed to auto promote, the fact that user_id and force_promote_requested are set
                 -- means that the user has token and is moderator on visitor node side
                 or room._data.allModerators
 
-                -- can be used by external modules to set multiple moderator ids (table of values)
+                -- can be used by external modules to set multiple moderator ids (table of values) or a group
                 or table_find(room._data.moderators, user_id)
+                or table_find(room._data.moderators, group_id)
             then
                 force_promote = true;
             end
@@ -213,6 +209,9 @@ end
 local function disconnect_vnode_received(room, vnode)
     module:context(muc_domain_base):fire_event('jitsi-disconnect-vnode', { room = room; vnode = vnode; });
 
+    if not room._connected_vnodes then
+        return;
+    end
     room._connected_vnodes:set(vnode..'.meet.jitsi', nil);
 
     if room._connected_vnodes:count() == 0 then
@@ -513,10 +512,7 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
         -- we skip any checks when auto-allow is enabled and room is live
         if (auto_allow_promotion or get_visitors_room_metadata(room).autoPromote and (is_live or is_live == nil))
             or ignore_list:contains(jid.host(stanza.attr.from)) -- jibri or other domains to ignore
-            or is_sip_jigasi(stanza)
-            or is_sip_jibri_join(stanza)
             or table_find(room._data.moderators, session.jitsi_meet_context_user and session.jitsi_meet_context_user.id)
-            or (room._data.moderator_id and room._data.moderator_id == (session.jitsi_meet_context_user and session.jitsi_meet_context_user.id))
             or table_find(room._data.participants, session.jitsi_meet_context_user and session.jitsi_meet_context_user.id) then
             if DEBUG then
                 module:log('debug', 'Auto-allowing visitor %s in room %s', stanza.attr.from, room.jid);
@@ -561,6 +557,10 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
         elseif room._data.participants then
                 -- This is non jaas room which has a list of participants allowed to participate in the main room
                 -- but this occupant is not one of them and the room is either not live or has no participants joined
+                if room:get_members_only() then
+                    -- if there is a lobby, let's pass it through it will wait for the main participant
+                    return;
+                end
                 session.log('warn',
                     'Deny user join in the main not live meeting, not in the list of main participants');
                 session.send(st.error_reply(
@@ -574,7 +574,7 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
     host_module:hook('muc-room-destroyed', function (event)
         visitors_promotion_map[event.room.jid] = nil;
         visitors_promotion_requests[event.room.jid] = nil;
-    end);
+    end, 1); -- prosody handles it at 0
 
     host_module:hook('muc-occupant-joined', function (event)
         local room, occupant = event.room, event.occupant;
@@ -696,6 +696,13 @@ process_host_module(muc_domain_prefix..'.'..muc_domain_base, function(host_modul
                 return;
             end
 
+            if always_visitors_enabled then
+                if not room.jitsiMetadata then
+                    room.jitsiMetadata = {};
+                end
+                room.jitsiMetadata.visitorsEnabled = true;
+            end
+
             go_live(room);
         end);
     end
@@ -739,7 +746,7 @@ function handle_occupant_leaving_breakout(event)
     local main_room, occupant, stanza = event.main_room, event.occupant, event.stanza;
     local presence_status = stanza:get_child_text('status');
 
-    if presence_status ~= 'switch_room' or not visitors_promotion_map[main_room.jid] then
+    if presence_status ~= 'switch_room' or not main_room or not visitors_promotion_map[main_room.jid] then
         return;
     end
 

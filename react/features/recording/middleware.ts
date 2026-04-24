@@ -40,7 +40,6 @@ import {
     markConsentRequested,
     showPendingRecordingNotification,
     showRecordingError,
-    showRecordingLimitNotification,
     showRecordingWarning,
     showStartRecordingNotification,
     showStartedRecordingNotification,
@@ -52,6 +51,8 @@ import LocalRecordingManager from './components/Recording/LocalRecordingManager'
 import {
     LIVE_STREAMING_OFF_SOUND_ID,
     LIVE_STREAMING_ON_SOUND_ID,
+    RECORDING_AND_TRANSCRIPTION_OFF_SOUND_ID,
+    RECORDING_AND_TRANSCRIPTION_ON_SOUND_ID,
     RECORDING_OFF_SOUND_ID,
     RECORDING_ON_SOUND_ID,
     START_RECORDING_NOTIFICATION_ID
@@ -64,6 +65,11 @@ import {
     unregisterRecordingAudioFiles
 } from './functions';
 import logger from './logger';
+
+/**
+ * Map to track which recording sessions have transcription enabled.
+ */
+const sessionsWithTranscription = new Map<string, boolean>();
 
 /**
  * StateListenerRegistry provides a reliable way to detect the leaving of a
@@ -208,8 +214,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         // but we want to indicate those in case of sip gateway
         const {
             iAmRecorder,
-            iAmSipGateway,
-            recordingLimit
+            iAmSipGateway
         } = state['features/base/config'];
 
         if (iAmRecorder && !iAmSipGateway) {
@@ -241,20 +246,31 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
             if (initiator && !oldSessionData?.initiator) {
-                if (typeof recordingLimit === 'object') {
-                    dispatch(showRecordingLimitNotification(mode));
-                } else {
-                    // dispatch(showStartedRecordingNotification(mode, initiator, action.sessionData.id));
-                }
+                // HeyJoe: suppress recording started notification
+                // dispatch(showStartedRecordingNotification(mode, initiator, action.sessionData.id));
             }
 
             if (oldSessionData?.status !== ON) {
                 sendAnalytics(createRecordingEvent('start', mode));
 
                 let soundID;
+                const isTranscribing = isRecorderTranscriptionsRunning(state);
+                const isRequestingTranscription = state['features/subtitles']._requestingSubtitles;
+                const willTranscribe = isTranscribing || isRequestingTranscription;
 
-                if (mode === JitsiRecordingConstants.mode.FILE && !isRecorderTranscriptionsRunning(state)) {
-                    soundID = RECORDING_ON_SOUND_ID;
+                // Store whether transcription was enabled when recording started
+                if (mode === JitsiRecordingConstants.mode.FILE) {
+                    const sessionId = action.sessionData.id;
+
+                    if (sessionId) {
+                        sessionsWithTranscription.set(sessionId, willTranscribe);
+                    }
+
+                    if (willTranscribe) {
+                        soundID = RECORDING_AND_TRANSCRIPTION_ON_SOUND_ID;
+                    } else {
+                        soundID = RECORDING_ON_SOUND_ID;
+                    }
                 } else if (mode === JitsiRecordingConstants.mode.STREAM) {
                     soundID = LIVE_STREAMING_ON_SOUND_ID;
                 }
@@ -269,11 +285,11 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
-            if (terminator) {
-                // dispatch(
-                //     showStoppedRecordingNotification(
-                //         mode, getParticipantDisplayName(state, getResourceId(terminator))));
-            }
+            // HeyJoe: suppress recording stopped notification
+            // const participantName = terminator
+            //     ? getParticipantDisplayName(state, getResourceId(terminator))
+            //     : undefined;
+            // dispatch(showStoppedRecordingNotification(mode, participantName));
 
             let duration = 0, soundOff, soundOn;
 
@@ -283,9 +299,23 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             }
             sendAnalytics(createRecordingEvent('stop', mode, duration));
 
-            if (mode === JitsiRecordingConstants.mode.FILE && !isRecorderTranscriptionsRunning(state)) {
-                soundOff = RECORDING_OFF_SOUND_ID;
-                soundOn = RECORDING_ON_SOUND_ID;
+            // Check if transcription was enabled when the recording started
+            const sessionId = action.sessionData.id;
+            const wasWithTranscription = sessionId ? sessionsWithTranscription.get(sessionId) ?? false : false;
+
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                if (wasWithTranscription) {
+                    soundOff = RECORDING_AND_TRANSCRIPTION_OFF_SOUND_ID;
+                    soundOn = RECORDING_AND_TRANSCRIPTION_ON_SOUND_ID;
+                } else {
+                    soundOff = RECORDING_OFF_SOUND_ID;
+                    soundOn = RECORDING_ON_SOUND_ID;
+                }
+
+                // Clean up the entry when recording stops
+                if (sessionId) {
+                    sessionsWithTranscription.delete(sessionId);
+                }
             } else if (mode === JitsiRecordingConstants.mode.STREAM) {
                 soundOff = LIVE_STREAMING_OFF_SOUND_ID;
                 soundOn = LIVE_STREAMING_ON_SOUND_ID;
@@ -420,12 +450,21 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
         return;
     }
 
+    // Capture the current mute state BEFORE forcing mute for consent
+    // This preserves the user's intentional mute choices from prejoin or initial settings
+    const state = getState();
+    const audioWasMuted = state['features/base/media'].audio.muted;
+    const videoWasMuted = state['features/base/media'].video.muted;
+
     batch(() => {
         dispatch(markConsentRequested(recorderSession.getID()));
         dispatch(setAudioUnmutePermissions(true, true));
         dispatch(setVideoUnmutePermissions(true, true));
         dispatch(setAudioMuted(true));
         dispatch(setVideoMuted(true));
-        dispatch(openDialog(RecordingConsentDialog));
+        dispatch(openDialog('RecordingConsentDialog', RecordingConsentDialog, {
+            audioWasMuted,
+            videoWasMuted
+        }));
     });
 }

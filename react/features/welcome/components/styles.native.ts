@@ -100,13 +100,6 @@ export default {
         paddingTop: 10
     },
 
-    /**
-     * A view that contains the field and hint box.
-     */
-    joinControls: {
-        padding: BoxModel.padding
-    },
-
     messageContainer: {
         backgroundColor: HJColors.gray100,
         borderRadius: HJBorderRadius.md,

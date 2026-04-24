@@ -1,5 +1,5 @@
 /* eslint-disable react/jsx-no-bind */
-import Clipboard from '@react-native-community/clipboard';
+import Clipboard from '@react-native-clipboard/clipboard';
 import React from 'react';
 import {
     Animated,
@@ -7,8 +7,6 @@ import {
     ImageStyle,
     Linking,
     NativeSyntheticEvent,
-    SafeAreaView,
-    StatusBar,
     StyleProp,
     TextInputFocusEventData,
     TextStyle,
@@ -17,6 +15,7 @@ import {
     View,
     ViewStyle
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { connect } from 'react-redux';
 
 import { getName } from '../../app/functions.native';
@@ -332,7 +331,9 @@ class WelcomePage extends AbstractWelcomePage<IProps> {
                     isSettingsScreenFocused && styles.roomNameInputContainer,
                     { opacity: this.state.roomNameInputAnimation }
                 ] as StyleProp<ViewStyle> }>
-                <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
+                <SafeAreaView
+                    edges = { [ 'left', 'right' ] }
+                    style = { styles.roomContainer as StyleProp<ViewStyle> }>
                     <TouchableOpacity activeOpacity = { 0.6 } onPress = { () => this._onMoreOptions(false) }>
                         <View
                             style = {{

@@ -108,13 +108,22 @@ module:hook("muc-occupant-pre-join", function (event)
 
         if not room.join_rate_queue_timer then
             timer.add_task(1, function ()
-                local status, result = pcall(timer_process_queue_elements,
+                if room.destroying then
+                    -- if room was destroyed in the mean time, ignore
+                    return;
+                end
+
+                local status, result = pcall(
+                    timer_process_queue_elements,
                     join_rate_per_conference,
                     room.join_rate_presence_queue,
                     function(ev)
-                        -- we mark what we pass here so we can skip it on the next muc-occupant-pre-join event
-                        ev.stanza.delayed_join_skip = true;
-                        room:handle_normal_presence(ev.origin, ev.stanza);
+                        -- if the connection was closed while waiting in the queue, ignore
+                        if ev.origin.conn then
+                            -- we mark what we pass here so we can skip it on the next muc-occupant-pre-join event
+                            ev.stanza.delayed_join_skip = true;
+                            room:handle_normal_presence(ev.origin, ev.stanza);
+                        end
                     end,
                     function() -- empty callback
                         room.join_rate_queue_timer = false;
@@ -158,7 +167,7 @@ module:hook('muc-room-destroyed',function(event)
     if event.room.leave_rate_presence_queue then
         event.room.leave_rate_presence_queue.empty = true;
     end
-end);
+end, 1);  -- prosody handles it at 0
 
 module:hook('muc-occupant-pre-leave', function (event)
     local occupant, room, stanza = event.occupant, event.room, event.stanza;

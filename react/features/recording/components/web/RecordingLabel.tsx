@@ -3,6 +3,8 @@ import React from 'react';
 import { connect } from 'react-redux';
 import { withStyles } from 'tss-react/mui';
 
+import { IStore } from '../../../app/types';
+import { openDialog } from '../../../base/dialog/actions';
 import { translate } from '../../../base/i18n/functions';
 import { IconRecord, IconSites } from '../../../base/icons/svg';
 import Label from '../../../base/label/components/web/Label';
@@ -12,6 +14,7 @@ import AbstractRecordingLabel, {
     IProps as AbstractProps,
     _mapStateToProps
 } from '../AbstractRecordingLabel';
+import StopRecordingDialog from '../Recording/web/StopRecordingDialog';
 
 interface IProps extends AbstractProps {
 
@@ -19,6 +22,11 @@ interface IProps extends AbstractProps {
      * An object containing the CSS classes.
      */
     classes?: Partial<Record<keyof ReturnType<typeof styles>, string>>;
+
+    /**
+     * The Redux dispatch function.
+     */
+    dispatch: IStore['dispatch'];
 
 }
 
@@ -45,12 +53,32 @@ const styles = (theme: Theme) => {
  */
 class RecordingLabel extends AbstractRecordingLabel<IProps> {
     /**
+     * Initializes a new {@code RecordingLabel} instance.
+     *
+     * @param {IProps} props - The props of the component.
+     */
+    constructor(props: IProps) {
+        super(props);
+
+        this._onClick = this._onClick.bind(this);
+    }
+
+    /**
+     * Handles clicking on the label.
+     *
+     * @returns {void}
+     */
+    _onClick() {
+        this.props.dispatch(openDialog('StopRecordingDialog', StopRecordingDialog));
+    }
+
+    /**
      * Renders the platform specific label component.
      *
      * @inheritdoc
      */
     override _renderLabel() {
-        const { _isTranscribing, _status, mode, t } = this.props;
+        const { _status, mode, t } = this.props;
         const classes = withStyles.getClasses(this.props);
         const isRecording = mode === JitsiRecordingConstants.mode.FILE;
         const icon = isRecording ? IconRecord : IconSites;
@@ -58,14 +86,8 @@ class RecordingLabel extends AbstractRecordingLabel<IProps> {
 
         if (_status === JitsiRecordingConstants.status.ON) {
             content = t(isRecording ? 'videoStatus.recording' : 'videoStatus.streaming');
-
-            if (_isTranscribing) {
-                content += ` ${t('transcribing.labelTooltipExtra')}`;
-            }
         } else if (mode === JitsiRecordingConstants.mode.STREAM) {
             return null;
-        } else if (_isTranscribing) {
-            content = t('transcribing.labelTooltip');
         } else {
             return null;
         }
@@ -76,7 +98,8 @@ class RecordingLabel extends AbstractRecordingLabel<IProps> {
                 position = { 'bottom' }>
                 <Label
                     className = { classes.record }
-                    icon = { icon } />
+                    icon = { icon }
+                    onClick = { this._onClick } />
             </Tooltip>
         );
     }

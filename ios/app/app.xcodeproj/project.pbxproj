@@ -29,6 +29,17 @@
 		FD572B9927EDF32300A800FB /* GiphyUISDK.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FD572B9727EDF32300A800FB /* GiphyUISDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		4EB06029260E026600F524C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4EB06022260E026600F524C5;
+			remoteInfo = "JitsiMeetBroadcast Extension";
+		};
+/* End PBXContainerItemProxy section */
+
+
 /* Begin PBXCopyFilesBuildPhase section */
 		0B26BE701EC5BC3C00EEFB41 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -116,6 +127,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4EB06020260E026600F524C5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EB06024260E026600F524C5 /* ReplayKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -199,6 +218,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* jitsi-meet.app */,
+				4EB06023260E026600F524C5 /* JitsiMeetBroadcastExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -237,6 +257,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4EB0602A260E026600F524C5 /* PBXTargetDependency */,
 			);
 			name = JitsiMeet;
 			productName = "Jitsi Meet";
@@ -281,6 +302,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* JitsiMeet */,
+				4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -448,6 +470,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4EB0602A260E026600F524C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */;
+			targetProxy = 4EB06029260E026600F524C5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 
 /* Begin PBXVariantGroup section */
 		13B07FB11A68108700A75B9A /* LaunchScreen.storyboard */ = {

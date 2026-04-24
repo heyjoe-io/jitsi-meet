@@ -12,11 +12,15 @@ import { isJwtFeatureEnabled } from '../base/jwt/functions';
 import { getParticipantById, isPrivateChatEnabled } from '../base/participants/functions';
 import { IParticipant } from '../base/participants/types';
 import { escapeRegexp } from '../base/util/helpers';
+import { arePollsDisabled } from '../conference/functions.any';
+import { getCustomPanelWidth } from '../custom-panel/functions';
+import { isFileSharingEnabled } from '../file-sharing/functions.any';
 import { getParticipantsPaneWidth } from '../participants-pane/functions';
+import { isCCTabEnabled } from '../subtitles/functions.any';
 import { VIDEO_SPACE_MIN_SIZE } from '../video-layout/constants';
 import { IVisitorChatParticipant } from '../visitors/types';
 
-import { MESSAGE_TYPE_ERROR, MESSAGE_TYPE_LOCAL, TIMESTAMP_FORMAT } from './constants';
+import { ChatTabs, MESSAGE_TYPE_ERROR, MESSAGE_TYPE_LOCAL, TIMESTAMP_FORMAT } from './constants';
 import { IMessage } from './types';
 
 /**
@@ -96,7 +100,7 @@ export function replaceNonUnicodeEmojis(message: string): string {
  * @param {IReduxState} state - The redux state.
  * @returns {number} The number of unread messages.
  */
-export function getUnreadCount(state: IReduxState) {
+export function getUnreadCount(state: IReduxState): number {
     const { lastReadMessage, messages } = state['features/chat'];
     const messagesCount = messages.length;
 
@@ -132,15 +136,72 @@ export function getUnreadCount(state: IReduxState) {
 }
 
 /**
+ * Gets the unread files count.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {number} The number of unread files.
+ */
+export function getUnreadFilesCount(state: IReduxState): number {
+    return state['features/chat']?.unreadFilesCount || 0;
+}
+
+/**
  * Get whether the chat smileys are disabled or not.
  *
  * @param {IReduxState} state - The redux state.
  * @returns {boolean} The disabled flag.
  */
-export function areSmileysDisabled(state: IReduxState) {
+export function areSmileysDisabled(state: IReduxState): boolean {
     const disableChatSmileys = state['features/base/config']?.disableChatSmileys === true;
 
     return disableChatSmileys;
+}
+
+/**
+ * Returns whether the chat feature is disabled.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {boolean} True if chat is disabled, false otherwise.
+ */
+export function isChatDisabled(state: IReduxState): boolean {
+    return Boolean(state['features/base/config']?.disableChat);
+}
+
+/**
+ * Gets the default focused tab based on what features are enabled.
+ * Returns the first available tab in priority order: CHAT -> POLLS -> FILE_SHARING -> CLOSED_CAPTIONS.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {ChatTabs | undefined} The default focused tab.
+ */
+export function getDefaultFocusedTab(state: IReduxState): ChatTabs | undefined {
+    if (!isChatDisabled(state)) {
+        return ChatTabs.CHAT;
+    }
+
+    if (!arePollsDisabled(state)) {
+        return ChatTabs.POLLS;
+    }
+
+    if (isFileSharingEnabled(state)) {
+        return ChatTabs.FILE_SHARING;
+    }
+
+    if (isCCTabEnabled(state)) {
+        return ChatTabs.CLOSED_CAPTIONS;
+    }
+
+    return undefined;
+}
+
+/**
+ * Returns the currently focused tab or the default focused tab if none is set.
+ *
+ * @param {IReduxState} state - The redux state.
+ * @returns {ChatTabs | undefined} The focused tab or undefined if no tabs are available.
+ */
+export function getFocusedTab(state: IReduxState): ChatTabs | undefined {
+    return state['features/chat'].focusedTab || getDefaultFocusedTab(state);
 }
 
 /**
@@ -149,7 +210,7 @@ export function areSmileysDisabled(state: IReduxState) {
  * @param {IMessage} message - The message from which to get the timestamp.
  * @returns {string}
  */
-export function getFormattedTimestamp(message: IMessage) {
+export function getFormattedTimestamp(message: IMessage): string {
     return getLocalizedDateFormatter(new Date(message.timestamp))
         .format(TIMESTAMP_FORMAT);
 }
@@ -160,7 +221,7 @@ export function getFormattedTimestamp(message: IMessage) {
  * @param {IMessage} message - The message from which to get the text.
  * @returns {string}
  */
-export function getMessageText(message: IMessage) {
+export function getMessageText(message: IMessage): string {
     return message.messageType === MESSAGE_TYPE_ERROR
         ? i18next.t('chat.error', {
             error: message.message
@@ -176,7 +237,7 @@ export function getMessageText(message: IMessage) {
  * @param {IMessage} message - The message to be checked.
  * @returns {boolean}
  */
-export function getCanReplyToMessage(state: IReduxState, message: IMessage) {
+export function getCanReplyToMessage(state: IReduxState, message: IMessage): boolean {
     const { knocking } = state['features/lobby'];
     const participant = getParticipantById(state, message.participantId);
 
@@ -206,7 +267,7 @@ export function getCanReplyToMessage(state: IReduxState, message: IMessage) {
  * @param {IMessage} message - The message to be checked.
  * @returns {string}
  */
-export function getPrivateNoticeMessage(message: IMessage) {
+export function getPrivateNoticeMessage(message: IMessage): string {
     let recipient;
 
     if (message.messageType === MESSAGE_TYPE_LOCAL) {
@@ -230,7 +291,7 @@ export function getPrivateNoticeMessage(message: IMessage) {
  * @param {IReduxState} state - The redux state.
  * @returns {boolean} - Returns true if the participant is not allowed to send group messages.
  */
-export function isSendGroupChatDisabled(state: IReduxState) {
+export function isSendGroupChatDisabled(state: IReduxState): boolean {
     const { groupChatRequiresPermission } = state['features/dynamic-branding'];
 
     if (!groupChatRequiresPermission) {
@@ -248,10 +309,13 @@ export function isSendGroupChatDisabled(state: IReduxState) {
  * @returns {number} The maximum width in pixels available for the chat panel. Returns 0 if there
  * is no space available.
  */
-export function getChatMaxSize(state: IReduxState) {
+export function getChatMaxSize(state: IReduxState): number {
     const { clientWidth } = state['features/base/responsive-ui'];
 
-    return Math.max(clientWidth - getParticipantsPaneWidth(state) - VIDEO_SPACE_MIN_SIZE, 0);
+    return Math.max(
+        clientWidth - getParticipantsPaneWidth(state) - getCustomPanelWidth(state) - VIDEO_SPACE_MIN_SIZE,
+        0
+    );
 }
 
 /**
@@ -264,4 +328,32 @@ export function isVisitorChatParticipant(
         participant?: IParticipant | IVisitorChatParticipant
 ): participant is IVisitorChatParticipant {
     return Boolean(participant && 'isVisitor' in participant && participant.isVisitor === true);
+}
+
+/**
+ * Returns a suffix to be appended to the display name based on the message origin.
+ *
+ * @param {IMessage} message - The message.
+ * @returns {string} The suffix, if any.
+ */
+export function getDisplayNameSuffix(message: IMessage): string {
+    let suffix = '';
+
+    if (message.isFromVisitor) {
+        suffix = ` ${i18next.t('visitors.chatIndicator')}`;
+    } else if (message.isFromGuest) {
+        suffix = ` ${i18next.t('chat.guestsChatIndicator')}`;
+    }
+
+    return suffix;
+}
+
+/**
+ * Checks if a message is a file message by verifying the presence of file metadata.
+ *
+ * @param {IMessage} message - The message to check.
+ * @returns {boolean} True if the message contains file metadata, false otherwise.
+ */
+export function isFileMessage(message: IMessage): boolean {
+    return Boolean(message?.fileMetadata);
 }

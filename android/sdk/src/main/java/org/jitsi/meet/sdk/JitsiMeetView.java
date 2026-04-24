@@ -17,7 +17,6 @@
 package org.jitsi.meet.sdk;
 
 import android.app.Activity;
-import android.app.Application;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -27,8 +26,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.facebook.react.ReactRootView;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
 
 import org.jitsi.meet.sdk.log.JitsiMeetLogger;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public class JitsiMeetView extends FrameLayout {
@@ -36,7 +39,7 @@ public class JitsiMeetView extends FrameLayout {
     /**
      * Background color. Should match the welcome screen background in JS.
      */
-    private static final int BACKGROUND_COLOR = 0xFFFCF4E6;
+    public static final int BACKGROUND_COLOR = 0xFFFCF4E6;
 
     /**
      * React Native root view.
@@ -84,6 +87,10 @@ public class JitsiMeetView extends FrameLayout {
                 result.putInt(key, (int)bValue);
             } else if (valueType.contentEquals("Bundle")) {
                 result.putBundle(key, mergeProps((Bundle)aValue, (Bundle)bValue));
+            } else if (valueType.contentEquals("String[]")) {
+                // Convert String[] to ArrayList<String> for React Native bridge compatibility
+                String[] stringArray = (String[]) bValue;
+                result.putStringArrayList(key, new ArrayList<>(Arrays.asList(stringArray)));
             } else {
                 throw new RuntimeException("Unsupported type: " + valueType);
             }
@@ -178,6 +185,10 @@ public class JitsiMeetView extends FrameLayout {
 
         if (reactRootView == null) {
             reactRootView = new ReactRootView(getContext());
+
+            boolean isFabricEnabled = ReactNativeFeatureFlags.enableFabricRenderer();
+            reactRootView.setIsFabric(isFabricEnabled);
+            
             reactRootView.startReactApplication(
                 ReactInstanceManagerHolder.getReactInstanceManager(),
                 appName,

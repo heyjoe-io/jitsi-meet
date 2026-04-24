@@ -4,6 +4,7 @@ import { DEFAULT_ICON } from './constants';
 
 const {
     IconAddUser,
+    IconAI,
     IconArrowBack,
     IconArrowDown,
     IconArrowDownLarge,
@@ -73,6 +74,7 @@ const {
     IconPlus,
     IconRaiseHand,
     IconRecord,
+    IconTranscription,
     IconRecordAccount,
     IconRecordContact,
     IconRecordLead,
@@ -125,6 +127,7 @@ const {
 
 export {
     IconAddUser,
+    IconAI,
     IconArrowBack,
     IconArrowDown,
     IconArrowDownLarge,
@@ -194,6 +197,7 @@ export {
     IconPlus,
     IconRaiseHand,
     IconRecord,
+    IconTranscription,
     IconRecordAccount,
     IconRecordContact,
     IconRecordLead,

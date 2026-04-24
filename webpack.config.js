@@ -152,6 +152,19 @@ function getConfig(options = {}) {
                 test: /\.(j|t)sx?$/,
                 exclude: /node_modules/
             }, {
+                // Emit woff2 fonts to excalidraw/fonts/ preserving the subdirectory
+                // structure so they land at the same path that deploy-excalidraw copies
+                // them to (libs/excalidraw/fonts/...) and CSS @font-face URLs resolve.
+                test: /\.woff2$/,
+                type: 'asset/resource',
+                generator: {
+                    filename: pathData => {
+                        const match = pathData.filename?.match(/\/fonts\/(.*)/);
+
+                        return match ? `excalidraw/fonts/${match[1]}` : 'excalidraw/fonts/[name][ext]';
+                    }
+                }
+            }, {
                 // Allow CSS to be imported into JavaScript.
 
                 test: /\.css$/,
@@ -160,7 +173,14 @@ function getConfig(options = {}) {
                     'css-loader'
                 ]
             }, {
+                // Import SVG as raw text when using ?raw query parameter.
                 test: /\.svg$/,
+                resourceQuery: /raw/,
+                type: 'asset/source'
+            }, {
+                // Import SVG as React component (default).
+                test: /\.svg$/,
+                resourceQuery: { not: [ /raw/ ] },
                 use: [ {
                     loader: '@svgr/webpack',
                     options: {
@@ -213,8 +233,9 @@ function getConfig(options = {}) {
         },
         output: {
             filename: `[name]${isProduction ? '.min' : ''}.js`,
+            chunkFilename: `chunks/[id]${isProduction ? '.min' : ''}.js`,
             path: `${__dirname}/build`,
-            publicPath: '/libs/',
+            publicPath: isProduction ? 'auto' : '/libs/',
             sourceMapFilename: '[file].map'
         },
         plugins: [
@@ -227,7 +248,13 @@ function getConfig(options = {}) {
         ].filter(Boolean),
         resolve: {
             alias: {
-                'focus-visible': 'focus-visible/dist/focus-visible.min.js'
+                'focus-visible': 'focus-visible/dist/focus-visible.min.js',
+                '@giphy/js-analytics': resolve(__dirname, 'giphy-analytics-stub.js'),
+                'react': resolve(__dirname, 'node_modules/react'),
+                'react-dom': resolve(__dirname, 'node_modules/react-dom'),
+                'roughjs/bin/rough': 'roughjs/bin/rough.js',
+                'roughjs/bin/generator': 'roughjs/bin/generator.js',
+                'roughjs/bin/math': 'roughjs/bin/math.js'
             },
             aliasFields: [
                 'browser'
@@ -272,7 +299,8 @@ function getDevServerConfig() {
                 warnings: false
             }
         },
-        host: '::',
+        allowedHosts: 'all',
+        host: 'localhost',
         hot: true,
         proxy: [
             {
@@ -286,6 +314,9 @@ function getDevServerConfig() {
             }
         ],
         server: process.env.CODESPACES ? 'http' : 'https',
+        setupMiddlewares: (middlewares, _devServer) => middlewares.filter(
+            m => m.name !== 'cross-origin-header-check'
+        ),
         static: {
             directory: process.cwd(),
             watch: {
@@ -334,7 +365,7 @@ module.exports = (_env, argv) => {
                 })
             ],
 
-            performance: getPerformanceHints(perfHintOptions, 5 * 1024 * 1024) },
+            performance: getPerformanceHints(perfHintOptions, 3.5 * 1024 * 1024) },
         { ...config,
             entry: {
                 'alwaysontop': './react/features/always-on-top/index.tsx'

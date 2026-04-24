@@ -203,7 +203,7 @@ function on_message(event)
         local room = get_room_by_name_and_subdomain(session.jitsi_web_query_room, session.jitsi_web_query_prefix);
 
         if not room then
-            module:log('warn', 'No room found found for %s/%s',
+            module:log('warn', 'No room found for %s/%s',
                     session.jitsi_web_query_prefix, session.jitsi_web_query_room);
             return false;
         end
@@ -352,6 +352,8 @@ function occupant_joined(event)
                 start_av_moderation(room, mediaType, occupant);
 
                 notify_occupants_enable(nil, true, room, occupant.nick, mediaType);
+
+                notify_whitelist_change(nil, true, room, mediaType);
             end
 
             room._data.av_first_moderator_joined = true;

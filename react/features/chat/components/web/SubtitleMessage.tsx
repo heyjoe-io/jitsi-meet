@@ -3,7 +3,6 @@ import { useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
 import { getParticipantDisplayName } from '../../../base/participants/functions';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import { ISubtitle } from '../../../subtitles/types';
 
 /**
@@ -23,7 +22,7 @@ interface IProps extends ISubtitle {
 const useStyles = makeStyles()(theme => {
     return {
         messageContainer: {
-            backgroundColor: theme.palette.ui02,
+            backgroundColor: theme.palette.subtitleMessageBackground,
             borderRadius: '4px 12px 12px 12px',
             padding: '12px',
             maxWidth: '100%',
@@ -39,8 +38,8 @@ const useStyles = makeStyles()(theme => {
         },
 
         messageHeader: {
-            ...withPixelLineHeight(theme.typography.labelBold),
-            color: theme.palette.text02,
+            ...theme.typography.labelBold,
+            color: theme.palette.subtitleMessageSender,
             whiteSpace: 'nowrap',
             textOverflow: 'ellipsis',
             overflow: 'hidden',
@@ -49,15 +48,15 @@ const useStyles = makeStyles()(theme => {
         },
 
         messageText: {
-            ...withPixelLineHeight(theme.typography.bodyShortRegular),
-            color: theme.palette.text01,
+            ...theme.typography.bodyShortRegular,
+            color: theme.palette.subtitleMessageText,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word'
         },
 
         timestamp: {
-            ...withPixelLineHeight(theme.typography.labelRegular),
-            color: theme.palette.text03,
+            ...theme.typography.labelRegular,
+            color: theme.palette.subtitleMessageTime,
             marginTop: theme.spacing(1)
         },
 
