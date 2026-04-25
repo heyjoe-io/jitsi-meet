@@ -46,6 +46,7 @@ dependencies {
     api "com.facebook.react:hermes-android:$rootProject.ext.rnVersion"
 
     implementation 'com.dropbox.core:dropbox-core-sdk:4.0.1'
+    implementation project(':react-native-blob-util')
     implementation 'com.jakewharton.timber:timber:5.0.1'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'androidx.startup:startup-runtime:1.1.0'

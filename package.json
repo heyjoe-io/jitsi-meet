@@ -89,6 +89,7 @@
     "react-linkify": "1.0.0-alpha",
     "react-native": "0.79.7",
     "react-native-background-timer": "https://github.com/jitsi/react-native-background-timer.git#d180dfaa4486ae3ee17d01242db92cb3195f4718",
+    "react-native-blob-util": "^0.24.7",
     "react-native-calendar-events": "https://github.com/jitsi/react-native-calendar-events.git#47f068dedfed7c0f72042e093f688eb11624eb7b",
     "react-native-default-preference": "https://github.com/jitsi/react-native-default-preference.git#c9bf63bdc058e3fa2aa0b87b1ee1af240f44ed02",
     "react-native-device-info": "12.1.0",

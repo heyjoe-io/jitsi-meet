@@ -112,7 +112,16 @@ class ReactInstanceManagerHolder {
             new com.horcrux.svg.SvgPackage(),
             new org.wonday.orientation.OrientationPackage(),
             new com.splashview.SplashViewPackage(),
+            new com.ReactNativeBlobUtil.ReactNativeBlobUtilPackage(),
             new com.worklets.WorkletsCorePackage(),
+            new ReactPackageAdapter() {
+                @Override
+                public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+                    List<NativeModule> modules = new ArrayList<>();
+                    modules.add(new FileUploadModule(reactContext));
+                    return modules;
+                }
+            },
             new ReactPackageAdapter() {
                 @Override
                 public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
