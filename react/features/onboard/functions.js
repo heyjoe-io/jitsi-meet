@@ -96,6 +96,9 @@ export function stopWebsocket() {
     }
 }
 
+let wsReconnectDelay = 1000;
+const WS_MAX_RECONNECT_DELAY = 30000;
+
 export function initWebsocket(onboardUrl, talentId) {
     console.log('-------- init ws', onboardUrl, talentId);
     try {
@@ -110,7 +113,8 @@ export function initWebsocket(onboardUrl, talentId) {
 
         ws = new WebSocket(wsLink);
         ws.onopen = () => {
-            console.log('-------- ws opened')
+            console.log('-------- ws opened');
+            wsReconnectDelay = 1000;
             ws.send(JSON.stringify({
                 meta: 'join',
                 room: `talent-${talentId}`
@@ -133,7 +137,10 @@ export function initWebsocket(onboardUrl, talentId) {
         };
         ws.onclose = () => {
             console.log('-------- ws closed');
-            initWebsocket(onboardUrl, talentId);
+            setTimeout(() => {
+                initWebsocket(onboardUrl, talentId);
+            }, wsReconnectDelay);
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
         };
         ws.onmessage = event => {
             try {
