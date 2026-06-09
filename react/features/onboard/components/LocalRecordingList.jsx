@@ -134,6 +134,19 @@ const RecordingItem = ({ item, onPress, onUpload }) => {
                         </TouchableOpacity>
                     </View>
                 )}
+                {item.status === 'finalizing' && (
+                    <View style={{flexDirection: 'row', gap: 8, marginLeft: 8}}>
+                        <View style={{ flexDirection: 'column', gap: 2, alignItems: 'center'}}>
+                            <IconCloudUpload fill="yellow" />
+                            <Text style={{color: 'white'}}>Finalizing…</Text>
+                        </View>
+                        <TouchableOpacity onPress={onUpload} style={[style.button, {
+                            backgroundColor: BaseTheme.palette.warning01
+                        }]}>
+                            <IconRestore fill="white" />
+                        </TouchableOpacity>
+                    </View>
+                )}
                 {item.status === 'pending' && (
                     <TouchableOpacity onPress={onUpload} style={style.button}>
                         <IconCloudUpload fill="white" />

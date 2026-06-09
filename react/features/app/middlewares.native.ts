@@ -14,5 +14,6 @@ import '../share-room/middleware';
 import '../shared-video/middleware';
 import '../toolbox/middleware.native';
 import '../whiteboard/middleware.native';
+import '../onboard/middleware.native';
 
 import './middlewares.any';
