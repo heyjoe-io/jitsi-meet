@@ -17,6 +17,7 @@ import {
     UPDATE_UPLOAD_PROGRESS,
     SET_UPLOAD_ERROR,
     SET_IOS_RECORDING_QUALITY,
+    INCREMENT_UPLOAD_RESUME_ATTEMPTS,
 } from './actionTypes';
 
 /**
@@ -159,6 +160,13 @@ ReducerRegistry.register(STORE_NAME, (state = {
             return {
                 ...state,
                 iosRecordingQuality: action.quality
+            }
+
+        case INCREMENT_UPLOAD_RESUME_ATTEMPTS:
+            idx = (state.nativeLocalRecordings || []).findIndex(k => k.key === action.key)
+            return {
+                ...state,
+                nativeLocalRecordings: (state.nativeLocalRecordings || []).map((k, i) => i !== idx ? k : { ...k, resumeAttempts: (k.resumeAttempts || 0) + 1 })
             }
 
         default:

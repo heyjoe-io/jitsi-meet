@@ -6,7 +6,7 @@ import axios from 'axios';
 
 import { setOnboard } from './actions';
 import { STORE_NAME } from './reducer';
-import { SET_UPLOAD_ERROR, UPDATE_UPLOAD_PROGRESS, UPLOAD_NATIVE_LOCAL_RECORDING_FINISH, UPLOAD_NATIVE_LOCAL_RECORDING_START } from './actionTypes';
+import { SET_UPLOAD_ERROR, UPDATE_LOCAL_RECORDING_STATUS, UPDATE_UPLOAD_PROGRESS, UPLOAD_NATIVE_LOCAL_RECORDING_FINISH, UPLOAD_NATIVE_LOCAL_RECORDING_START } from './actionTypes';
 import { colors } from '../base/ui/Tokens';
 
 let ws = null;
@@ -19,9 +19,26 @@ const wsListeners = [];
 const UPLOAD_CONFIG = {
     maxFileSize: 500 * 1024 * 1024, // 500MB max
     uploadTimeout: 300000, // 5 minutes
+    ackTimeout: 30000, // 30s to wait for a server ACK after all bytes are flushed
     maxRetries: 3,
     retryDelay: 2000
 };
+
+// upKeys with an upload currently in flight. Used to suppress duplicate uploads of
+// the same take when both the auto-upload path and the resume sweep fire. Cleared
+// when uploadLocalRecordingNative settles (success or final failure).
+const uploadsInFlight = new Set();
+
+/**
+ * Whether an upload for the given upKey is currently in flight in this process.
+ * The resume queue uses this to avoid starting a duplicate upload.
+ *
+ * @param {string} upKey - The stable S3 key for the take.
+ * @returns {boolean}
+ */
+export function isUploadInFlight(upKey) {
+    return !!upKey && uploadsInFlight.has(upKey);
+}
 
 export function needToOnboard(state) {
     return state[STORE_NAME].onboardUrl && !state[STORE_NAME].talent;
@@ -196,15 +213,47 @@ const prepareFilePath = (filePath) => {
     return { validPath };
 };
 
-const uploadFile = async (fullUrl, formData, token, onUploadProgress, onError, onFinish, retryCount = 0) => {
+const uploadFile = async (fullUrl, formData, token, onUploadProgress, onError, onFinish, onFinalizing, retryCount = 0) => {
     console.log(`📤 Starting upload attempt ${retryCount + 1}/${UPLOAD_CONFIG.maxRetries}`);
     console.log('📍 Upload URL:', fullUrl);
     console.log('🔑 Authorization header:', token ? `Bearer ${token.substring(0, 10)}...` : 'No token');
-    
+
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const startTime = Date.now();
-        
+
+        // Once the browser reports 100% it has only flushed bytes to the socket — the
+        // server (S3 put + Mongo doc) hasn't acknowledged yet. If nothing breaks the
+        // connection in between this is fine, but backgrounding, a tower handoff, or an
+        // expired URL can wedge it here forever. The watchdog bounds that wait: if no
+        // ACK arrives within ackTimeout, abort and retry. Retries reuse the same
+        // formData (same upKey), so the idempotent backend upsert dedupes cleanly.
+        let ackTimer = null;
+        let finalizingNotified = false;
+        let watchdogAborted = false;
+
+        const clearAckTimer = () => {
+            if (ackTimer) {
+                clearTimeout(ackTimer);
+                ackTimer = null;
+            }
+        };
+
+        const retry = (error, reason) => {
+            clearAckTimer();
+            if (retryCount < UPLOAD_CONFIG.maxRetries - 1) {
+                console.log(`🔄 Retrying upload (${reason}) in ${UPLOAD_CONFIG.retryDelay}ms...`);
+                setTimeout(() => {
+                    uploadFile(fullUrl, formData, token, onUploadProgress, onError, onFinish, onFinalizing, retryCount + 1)
+                        .then(resolve)
+                        .catch(reject);
+                }, UPLOAD_CONFIG.retryDelay);
+            } else {
+                onError && onError(error);
+                reject(error);
+            }
+        };
+
         // Configure upload progress
         xhr.upload.addEventListener('progress', (event) => {
             if (event.lengthComputable) {
@@ -212,26 +261,44 @@ const uploadFile = async (fullUrl, formData, token, onUploadProgress, onError, o
                 const elapsed = (Date.now() - startTime) / 1000;
                 const speed = event.loaded / elapsed;
                 const remaining = (event.total - event.loaded) / speed;
-                
+
                 console.log(`📊 Upload progress: ${progress}% (${formatBytes(event.loaded)}/${formatBytes(event.total)})`);
                 console.log(`⚡ Speed: ${formatBytes(speed)}/s, ETA: ${Math.round(remaining)}s`);
-                
+
                 onUploadProgress && onUploadProgress(progress);
+
+                // All bytes flushed: tell the caller we're now waiting on the server
+                // (so the UI can show "Finalizing…") and arm the ACK watchdog.
+                if (event.loaded >= event.total && !finalizingNotified) {
+                    finalizingNotified = true;
+                    onFinalizing && onFinalizing();
+                    clearAckTimer();
+                    ackTimer = setTimeout(() => {
+                        console.warn(`⏱️ No server ACK within ${UPLOAD_CONFIG.ackTimeout}ms of bytes flushed — aborting to retry`);
+                        watchdogAborted = true;
+                        try {
+                            xhr.abort();
+                        } catch (e) {
+                            // no-op
+                        }
+                    }, UPLOAD_CONFIG.ackTimeout);
+                }
             }
         });
-        
+
         // Handle load event (success)
         xhr.addEventListener('load', () => {
+            clearAckTimer();
             const uploadTime = (Date.now() - startTime) / 1000;
             console.log(`📡 Response received in ${uploadTime}s`);
             console.log(`📊 Response status: ${xhr.status} ${xhr.statusText}`);
-            
+
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
                     const result = JSON.parse(xhr.responseText);
                     console.log(`✅ Upload successful!`);
                     console.log('📥 Server response:', result);
-                    
+
                     onFinish && onFinish(result);
                     resolve(result);
                 } catch (parseError) {
@@ -248,65 +315,40 @@ const uploadFile = async (fullUrl, formData, token, onUploadProgress, onError, o
                 reject(error);
             }
         });
-        
+
         // Handle error event
         xhr.addEventListener('error', () => {
             console.error('❌ Upload failed - Network error');
-            console.error('🌐 Network connection issue detected');
-            console.log('💡 Possible causes:');
-            console.log('   - No internet connection');
-            console.log('   - Server is unreachable');
-            console.log('   - SSL certificate issues');
-            console.log('   - CORS issues');
-            
-            const error = new Error('Network request failed');
-            
-            // Retry logic
-            if (retryCount < UPLOAD_CONFIG.maxRetries - 1) {
-                console.log(`🔄 Retrying upload in ${UPLOAD_CONFIG.retryDelay}ms...`);
-                setTimeout(() => {
-                    uploadFile(fullUrl, formData, token, onUploadProgress, onError, onFinish, retryCount + 1)
-                        .then(resolve)
-                        .catch(reject);
-                }, UPLOAD_CONFIG.retryDelay);
-            } else {
-                onError && onError(error);
-                reject(error);
-            }
+            retry(new Error('Network request failed'), 'network error');
         });
-        
+
         // Handle timeout
         xhr.addEventListener('timeout', () => {
             console.error('❌ Upload timed out');
-            const error = new Error('Request timeout');
-            
-            // Retry on timeout
-            if (retryCount < UPLOAD_CONFIG.maxRetries - 1) {
-                console.log(`🔄 Retrying upload after timeout...`);
-                setTimeout(() => {
-                    uploadFile(fullUrl, formData, token, onUploadProgress, onError, onFinish, retryCount + 1)
-                        .then(resolve)
-                        .catch(reject);
-                }, UPLOAD_CONFIG.retryDelay);
-            } else {
-                onError && onError(error);
-                reject(error);
+            retry(new Error('Request timeout'), 'timeout');
+        });
+
+        // Handle abort. Currently abort is only ever triggered by the ACK watchdog
+        // above; treat it as a retryable failure.
+        xhr.addEventListener('abort', () => {
+            if (watchdogAborted) {
+                retry(new Error('No server acknowledgement (watchdog)'), 'ack watchdog');
             }
         });
-        
+
         // Open and configure request
         xhr.open('POST', fullUrl);
         xhr.timeout = UPLOAD_CONFIG.uploadTimeout;
-        
+
         // Set headers
         xhr.setRequestHeader('Accept', 'application/json');
         if (token) {
             xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
         // Don't set Content-Type - let XMLHttpRequest handle it for FormData
-        
+
         console.log('🚀 Sending request with XMLHttpRequest...');
-        
+
         // Send the request
         xhr.send(formData);
     });
@@ -320,19 +362,29 @@ export async function uploadLocalRecordingNative(
     talentId,
     upKey = ''
 ) {
+    // Suppress duplicate uploads of the same take (auto-upload + resume sweep can race).
+    if (upKey && uploadsInFlight.has(upKey)) {
+        console.log('⏭️ Upload already in flight for upKey, skipping duplicate:', upKey);
+        return;
+    }
+    if (upKey) {
+        uploadsInFlight.add(upKey);
+    }
+
     console.log('\n🎬 === STARTING LOCAL RECORDING UPLOAD ===');
     console.log('📝 Parameters:', {
         localFilePath,
         sessionId,
         talentId,
+        upKey,
         hasToken: !!state['features/talent'].token
     });
-    
+
     dispatch({
         type: UPLOAD_NATIVE_LOCAL_RECORDING_START,
         key: localFilePath,
     });
-    
+
     try {
         // Prepare file path
         const { validPath } = prepareFilePath(localFilePath);
@@ -408,8 +460,9 @@ export async function uploadLocalRecordingNative(
 
         console.log('📦 FormData prepared successfully');
 
-        // Notify CD that upload is starting
-        sendMessage(`talent-session-${sessionId}`, { type: 'upload-started', talentId, sessionId });
+        // Notify CD that upload is starting. upKey lets the casting side dedupe
+        // counters per-take instead of per-attempt.
+        sendMessage(`talent-session-${sessionId}`, { type: 'upload-started', talentId, sessionId, upKey });
 
         // Track last sent progress bucket to throttle WS messages
         let lastSentProgress = -1;
@@ -417,16 +470,19 @@ export async function uploadLocalRecordingNative(
         // Upload file
         await uploadFile(fullUrl, formData, token,
             (progress) => {
+                // Cap the displayed value at 99% until the server actually ACKs the
+                // upload — 100% is reserved for confirmed completion (status uploaded).
+                const display = Math.min(progress, 99);
                 dispatch({
                     type: UPDATE_UPLOAD_PROGRESS,
                     key: localFilePath,
-                    progress
+                    progress: display
                 });
                 // Throttle WS progress messages to 10% increments
-                const bucket = Math.floor(progress / 10) * 10;
+                const bucket = Math.floor(display / 10) * 10;
                 if (bucket !== lastSentProgress) {
                     lastSentProgress = bucket;
-                    sendMessage(`talent-session-${sessionId}`, { type: 'upload-progress', talentId, sessionId, progress });
+                    sendMessage(`talent-session-${sessionId}`, { type: 'upload-progress', talentId, sessionId, upKey, progress: display });
                 }
             },
             (error) => {
@@ -452,23 +508,32 @@ export async function uploadLocalRecordingNative(
             (result) => {
                 console.log('🎉 Upload completed successfully!');
                 console.log('📥 Server response:', JSON.stringify(result, null, 2));
-                sendMessage(`talent-session-${sessionId}`, { type: 'upload-complete', talentId, sessionId });
+                sendMessage(`talent-session-${sessionId}`, { type: 'upload-complete', talentId, sessionId, upKey });
                 dispatch({
                     type: UPLOAD_NATIVE_LOCAL_RECORDING_FINISH,
                     key: localFilePath,
                     ok: !!result._id
                 });
                 formData = null;
+            },
+            () => {
+                // All bytes flushed; waiting on the server ACK. Surface a "Finalizing…"
+                // state so the UI never sits at a misleading 100% before S3 confirms.
+                dispatch({
+                    type: UPDATE_LOCAL_RECORDING_STATUS,
+                    key: localFilePath,
+                    status: 'finalizing'
+                });
             }
         );
-        
+
     } catch (error) {
         console.error('🚨 Upload process error:', {
             message: error.message,
             stack: error.stack,
             toString: error.toString()
         });
-        sendMessage(`talent-session-${sessionId}`, { type: 'upload-failed', talentId, sessionId });
+        sendMessage(`talent-session-${sessionId}`, { type: 'upload-failed', talentId, sessionId, upKey });
         dispatch({
             type: SET_UPLOAD_ERROR,
             key: localFilePath,
@@ -477,5 +542,9 @@ export async function uploadLocalRecordingNative(
                 details: error.toString()
             }
         });
+    } finally {
+        if (upKey) {
+            uploadsInFlight.delete(upKey);
+        }
     }
 }
