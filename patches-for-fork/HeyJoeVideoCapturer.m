@@ -290,6 +290,20 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                 if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
                     videoConnection.videoMirrored = YES;
                 }
+
+                // Smooth out handheld shake, which is most noticeable on the rear camera.
+                // The active format must support the chosen mode; if it doesn't, this is
+                // silently ignored and activeVideoStabilizationMode stays Off (no harm).
+                if (videoConnection.supportsVideoStabilization) {
+                    if (@available(iOS 13.0, *)) {
+                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematicExtended;
+                    } else {
+                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematic;
+                    }
+                    NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
+                          (long)videoConnection.preferredVideoStabilizationMode,
+                          (long)videoConnection.activeVideoStabilizationMode);
+                }
             }
         } else {
             NSLog(@"[HeyJoeCapturer] Cannot add video data output");
@@ -987,6 +1001,17 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     return transform;
 }
 
++ (BOOL)formatSupportsPreferredStabilization:(AVCaptureDeviceFormat *)format {
+    if (!format) return NO;
+    if (@available(iOS 13.0, *)) {
+        if ([format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematicExtended]) {
+            return YES;
+        }
+    }
+    return [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematic] ||
+           [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeStandard];
+}
+
 + (AVCaptureDeviceFormat *)bestFormatForDevice:(AVCaptureDevice *)device
                                targetFrameRate:(NSInteger)fps {
     if (!device) return nil;
@@ -1026,11 +1051,19 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         if (pixelCount > bestPixelCount) {
             bestFormat = format;
             bestPixelCount = pixelCount;
-        } else if (pixelCount == bestPixelCount && isBiplanar && bestFormat) {
-            // Same resolution but better format
+        } else if (pixelCount == bestPixelCount && bestFormat) {
+            // Same resolution: break ties by (1) stabilization support, then (2) biplanar
+            // pixel format. Stabilization wins because the highest-res format isn't always
+            // the one that supports smoothing, and shake removal matters more than the
+            // marginal pixel-format preference.
+            BOOL bestStab = [self formatSupportsPreferredStabilization:bestFormat];
+            BOOL thisStab = [self formatSupportsPreferredStabilization:format];
             FourCharCode bestPixelFormat = CMFormatDescriptionGetMediaSubType(bestFormat.formatDescription);
-            if (bestPixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange &&
-                bestPixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+            BOOL bestBiplanar = (bestPixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
+                                 bestPixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange);
+            if (thisStab != bestStab) {
+                if (thisStab) bestFormat = format;
+            } else if (isBiplanar && !bestBiplanar) {
                 bestFormat = format;
             }
         }
