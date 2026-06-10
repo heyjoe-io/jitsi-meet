@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureResponderEvent, NativeModules, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSelector } from 'react-redux';
+
+import { IReduxState } from '../../../../app/types';
+import { CAMERA_FACING_MODE } from '../../constants';
 
 const { HighResRecorder } = NativeModules;
 
@@ -16,6 +20,15 @@ const UI_STOPS = [ 1, 2, 5 ];
  */
 const DRAG_THROTTLE_MS = 33;
 
+/**
+ * The redux facing-mode flip happens before the native capture session has actually
+ * switched devices, so the first config reads after a camera flip can still describe
+ * the old (single-lens front) camera. Retry on this cadence until the multi-lens rear
+ * device is live.
+ */
+const CONFIG_RETRY_MS = 500;
+const CONFIG_RETRY_MAX = 8;
+
 interface IZoomConfig {
     currentZoom: number;
     isMultiLens: boolean;
@@ -24,65 +37,74 @@ interface IZoomConfig {
     wideBaseZoomFactor: number;
 }
 
-interface IProps {
-
-    /**
-     * Whether the bar is enabled at all.
-     */
-    enabled?: boolean;
-
-    /**
-     * The local video is mirrored on the front camera. We use this as a hint (front
-     * cameras are single-lens, so there's no optical zoom to offer) and as a trigger to
-     * re-read the zoom config whenever the camera flips.
-     */
-    mirror?: boolean;
-}
-
 /**
- * CameraZoomBar - a horizontal 1x/2x/5x zoom selector for the local camera preview.
+ * CameraZoomBar - a horizontal 1x/2x/5x zoom selector for the local camera.
  *
  * Tap a stop to jump to it (smooth ramp), or press and slide across the bar to zoom
  * continuously. Zoom is applied at the sensor level via the HighResRecorder native
- * module, so both the live WebRTC feed and the local recording reflect it.
+ * module, so the live WebRTC feed and the local recording both reflect it — which is
+ * also why the bar doesn't need to be attached to any particular video view. It is
+ * mounted at the conference level, just above the toolbar, and shows whenever the
+ * rear camera is live (no need to pin the self-view).
  *
  * Only shown on iOS, and only when the active rear device is a virtual multi-lens
  * camera with a telephoto (so the stops map to real optical glass rather than digital
  * crop). On the front camera or a single-lens device, the bar hides itself.
  */
-const CameraZoomBar: React.FC<IProps> = ({ enabled = true, mirror = false }) => {
+const CameraZoomBar: React.FC = () => {
     const [ config, setConfig ] = useState<IZoomConfig | null>(null);
     const [ uiZoom, setUiZoom ] = useState(1);
     const configRef = useRef<IZoomConfig | null>(null);
     const lastSentRef = useRef(0);
     const barWidthRef = useRef(0);
 
+    const facingMode = useSelector((state: IReduxState) => state['features/base/media'].video.facingMode);
+    const videoMuted = useSelector((state: IReduxState) => Boolean(state['features/base/media'].video.muted));
+    const isBackCamera = facingMode === CAMERA_FACING_MODE.ENVIRONMENT;
+
     configRef.current = config;
 
-    // Read zoom config on mount and whenever the camera flips (mirror toggles).
+    // Read zoom config whenever the rear camera becomes the live capture device.
     useEffect(() => {
-        if (Platform.OS !== 'ios' || !enabled || !HighResRecorder?.getZoomConfig) {
+        if (Platform.OS !== 'ios' || !isBackCamera || videoMuted || !HighResRecorder?.getZoomConfig) {
+            setConfig(null);
+
             return undefined;
         }
 
         let cancelled = false;
+        let attempts = 0;
+        let timer: ReturnType<typeof setTimeout> | undefined;
 
-        HighResRecorder.getZoomConfig()
-            .then((c: IZoomConfig) => {
-                if (cancelled) {
-                    return;
-                }
-                setConfig(c);
-                const wideBase = c.wideBaseZoomFactor || 1;
+        const read = () => {
+            HighResRecorder.getZoomConfig()
+                .then((c: IZoomConfig) => {
+                    if (cancelled) {
+                        return;
+                    }
 
-                setUiZoom((c.currentZoom || wideBase) / wideBase);
-            })
-            .catch(() => { /* keep defaults; bar stays hidden */ });
+                    if (!c.isMultiLens && attempts < CONFIG_RETRY_MAX) {
+                        attempts++;
+                        timer = setTimeout(read, CONFIG_RETRY_MS);
+
+                        return;
+                    }
+
+                    setConfig(c);
+                    const wideBase = c.wideBaseZoomFactor || 1;
+
+                    setUiZoom((c.currentZoom || wideBase) / wideBase);
+                })
+                .catch(() => { /* keep defaults; bar stays hidden */ });
+        };
+
+        read();
 
         return () => {
             cancelled = true;
+            timer && clearTimeout(timer);
         };
-    }, [ enabled, mirror ]);
+    }, [ isBackCamera, videoMuted ]);
 
     /**
      * Apply a UI zoom multiple (1x-based). When immediate, set directly for slider
@@ -142,10 +164,10 @@ const CameraZoomBar: React.FC<IProps> = ({ enabled = true, mirror = false }) => 
         }
     })).current;
 
-    // Hide on Android, when disabled, on the front camera, or when there's no real
-    // optical zoom to offer (single-lens device) — we deliberately don't surface a
-    // digital-only zoom.
-    if (Platform.OS !== 'ios' || !enabled || mirror || !config?.isMultiLens) {
+    // Hide on Android, on the front camera, when the camera is off, or when there's
+    // no real optical zoom to offer (single-lens device) — we deliberately don't
+    // surface a digital-only zoom.
+    if (Platform.OS !== 'ios' || !isBackCamera || videoMuted || !config?.isMultiLens) {
         return null;
     }
 
@@ -185,12 +207,11 @@ const CameraZoomBar: React.FC<IProps> = ({ enabled = true, mirror = false }) => 
 };
 
 const styles = StyleSheet.create({
+    // Rendered as a flex child directly above the Toolbox in the conference's
+    // bottom column, so it always clears the toolbar instead of hiding under it.
     wrapper: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 24,
-        alignItems: 'center'
+        alignItems: 'center',
+        marginBottom: 8
     },
     bar: {
         flexDirection: 'row',

@@ -383,15 +383,13 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
                     videoConnection.videoMirrored = YES;
                 }
 
-                // Smooth out handheld shake, which is most noticeable on the rear camera.
-                // The active format must support the chosen mode; if it doesn't, this is
-                // silently ignored and activeVideoStabilizationMode stays Off (no harm).
+                // Smooth out handheld shake with the low-latency stabilizer only. The
+                // cinematic modes buffer frames inside the capture pipeline and add
+                // 1-2s of glass-to-glass delay — unacceptable on a live call. Standard
+                // costs roughly one frame. If the active format doesn't support it,
+                // this is silently ignored and activeVideoStabilizationMode stays Off.
                 if (videoConnection.supportsVideoStabilization) {
-                    if (@available(iOS 13.0, *)) {
-                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematicExtended;
-                    } else {
-                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematic;
-                    }
+                    videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
                     NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
                           (long)videoConnection.preferredVideoStabilizationMode,
                           (long)videoConnection.activeVideoStabilizationMode);
@@ -1368,13 +1366,8 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 
 + (BOOL)formatSupportsPreferredStabilization:(AVCaptureDeviceFormat *)format {
     if (!format) return NO;
-    if (@available(iOS 13.0, *)) {
-        if ([format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematicExtended]) {
-            return YES;
-        }
-    }
-    return [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematic] ||
-           [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeStandard];
+    // Only Standard is ever requested — the cinematic modes add 1-2s of latency.
+    return [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeStandard];
 }
 
 + (AVCaptureDeviceFormat *)bestFormatForDevice:(AVCaptureDevice *)device
