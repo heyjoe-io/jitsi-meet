@@ -10,27 +10,56 @@ typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
     HeyJoeRecordingResolution1080p = 1,
 };
 
+typedef NS_ENUM(NSInteger, HJRecordingState) {
+    HJRecordingStateIdle = 0,       // Not recording
+    HJRecordingStateStarting,       // Waiting for first frame to set up compression
+    HJRecordingStateRecording,      // Actively recording
+    HJRecordingStateDraining,       // Stop requested, draining writer
+    HJRecordingStateFinalizing,     // Writer being finalized
+};
+
 /**
  * HeyJoeVideoCapturer - Single-session video capturer with 4K recording support
  *
- * This capturer manages a single AVCaptureSession that:
- * 1. Captures at the camera's native resolution (4K where supported)
- * 2. Feeds frames to WebRTC via RTCVideoCapturerDelegate
- * 3. Records locally via AVCaptureMovieFileOutput
+ * Queue Architecture (4 queues, zero dispatch_sync between them):
  *
- * This solves the iOS limitation of only allowing one session per camera.
+ * captureQueue (serial)  — AVCaptureSession lifecycle only
+ * recordingQueue (serial) — ALL recording state, pixel buffer adaptor, AVAssetWriter
+ * videoOutputQueue (serial) — video callback delivery only
+ * audioOutputQueue (serial) — audio callback delivery only
+ *
+ * Inter-queue communication is always dispatch_async with completion handlers.
+ * Atomic flags (isCapturing, recordingActive) provide fast hot-path checks on
+ * callback queues without dispatching to owning queues.
  */
-@interface HeyJoeVideoCapturer : RTCVideoCapturer <AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureFileOutputRecordingDelegate>
+@interface HeyJoeVideoCapturer : RTCVideoCapturer <AVCaptureVideoDataOutputSampleBufferDelegate>
 
 /// The capture session - exposed for debugging/monitoring
-@property (nonatomic, strong, readonly) AVCaptureSession *captureSession;
+@property (nonatomic, strong, readonly, nullable) AVCaptureSession *captureSession;
 
-/// Current recording state
-@property (nonatomic, assign, readonly) BOOL isRecording;
+/// Atomic flag: YES when recording state is HJRecordingStateRecording.
+/// Read from any thread for fast-path checks. Authoritative state is on recordingQueue.
+@property (atomic, assign, readonly) BOOL recordingActive;
 
-/// Current video dimensions
-@property (nonatomic, assign, readonly) int videoWidth;
-@property (nonatomic, assign, readonly) int videoHeight;
+/// Whether the capture session is running (atomic, set on captureQueue)
+@property (atomic, assign, readonly) BOOL isCapturing;
+
+/// Current video dimensions (atomic, set once during config on captureQueue, read-only after)
+@property (atomic, assign, readonly) int videoWidth;
+@property (atomic, assign, readonly) int videoHeight;
+
+/// The recording queue — exposed so HighResRecordModule can dispatch to it
+@property (nonatomic, strong, readonly) dispatch_queue_t recordingQueue;
+
+/// Current recording state (only read/written on recordingQueue)
+@property (nonatomic, assign, readonly) HJRecordingState recordingState;
+
+/// Atomic flag: YES when recording state is HJRecordingStateStarting.
+/// Complements recordingActive for safe cross-queue checks.
+@property (atomic, assign, readonly) BOOL recordingStarting;
+
+/// Tracks which code path triggered the last recording failure (for diagnostics)
+@property (nonatomic, strong, nullable) NSString *lastRecordingFailurePoint;
 
 /// Shared instance for global access
 + (nullable instancetype)sharedInstance;
@@ -39,20 +68,24 @@ typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
 /// Initialize with delegate (typically RTCVideoSource)
 - (instancetype)initWithDelegate:(id<RTCVideoCapturerDelegate>)delegate;
 
-/// Start capturing from the specified camera
+/// Update the delegate for a new WebRTC session.
+/// Lightweight: just sets self.delegate. Call only after stopCapture completes.
+- (void)updateDelegate:(id<RTCVideoCapturerDelegate>)delegate;
+
+/// Start capturing from the specified camera (async, dispatches to captureQueue)
 - (void)startCaptureWithDevice:(AVCaptureDevice *)device
                         format:(AVCaptureDeviceFormat *)format
                            fps:(NSInteger)fps
              completionHandler:(nullable void (^)(NSError * _Nullable error))completionHandler;
 
-/// Stop capturing
+/// Stop capturing (async, stops recording first if active, then stops capture session)
 - (void)stopCaptureWithCompletionHandler:(nullable void (^)(void))completionHandler;
 
-/// Start recording to the specified file URL
+/// Start recording to the specified file URL (async, dispatches to recordingQueue)
 - (void)startRecordingToURL:(NSURL *)outputURL
           completionHandler:(nullable void (^)(NSError * _Nullable error))completionHandler;
 
-/// Stop recording
+/// Stop recording (async, drains encoder, finalizes writer, calls completion on main)
 - (void)stopRecordingWithCompletionHandler:(nullable void (^)(NSURL * _Nullable fileURL, NSError * _Nullable error))completionHandler;
 
 /// Get best available format for device (prefers highest resolution at 30fps)
@@ -62,13 +95,10 @@ typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
 #pragma mark - Zoom Control
 
 /// Set the camera zoom factor (clamped to device limits) with async completion
-/// @param zoomFactor The desired zoom factor
-/// @param completionHandler Called on main thread with actual zoom applied, zoom range, and any error
 - (void)setZoomFactor:(CGFloat)zoomFactor
     completionHandler:(nullable void (^)(CGFloat actualZoom, CGFloat minZoom, CGFloat maxZoom, NSError * _Nullable error))completionHandler;
 
 /// Get zoom info asynchronously (thread-safe)
-/// @param completionHandler Called on main thread with current zoom, min, and max values
 - (void)getZoomInfoWithCompletionHandler:(void (^)(CGFloat currentZoom, CGFloat minZoom, CGFloat maxZoom))completionHandler;
 
 /// Set zoom immediately without the smooth ramp — used for slider/drag tracking so the
@@ -84,15 +114,6 @@ typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
 /// active), and switchOverZoomFactors (array of raw factors where the lens hands off).
 /// @param completionHandler Called on main thread with the config dictionary
 - (void)getZoomConfigWithCompletionHandler:(void (^)(NSDictionary *config))completionHandler;
-
-/// Get the current zoom factor (synchronous, blocks on session queue)
-- (CGFloat)currentZoomFactor;
-
-/// Get the minimum zoom factor for the current device (synchronous, blocks on session queue)
-- (CGFloat)minZoomFactor;
-
-/// Get the maximum zoom factor for the current device (synchronous, blocks on session queue)
-- (CGFloat)maxZoomFactor;
 
 /// Target recording resolution (default: 1080p for smaller file sizes)
 @property (nonatomic, assign) HeyJoeRecordingResolution recordingTargetResolution;

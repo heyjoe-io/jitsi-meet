@@ -57,11 +57,21 @@
             self.usingFrontCamera = position == AVCaptureDevicePositionFront;
         }
 
-        // Create our HeyJoeVideoCapturer using the same delegate as the original capturer
-        // The delegate is the RTCVideoSource that feeds into WebRTC
-        self.heyJoeCapturer = [[HeyJoeVideoCapturer alloc] initWithDelegate:capturer.delegate];
-
-        RCTLog(@"[VideoCaptureController] Initialized with HeyJoeVideoCapturer for unified capture");
+        // Thread-safe singleton — multiple getUserMedia calls during room join
+        // can race here. Without @synchronized, all of them see sharedInstance==nil
+        // and each creates a new HeyJoeVideoCapturer, causing 6+ instances that
+        // fight over the hardware encoder.
+        @synchronized([HeyJoeVideoCapturer class]) {
+            HeyJoeVideoCapturer *existing = [HeyJoeVideoCapturer sharedInstance];
+            if (existing) {
+                [existing updateDelegate:capturer.delegate];
+                self.heyJoeCapturer = existing;
+                RCTLog(@"[VideoCaptureController] Reusing existing HeyJoeVideoCapturer instance");
+            } else {
+                self.heyJoeCapturer = [[HeyJoeVideoCapturer alloc] initWithDelegate:capturer.delegate];
+                RCTLog(@"[VideoCaptureController] Created new HeyJoeVideoCapturer instance");
+            }
+        }
     }
 
     return self;
