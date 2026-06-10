@@ -204,6 +204,22 @@
 }
 
 - (AVCaptureDevice *)findDeviceForPosition:(AVCaptureDevicePosition)position {
+    // For the back camera, prefer a virtual multi-camera that INCLUDES the telephoto
+    // lens, so zoom hands off to real optical glass (true 2x/5x) instead of digitally
+    // cropping the wide sensor. builtInTripleCamera (UW+W+T) and builtInDualCamera
+    // (W+T) both include a telephoto; builtInDualWideCamera (UW+W) does NOT, so we skip
+    // it. WebRTC's RTCCameraVideoCapturer only ever vends the wide-angle lens, which is
+    // why zoom was digital-only before. The capture pipeline is unchanged otherwise —
+    // HeyJoeVideoCapturer just receives a different AVCaptureDevice.
+    if (position == AVCaptureDevicePositionBack) {
+        AVCaptureDevice *virtualDevice = [self preferredBackVirtualCamera];
+        if (virtualDevice) {
+            return virtualDevice;
+        }
+    }
+
+    // Fallback (front camera, or a device with no telephoto): single wide lens via the
+    // existing WebRTC discovery.
     NSArray<AVCaptureDevice *> *captureDevices = [RTCCameraVideoCapturer captureDevices];
     for (AVCaptureDevice *device in captureDevices) {
         if (device.position == position) {
@@ -212,6 +228,33 @@
     }
 
     return [captureDevices firstObject];
+}
+
+- (AVCaptureDevice *)preferredBackVirtualCamera {
+    NSMutableArray<AVCaptureDeviceType> *preferred = [NSMutableArray array];
+
+    if (@available(iOS 13.0, *)) {
+        [preferred addObject:AVCaptureDeviceTypeBuiltInTripleCamera];
+    }
+    [preferred addObject:AVCaptureDeviceTypeBuiltInDualCamera];
+
+    AVCaptureDeviceDiscoverySession *session =
+        [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:preferred
+                                                               mediaType:AVMediaTypeVideo
+                                                                position:AVCaptureDevicePositionBack];
+
+    // Honor our preference order (triple before dual) regardless of discovery ordering.
+    for (AVCaptureDeviceType type in preferred) {
+        for (AVCaptureDevice *device in session.devices) {
+            if ([device.deviceType isEqualToString:type]) {
+                RCTLog(@"[VideoCaptureController] Using virtual multi-camera with telephoto: %@", type);
+                return device;
+            }
+        }
+    }
+
+    RCTLog(@"[VideoCaptureController] No telephoto-capable virtual camera; falling back to wide lens (zoom will be digital)");
+    return nil;
 }
 
 - (AVCaptureDeviceFormat *)selectFormatForDevice:(AVCaptureDevice *)device

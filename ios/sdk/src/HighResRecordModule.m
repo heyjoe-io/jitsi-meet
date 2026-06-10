@@ -362,6 +362,36 @@ RCT_EXPORT_METHOD(getZoomInfo:(RCTPromiseResolveBlock)resolve
     }];
 }
 
+RCT_EXPORT_METHOD(setZoomFactorImmediate:(double)zoomFactor) {
+    if (isnan(zoomFactor) || isinf(zoomFactor)) {
+        return;
+    }
+
+    HeyJoeVideoCapturer *capturer = [HeyJoeVideoCapturer sharedInstance];
+
+    if (!capturer) {
+        return;
+    }
+
+    // Fire-and-forget direct set for slider/drag tracking (no promise to keep it cheap).
+    [capturer setZoomFactorImmediate:(CGFloat)zoomFactor];
+}
+
+RCT_EXPORT_METHOD(getZoomConfig:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    HeyJoeVideoCapturer *capturer = [HeyJoeVideoCapturer sharedInstance];
+
+    if (!capturer) {
+        reject(@"no_capturer", @"No active video capturer. Start a video call first.", nil);
+        return;
+    }
+
+    [capturer getZoomConfigWithCompletionHandler:^(NSDictionary *config) {
+        resolve(config);
+    }];
+}
+
 #pragma mark - Helper Methods
 
 - (BOOL)isRecording {

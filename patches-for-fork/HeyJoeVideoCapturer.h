@@ -71,6 +71,20 @@ typedef NS_ENUM(NSInteger, HeyJoeRecordingResolution) {
 /// @param completionHandler Called on main thread with current zoom, min, and max values
 - (void)getZoomInfoWithCompletionHandler:(void (^)(CGFloat currentZoom, CGFloat minZoom, CGFloat maxZoom))completionHandler;
 
+/// Set zoom immediately without the smooth ramp — used for slider/drag tracking so the
+/// zoom follows the finger responsively. Clamped to device limits. Use setZoomFactor:
+/// (ramped) for tapping a preset.
+/// @param zoomFactor The desired raw videoZoomFactor
+- (void)setZoomFactorImmediate:(CGFloat)zoomFactor;
+
+/// Get full zoom configuration for building a 1x/2x/5x style zoom control. Returns a
+/// dictionary with: currentZoom, minZoom, maxZoom (raw videoZoomFactor values),
+/// wideBaseZoomFactor (the raw factor that corresponds to UI "1x", i.e. the wide lens),
+/// isMultiLens (BOOL — whether a virtual multi-lens device with optical switching is
+/// active), and switchOverZoomFactors (array of raw factors where the lens hands off).
+/// @param completionHandler Called on main thread with the config dictionary
+- (void)getZoomConfigWithCompletionHandler:(void (^)(NSDictionary *config))completionHandler;
+
 /// Get the current zoom factor (synchronous, blocks on session queue)
 - (CGFloat)currentZoomFactor;
 

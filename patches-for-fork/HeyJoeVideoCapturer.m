@@ -252,8 +252,45 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                 device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
             }
 
+            // On a virtual multi-camera that includes the ultra-wide (e.g. the triple
+            // camera), videoZoomFactor 1.0 is the ULTRA-WIDE (0.5x) lens — so without
+            // this the preview would open zoomed out. Start at the wide lens so the
+            // talent sees a normal 1x framing; zoom then ramps up toward the telephoto.
+            if (@available(iOS 13.0, *)) {
+                NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
+                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+                if (constituents.count > 1) {
+                    NSInteger wideIndex = -1;
+                    for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
+                        if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
+                            wideIndex = i;
+                            break;
+                        }
+                    }
+                    if (wideIndex > 0 && (NSInteger)switchOver.count >= wideIndex) {
+                        CGFloat wideBase = [switchOver[wideIndex - 1] doubleValue];
+                        device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
+                                                     MIN(wideBase, device.maxAvailableVideoZoomFactor));
+                        NSLog(@"[HeyJoeCapturer] Initial zoom set to wide base %.2f (virtual multi-camera)", wideBase);
+                    }
+                }
+            }
+
             [device unlockForConfiguration];
             NSLog(@"[HeyJoeCapturer] Camera configured: %dx%d @ %ldfps", self.videoWidth, self.videoHeight, (long)fps);
+
+            // Log optical-zoom capability for the chosen device/format. If switch-over
+            // factors are empty on the back camera, the selected format collapsed the
+            // virtual device to a single lens — zoom would be digital-only and the
+            // format chooser needs revisiting for this device.
+            if (@available(iOS 13.0, *)) {
+                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+                NSLog(@"[HeyJoeCapturer] Device %@ — constituents: %lu, switch-over zoom factors: %@, maxZoom: %.2f",
+                      device.localizedName,
+                      (unsigned long)device.constituentDevices.count,
+                      switchOver,
+                      device.maxAvailableVideoZoomFactor);
+            }
         } else {
             NSLog(@"[HeyJoeCapturer] Could not lock camera for configuration: %@", error);
         }
@@ -289,6 +326,20 @@ static void compressionOutputCallback(void *outputCallbackRefCon,
                 // Mirror front camera
                 if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
                     videoConnection.videoMirrored = YES;
+                }
+
+                // Smooth out handheld shake, which is most noticeable on the rear camera.
+                // The active format must support the chosen mode; if it doesn't, this is
+                // silently ignored and activeVideoStabilizationMode stays Off (no harm).
+                if (videoConnection.supportsVideoStabilization) {
+                    if (@available(iOS 13.0, *)) {
+                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematicExtended;
+                    } else {
+                        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematic;
+                    }
+                    NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
+                          (long)videoConnection.preferredVideoStabilizationMode,
+                          (long)videoConnection.activeVideoStabilizationMode);
                 }
             }
         } else {
@@ -987,6 +1038,17 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     return transform;
 }
 
++ (BOOL)formatSupportsPreferredStabilization:(AVCaptureDeviceFormat *)format {
+    if (!format) return NO;
+    if (@available(iOS 13.0, *)) {
+        if ([format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematicExtended]) {
+            return YES;
+        }
+    }
+    return [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeCinematic] ||
+           [format isVideoStabilizationModeSupported:AVCaptureVideoStabilizationModeStandard];
+}
+
 + (AVCaptureDeviceFormat *)bestFormatForDevice:(AVCaptureDevice *)device
                                targetFrameRate:(NSInteger)fps {
     if (!device) return nil;
@@ -1026,11 +1088,19 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         if (pixelCount > bestPixelCount) {
             bestFormat = format;
             bestPixelCount = pixelCount;
-        } else if (pixelCount == bestPixelCount && isBiplanar && bestFormat) {
-            // Same resolution but better format
+        } else if (pixelCount == bestPixelCount && bestFormat) {
+            // Same resolution: break ties by (1) stabilization support, then (2) biplanar
+            // pixel format. Stabilization wins because the highest-res format isn't always
+            // the one that supports smoothing, and shake removal matters more than the
+            // marginal pixel-format preference.
+            BOOL bestStab = [self formatSupportsPreferredStabilization:bestFormat];
+            BOOL thisStab = [self formatSupportsPreferredStabilization:format];
             FourCharCode bestPixelFormat = CMFormatDescriptionGetMediaSubType(bestFormat.formatDescription);
-            if (bestPixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange &&
-                bestPixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+            BOOL bestBiplanar = (bestPixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
+                                 bestPixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange);
+            if (thisStab != bestStab) {
+                if (thisStab) bestFormat = format;
+            } else if (isBiplanar && !bestBiplanar) {
                 bestFormat = format;
             }
         }
@@ -1121,6 +1191,94 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         if (completionHandler) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 completionHandler(currentZoom, minZoom, maxZoom);
+            });
+        }
+    });
+}
+
+- (void)setZoomFactorImmediate:(CGFloat)zoomFactor {
+    if (isnan(zoomFactor) || isinf(zoomFactor) || zoomFactor <= 0) {
+        return;
+    }
+
+    dispatch_async(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        if (!device) {
+            return;
+        }
+
+        NSError *error = nil;
+        if ([device lockForConfiguration:&error]) {
+            CGFloat minZoom = device.minAvailableVideoZoomFactor;
+            CGFloat maxZoom = device.maxAvailableVideoZoomFactor;
+            CGFloat clamped = MAX(minZoom, MIN(zoomFactor, maxZoom));
+
+            // Direct set (no ramp) so a drag/slider tracks the finger responsively.
+            device.videoZoomFactor = clamped;
+            [device unlockForConfiguration];
+        } else {
+            NSLog(@"[HeyJoeCapturer] setZoomFactorImmediate: lock failed: %@", error);
+        }
+    });
+}
+
+- (void)getZoomConfigWithCompletionHandler:(void (^)(NSDictionary *config))completionHandler {
+    dispatch_async(self.sessionQueue, ^{
+        AVCaptureDevice *device = self.videoInput.device;
+        CGFloat currentZoom = 1.0;
+        CGFloat minZoom = 1.0;
+        CGFloat maxZoom = 1.0;
+        CGFloat wideBase = 1.0;
+        BOOL isMultiLens = NO;
+        NSMutableArray<NSNumber *> *switchOver = [NSMutableArray array];
+
+        if (device) {
+            currentZoom = device.videoZoomFactor;
+            minZoom = device.minAvailableVideoZoomFactor;
+            maxZoom = device.maxAvailableVideoZoomFactor;
+
+            if (@available(iOS 13.0, *)) {
+                NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
+                NSArray<NSNumber *> *factors = device.virtualDeviceSwitchOverVideoZoomFactors;
+                isMultiLens = constituents.count > 1;
+
+                if (factors) {
+                    [switchOver addObjectsFromArray:factors];
+                }
+
+                if (isMultiLens) {
+                    // UI "1x" is the wide lens. Its raw videoZoomFactor base is the
+                    // switch-over factor just below it (because anything below that is
+                    // the ultra-wide). If wide is the first constituent (no ultra-wide,
+                    // e.g. dual W+T), the base is simply 1.0.
+                    NSInteger wideIndex = -1;
+                    for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
+                        if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
+                            wideIndex = i;
+                            break;
+                        }
+                    }
+                    if (wideIndex > 0 && (NSInteger)factors.count >= wideIndex) {
+                        wideBase = [factors[wideIndex - 1] doubleValue];
+                    } else {
+                        wideBase = 1.0;
+                    }
+                }
+            }
+        }
+
+        NSDictionary *config = @{
+            @"currentZoom": @(currentZoom),
+            @"minZoom": @(minZoom),
+            @"maxZoom": @(maxZoom),
+            @"wideBaseZoomFactor": @(wideBase),
+            @"isMultiLens": @(isMultiLens),
+            @"switchOverZoomFactors": switchOver
+        };
+
+        if (completionHandler) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(config);
             });
         }
     });
