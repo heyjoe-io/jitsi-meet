@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import { GestureResponderEvent } from 'react-native';
+import { GestureResponderEvent, View } from 'react-native';
 import { MediaStream, RTCView } from 'react-native-webrtc';
 
 import Pressable from '../../../react/components/native/Pressable';
 
 import CameraPinchZoom from './CameraPinchZoom';
+import CameraZoomBar from './CameraZoomBar';
 import VideoTransform from './VideoTransform';
 import styles from './styles';
 
@@ -128,12 +129,18 @@ export default class Video extends Component<IProps> {
             if (this.props.isLocalCamera && onPress) {
                 console.log('[Video] Rendering with CameraPinchZoom wrapper');
 
+                // Pinch-to-zoom on the whole preview, plus a 1x/2x/5x optical zoom bar
+                // overlaid at the bottom. The bar hides itself on the front camera and
+                // on devices without a telephoto lens.
                 return (
-                    <CameraPinchZoom
-                        enabled = { true }
-                        onPress = { onPress }>
-                        { rtcView }
-                    </CameraPinchZoom>
+                    <View style = {{ flex: 1 }}>
+                        <CameraPinchZoom
+                            enabled = { true }
+                            onPress = { onPress }>
+                            { rtcView }
+                        </CameraPinchZoom>
+                        <CameraZoomBar mirror = { this.props.mirror } />
+                    </View>
                 );
             }
 
