@@ -14,6 +14,9 @@ import { appNavigate } from '../../../app/actions.native';
 import { IReduxState, IStore } from '../../../app/types';
 import { CONFERENCE_BLURRED, CONFERENCE_FOCUSED } from '../../../base/conference/actionTypes';
 import { isDisplayNameVisible } from '../../../base/config/functions.native';
+import { FULLSCREEN_ENABLED } from '../../../base/flags/constants';
+import { getFeatureFlag } from '../../../base/flags/functions';
+import CameraZoomBar from '../../../base/media/components/native/CameraZoomBar';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
 import TintedView from '../../../base/react/components/native/TintedView';
@@ -437,6 +440,7 @@ class Conference extends AbstractConference<IProps, State> {
                         || <>
                             <Filmstrip />
                             { this._renderNotificationsContainer() }
+                            <CameraZoomBar />
                             <Toolbox />
                         </>
                     }
@@ -478,6 +482,7 @@ class Conference extends AbstractConference<IProps, State> {
                     _shouldDisplayTileView
                     && <>
                         { this._renderNotificationsContainer() }
+                        <CameraZoomBar />
                         <Toolbox />
                     </>
                 }
