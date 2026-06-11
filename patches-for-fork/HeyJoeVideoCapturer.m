@@ -10,6 +10,28 @@ static HeyJoeVideoCapturer *_sharedInstance = nil;
 static void *kCaptureQueueSpecificKey = &kCaptureQueueSpecificKey;
 static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
 
+/// Largest centered 16:9 (9:16 for portrait frames) crop of a width×height frame.
+/// Everything we emit — WebRTC frames and recording files — must be 16:9: the
+/// capturer picks the highest-resolution capture format, which on the front camera
+/// and on older phones' back cameras is a 4:3 sensor format, and scaling that 4:3
+/// straight into 16:9 output stretched the image for everyone in the meeting.
+/// All fields are rounded down to even values for 4:2:0 chroma alignment.
+static CGRect HJCenteredSixteenNineCrop(int width, int height) {
+    BOOL landscape = width > height;
+    int64_t longSide = landscape ? width : height;
+    int64_t shortSide = landscape ? height : width;
+
+    if (longSide * 9 > shortSide * 16) {
+        longSide = (shortSide * 16) / 9;
+    } else {
+        shortSide = (longSide * 9) / 16;
+    }
+
+    int cropW = (int)(landscape ? longSide : shortSide) & ~1;
+    int cropH = (int)(landscape ? shortSide : longSide) & ~1;
+    return CGRectMake(((width - cropW) / 2) & ~1, ((height - cropH) / 2) & ~1, cropW, cropH);
+}
+
 #pragma mark - HeyJoeVideoCapturer Private Interface
 
 @interface HeyJoeVideoCapturer () <AVCaptureAudioDataOutputSampleBufferDelegate>
@@ -1202,24 +1224,31 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         int pbWidth = (int)CVPixelBufferGetWidth(pixelBuffer);
         int pbHeight = (int)CVPixelBufferGetHeight(pixelBuffer);
 
+        // Center-crop to 16:9/9:16 BEFORE adapting. Scaling the full frame to the
+        // adapted size is non-uniform when the sensor format is 4:3 — that stretched
+        // the live feed on every device whose best capture format isn't 16:9.
+        CGRect senderCrop = HJCenteredSixteenNineCrop(pbWidth, pbHeight);
+        int cropW = (int)senderCrop.size.width;
+        int cropH = (int)senderCrop.size.height;
+
         // Target 720p for WebRTC
         int adaptedWidth, adaptedHeight;
-        if (pbWidth > pbHeight) {
-            adaptedWidth = MIN(pbWidth, 1280);
-            adaptedHeight = MIN(pbHeight, 720);
+        if (cropW > cropH) {
+            adaptedWidth = MIN(cropW, 1280);
+            adaptedHeight = MIN(cropH, 720);
         } else {
-            adaptedWidth = MIN(pbWidth, 720);
-            adaptedHeight = MIN(pbHeight, 1280);
+            adaptedWidth = MIN(cropW, 720);
+            adaptedHeight = MIN(cropH, 1280);
         }
 
         RTCCVPixelBuffer *rtcPixelBuffer = [[RTCCVPixelBuffer alloc]
             initWithPixelBuffer:pixelBuffer
                    adaptedWidth:adaptedWidth
                   adaptedHeight:adaptedHeight
-                      cropWidth:pbWidth
-                     cropHeight:pbHeight
-                          cropX:0
-                          cropY:0];
+                      cropWidth:cropW
+                     cropHeight:cropH
+                          cropX:(int)senderCrop.origin.x
+                          cropY:(int)senderCrop.origin.y];
         RTCVideoFrame *videoFrame = [[RTCVideoFrame alloc] initWithBuffer:rtcPixelBuffer
                                                                  rotation:rotation
                                                               timeStampNs:timeStampNs];
@@ -1284,12 +1313,24 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CVPixelBufferLockBaseAddress(sourceBuffer, kCVPixelBufferLock_ReadOnly);
     CVPixelBufferLockBaseAddress(destBuffer, 0);
 
+    // Center-crop the source to 16:9 before scaling. The writer target is always
+    // 16:9, so scaling the full frame would stretch 4:3 sensor output. The crop
+    // is expressed as plane offsets — no extra buffer copy.
+    int srcW = (int)CVPixelBufferGetWidth(sourceBuffer);
+    int srcH = (int)CVPixelBufferGetHeight(sourceBuffer);
+    CGRect crop = HJCenteredSixteenNineCrop(srcW, srcH);
+    int cropX = (int)crop.origin.x;
+    int cropY = (int)crop.origin.y;
+    int cropW = (int)crop.size.width;
+    int cropH = (int)crop.size.height;
+
     // Scale Y plane (plane 0)
+    size_t yRowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 0);
     vImage_Buffer srcY = {
-        .data = CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 0),
-        .height = CVPixelBufferGetHeightOfPlane(sourceBuffer, 0),
-        .width = CVPixelBufferGetWidthOfPlane(sourceBuffer, 0),
-        .rowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 0)
+        .data = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 0) + (size_t)cropY * yRowBytes + cropX,
+        .height = (vImagePixelCount)cropH,
+        .width = (vImagePixelCount)cropW,
+        .rowBytes = yRowBytes
     };
     vImage_Buffer dstY = {
         .data = CVPixelBufferGetBaseAddressOfPlane(destBuffer, 0),
@@ -1299,12 +1340,15 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     };
     vImage_Error yErr = vImageScale_Planar8(&srcY, &dstY, NULL, kvImageNoFlags);
 
-    // Scale CbCr plane (plane 1) — interleaved 2-byte pairs
+    // Scale CbCr plane (plane 1) — interleaved 2-byte pairs at half resolution.
+    // cropX/cropY are even, so the byte offset is (cropY/2) rows + cropX bytes
+    // (cropX/2 pairs × 2 bytes/pair).
+    size_t cRowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 1);
     vImage_Buffer srcCbCr = {
-        .data = CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 1),
-        .height = CVPixelBufferGetHeightOfPlane(sourceBuffer, 1),
-        .width = CVPixelBufferGetWidthOfPlane(sourceBuffer, 1),
-        .rowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 1)
+        .data = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 1) + (size_t)(cropY / 2) * cRowBytes + cropX,
+        .height = (vImagePixelCount)(cropH / 2),
+        .width = (vImagePixelCount)(cropW / 2),
+        .rowBytes = cRowBytes
     };
     vImage_Buffer dstCbCr = {
         .data = CVPixelBufferGetBaseAddressOfPlane(destBuffer, 1),
@@ -1342,21 +1386,35 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         NSLog(@"[HeyJoeCapturer] First encode frame: pixelBuffer=%dx%d format=%.4s",
               actualWidth, actualHeight, (char *)&pixelFormat);
 
-        // Compute target dimensions and bitrate.
-        // For 1080p target, we downscale via vImage before appending.
-        int targetWidth = actualWidth;
-        int targetHeight = actualHeight;
-        int bitrate = 25000000; // 25 Mbps for 4K (H.264)
+        // Compute target dimensions and bitrate. The writer is ALWAYS 16:9 (9:16
+        // portrait): sizing it from the raw sensor dimensions produced 4:3 files on
+        // devices whose best capture format is 4:3, which stretch on 16:9 playback
+        // surfaces. The scale stage center-crops every frame to match.
+        CGRect writerCrop = HJCenteredSixteenNineCrop(actualWidth, actualHeight);
+        int croppedWidth = (int)writerCrop.size.width;
+        int croppedHeight = (int)writerCrop.size.height;
+
+        int targetWidth, targetHeight;
+        int bitrate;
 
         if (self.recordingTargetResolution == HeyJoeRecordingResolution1080p) {
-            if (actualWidth > actualHeight) {
-                targetWidth = MIN(actualWidth, 1920);
-                targetHeight = MIN(actualHeight, 1080);
+            if (croppedWidth > croppedHeight) {
+                targetWidth = MIN(croppedWidth, 1920);
+                targetHeight = MIN(croppedHeight, 1080);
             } else {
-                targetWidth = MIN(actualWidth, 1080);
-                targetHeight = MIN(actualHeight, 1920);
+                targetWidth = MIN(croppedWidth, 1080);
+                targetHeight = MIN(croppedHeight, 1920);
             }
             bitrate = 10000000; // 10 Mbps for 1080p (H.264)
+        } else {
+            if (croppedWidth > croppedHeight) {
+                targetWidth = MIN(croppedWidth, 3840);
+                targetHeight = MIN(croppedHeight, 2160);
+            } else {
+                targetWidth = MIN(croppedWidth, 2160);
+                targetHeight = MIN(croppedHeight, 3840);
+            }
+            bitrate = 25000000; // 25 Mbps for 4K (H.264)
         }
 
         NSLog(@"[HeyJoeCapturer] Setting up asset writer: %dx%d @ %d Mbps H.264 (source: %dx%d, target: %s)",
