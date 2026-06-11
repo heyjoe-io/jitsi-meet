@@ -78,6 +78,18 @@ typedef NS_ENUM(NSInteger, HJRecordingState) {
                            fps:(NSInteger)fps
              completionHandler:(nullable void (^)(NSError * _Nullable error))completionHandler;
 
+/// Swap the camera on the LIVE capture session without stopping it (async, dispatches
+/// to captureQueue). Unlike stopCapture+startCapture, an active recording survives the
+/// switch: the writer's output dimensions are fixed at recording start and every frame
+/// is scaled to them, so the new camera's different native resolution is absorbed by
+/// the existing scale stage. Fails (without killing the session) if no session is
+/// running or the new device's input can't be added — callers should fall back to a
+/// full stop/start in that case.
+- (void)switchCaptureToDevice:(AVCaptureDevice *)device
+                       format:(AVCaptureDeviceFormat *)format
+                          fps:(NSInteger)fps
+            completionHandler:(nullable void (^)(NSError * _Nullable error))completionHandler;
+
 /// Stop capturing (async, stops recording first if active, then stops capture session)
 - (void)stopCaptureWithCompletionHandler:(nullable void (^)(void))completionHandler;
 

@@ -58,9 +58,24 @@ RCT_EXPORT_MODULE(HighResRecorder);
 
 - (void)handleRecordingInterrupted:(NSNotification *)notification {
     RCTLogInfo(@"[HighResRecorder] Recording interrupted during capture stop (room transition)");
-    if (self.hasListeners) {
-        [self sendEventWithName:@"onRecordingInterrupted" body:@{@"reason": @"captureStop"}];
+    if (!self.hasListeners) {
+        return;
     }
+
+    // The capturer finalizes the file before posting the interruption — pass the
+    // path and size along so JS can keep the partial segment.
+    NSMutableDictionary *body = [NSMutableDictionary dictionaryWithObject:@"captureStop" forKey:@"reason"];
+    NSString *filePath = notification.userInfo[@"filePath"];
+    if (filePath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+        body[@"filePath"] = filePath;
+        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
+        NSNumber *fileSize = attrs[NSFileSize];
+        body[@"fileSize"] = fileSize ? [self formatFileSize:[fileSize unsignedLongLongValue]] : @"0 B";
+    }
+    if (notification.userInfo[@"error"]) {
+        body[@"error"] = notification.userInfo[@"error"];
+    }
+    [self sendEventWithName:@"onRecordingInterrupted" body:body];
 }
 
 - (void)handleRecordingFailed:(NSNotification *)notification {

@@ -10,6 +10,28 @@ static HeyJoeVideoCapturer *_sharedInstance = nil;
 static void *kCaptureQueueSpecificKey = &kCaptureQueueSpecificKey;
 static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
 
+/// Largest centered 16:9 (9:16 for portrait frames) crop of a width×height frame.
+/// Everything we emit — WebRTC frames and recording files — must be 16:9: the
+/// capturer picks the highest-resolution capture format, which on the front camera
+/// and on older phones' back cameras is a 4:3 sensor format, and scaling that 4:3
+/// straight into 16:9 output stretched the image for everyone in the meeting.
+/// All fields are rounded down to even values for 4:2:0 chroma alignment.
+static CGRect HJCenteredSixteenNineCrop(int width, int height) {
+    BOOL landscape = width > height;
+    int64_t longSide = landscape ? width : height;
+    int64_t shortSide = landscape ? height : width;
+
+    if (longSide * 9 > shortSide * 16) {
+        longSide = (shortSide * 16) / 9;
+    } else {
+        shortSide = (longSide * 9) / 16;
+    }
+
+    int cropW = (int)(landscape ? longSide : shortSide) & ~1;
+    int cropH = (int)(landscape ? shortSide : longSide) & ~1;
+    return CGRectMake(((width - cropW) / 2) & ~1, ((height - cropH) / 2) & ~1, cropW, cropH);
+}
+
 #pragma mark - HeyJoeVideoCapturer Private Interface
 
 @interface HeyJoeVideoCapturer () <AVCaptureAudioDataOutputSampleBufferDelegate>
@@ -291,66 +313,7 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
         }
 
         // Configure camera format and frame rate
-        if ([device lockForConfiguration:&error]) {
-            device.activeFormat = format;
-
-            CMVideoDimensions dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
-            self.videoWidth = dims.width;
-            self.videoHeight = dims.height;
-
-            CMTime frameDuration = CMTimeMake(1, (int32_t)fps);
-            device.activeVideoMinFrameDuration = frameDuration;
-            device.activeVideoMaxFrameDuration = frameDuration;
-
-            if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
-                device.focusMode = AVCaptureFocusModeContinuousAutoFocus;
-            }
-            if ([device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
-                device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
-            }
-
-            // On a virtual multi-camera that includes the ultra-wide (e.g. the triple
-            // camera), videoZoomFactor 1.0 is the ULTRA-WIDE (0.5x) lens — so without
-            // this the preview would open zoomed out. Start at the wide lens so the
-            // talent sees a normal 1x framing; zoom then ramps up toward the telephoto.
-            if (@available(iOS 13.0, *)) {
-                NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
-                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
-                if (constituents.count > 1) {
-                    NSInteger wideIndex = -1;
-                    for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
-                        if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
-                            wideIndex = i;
-                            break;
-                        }
-                    }
-                    if (wideIndex > 0 && (NSInteger)switchOver.count >= wideIndex) {
-                        CGFloat wideBase = [switchOver[wideIndex - 1] doubleValue];
-                        device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
-                                                     MIN(wideBase, device.maxAvailableVideoZoomFactor));
-                        NSLog(@"[HeyJoeCapturer] Initial zoom set to wide base %.2f (virtual multi-camera)", wideBase);
-                    }
-                }
-            }
-
-            [device unlockForConfiguration];
-            NSLog(@"[HeyJoeCapturer] Camera configured: %dx%d @ %ldfps", self.videoWidth, self.videoHeight, (long)fps);
-
-            // Log optical-zoom capability for the chosen device/format. If switch-over
-            // factors are empty on the back camera, the selected format collapsed the
-            // virtual device to a single lens — zoom would be digital-only and the
-            // format chooser needs revisiting for this device.
-            if (@available(iOS 13.0, *)) {
-                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
-                NSLog(@"[HeyJoeCapturer] Device %@ — constituents: %lu, switch-over zoom factors: %@, maxZoom: %.2f",
-                      device.localizedName,
-                      (unsigned long)device.constituentDevices.count,
-                      switchOver,
-                      device.maxAvailableVideoZoomFactor);
-            }
-        } else {
-            NSLog(@"[HeyJoeCapturer] Could not lock camera for configuration: %@", error);
-        }
+        [self _configureDevice:device format:format fps:fps];
 
         // Add audio input for recording
         AVCaptureDevice *audioDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeAudio];
@@ -373,28 +336,7 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
 
         if ([self.captureSession canAddOutput:self.videoDataOutput]) {
             [self.captureSession addOutput:self.videoDataOutput];
-
-            AVCaptureConnection *videoConnection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
-            if (videoConnection) {
-                if ([videoConnection isVideoOrientationSupported]) {
-                    videoConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
-                }
-                if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
-                    videoConnection.videoMirrored = YES;
-                }
-
-                // Smooth out handheld shake with the low-latency stabilizer only. The
-                // cinematic modes buffer frames inside the capture pipeline and add
-                // 1-2s of glass-to-glass delay — unacceptable on a live call. Standard
-                // costs roughly one frame. If the active format doesn't support it,
-                // this is silently ignored and activeVideoStabilizationMode stays Off.
-                if (videoConnection.supportsVideoStabilization) {
-                    videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
-                    NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
-                          (long)videoConnection.preferredVideoStabilizationMode,
-                          (long)videoConnection.activeVideoStabilizationMode);
-                }
-            }
+            [self _applyVideoConnectionSettingsForDevice:device];
         } else {
             NSLog(@"[HeyJoeCapturer] Cannot add video data output");
         }
@@ -417,6 +359,178 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
         self.isCapturing = YES;
 
         NSLog(@"[HeyJoeCapturer] Capture session started at %dx%d", self.videoWidth, self.videoHeight);
+
+        if (completionHandler) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(nil);
+            });
+        }
+    });
+}
+
+/// Must be called on captureQueue. Locks the device and applies format, frame rate,
+/// focus/exposure, and the wide-lens zoom baseline. Updates videoWidth/videoHeight.
+- (void)_configureDevice:(AVCaptureDevice *)device
+                  format:(AVCaptureDeviceFormat *)format
+                     fps:(NSInteger)fps {
+    NSError *error = nil;
+
+    if ([device lockForConfiguration:&error]) {
+        device.activeFormat = format;
+
+        CMVideoDimensions dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
+        self.videoWidth = dims.width;
+        self.videoHeight = dims.height;
+
+        CMTime frameDuration = CMTimeMake(1, (int32_t)fps);
+        device.activeVideoMinFrameDuration = frameDuration;
+        device.activeVideoMaxFrameDuration = frameDuration;
+
+        if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
+            device.focusMode = AVCaptureFocusModeContinuousAutoFocus;
+        }
+        if ([device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
+            device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
+        }
+
+        // On a virtual multi-camera that includes the ultra-wide (e.g. the triple
+        // camera), videoZoomFactor 1.0 is the ULTRA-WIDE (0.5x) lens — so without
+        // this the preview would open zoomed out. Start at the wide lens so the
+        // talent sees a normal 1x framing; zoom then ramps up toward the telephoto.
+        if (@available(iOS 13.0, *)) {
+            NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
+            NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+            if (constituents.count > 1) {
+                NSInteger wideIndex = -1;
+                for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
+                    if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
+                        wideIndex = i;
+                        break;
+                    }
+                }
+                if (wideIndex > 0 && (NSInteger)switchOver.count >= wideIndex) {
+                    CGFloat wideBase = [switchOver[wideIndex - 1] doubleValue];
+                    device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
+                                                 MIN(wideBase, device.maxAvailableVideoZoomFactor));
+                    NSLog(@"[HeyJoeCapturer] Initial zoom set to wide base %.2f (virtual multi-camera)", wideBase);
+                }
+            }
+        }
+
+        [device unlockForConfiguration];
+        NSLog(@"[HeyJoeCapturer] Camera configured: %dx%d @ %ldfps", self.videoWidth, self.videoHeight, (long)fps);
+
+        // Log optical-zoom capability for the chosen device/format. If switch-over
+        // factors are empty on the back camera, the selected format collapsed the
+        // virtual device to a single lens — zoom would be digital-only and the
+        // format chooser needs revisiting for this device.
+        if (@available(iOS 13.0, *)) {
+            NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+            NSLog(@"[HeyJoeCapturer] Device %@ — constituents: %lu, switch-over zoom factors: %@, maxZoom: %.2f",
+                  device.localizedName,
+                  (unsigned long)device.constituentDevices.count,
+                  switchOver,
+                  device.maxAvailableVideoZoomFactor);
+        }
+    } else {
+        NSLog(@"[HeyJoeCapturer] Could not lock camera for configuration: %@", error);
+    }
+}
+
+/// Must be called on captureQueue with videoDataOutput attached to the session.
+/// Removing/re-adding inputs creates a fresh AVCaptureConnection, so this must be
+/// re-applied after every input swap, not just at session setup.
+- (void)_applyVideoConnectionSettingsForDevice:(AVCaptureDevice *)device {
+    AVCaptureConnection *videoConnection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+    if (!videoConnection) {
+        return;
+    }
+
+    if ([videoConnection isVideoOrientationSupported]) {
+        videoConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
+    }
+    if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
+        videoConnection.videoMirrored = YES;
+    }
+
+    // Smooth out handheld shake with the low-latency stabilizer only. The
+    // cinematic modes buffer frames inside the capture pipeline and add
+    // 1-2s of glass-to-glass delay — unacceptable on a live call. Standard
+    // costs roughly one frame. If the active format doesn't support it,
+    // this is silently ignored and activeVideoStabilizationMode stays Off.
+    if (videoConnection.supportsVideoStabilization) {
+        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
+        NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
+              (long)videoConnection.preferredVideoStabilizationMode,
+              (long)videoConnection.activeVideoStabilizationMode);
+    }
+}
+
+- (void)switchCaptureToDevice:(AVCaptureDevice *)device
+                       format:(AVCaptureDeviceFormat *)format
+                          fps:(NSInteger)fps
+            completionHandler:(void (^)(NSError *))completionHandler {
+
+    dispatch_async(self.captureQueue, ^{
+        if (!self.isCapturing || !self.captureSession) {
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: no running session");
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler([NSError errorWithDomain:@"HeyJoeCapturer" code:30
+                        userInfo:@{NSLocalizedDescriptionKey: @"No running capture session to switch"}]);
+                });
+            }
+            return;
+        }
+
+        NSError *inputError = nil;
+        AVCaptureDeviceInput *newInput = [AVCaptureDeviceInput deviceInputWithDevice:device error:&inputError];
+        if (!newInput) {
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: failed to create input: %@", inputError);
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler(inputError ?: [NSError errorWithDomain:@"HeyJoeCapturer" code:31
+                        userInfo:@{NSLocalizedDescriptionKey: @"Failed to create input for new camera"}]);
+                });
+            }
+            return;
+        }
+
+        AVCaptureDeviceInput *oldInput = self.videoInput;
+
+        [self.captureSession beginConfiguration];
+
+        if (oldInput) {
+            [self.captureSession removeInput:oldInput];
+        }
+
+        if ([self.captureSession canAddInput:newInput]) {
+            [self.captureSession addInput:newInput];
+            self.videoInput = newInput;
+        } else {
+            // Restore the old input so the session keeps producing frames instead of
+            // going black — the caller falls back to a full stop/start.
+            if (oldInput && [self.captureSession canAddInput:oldInput]) {
+                [self.captureSession addInput:oldInput];
+            }
+            [self.captureSession commitConfiguration];
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: cannot add input for %@ — old input restored", device.localizedName);
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler([NSError errorWithDomain:@"HeyJoeCapturer" code:32
+                        userInfo:@{NSLocalizedDescriptionKey: @"Cannot add input for new camera"}]);
+                });
+            }
+            return;
+        }
+
+        [self _configureDevice:device format:format fps:fps];
+        [self _applyVideoConnectionSettingsForDevice:device];
+
+        [self.captureSession commitConfiguration];
+
+        NSLog(@"[HeyJoeCapturer] Switched camera in-place to %@ (%dx%d) — recordingActive=%d",
+              device.localizedName, self.videoWidth, self.videoHeight, self.recordingActive);
 
         if (completionHandler) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -456,11 +570,21 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
                 NSLog(@"[HeyJoeCapturer] Recording state=%ld during capture stop — stopping recording first",
                       (long)self.recordingState);
                 [self _stopRecordingInternalWithCompletionHandler:^(NSURL *url, NSError *error) {
-                    // Recording stopped, now notify JS of interruption and stop capture
+                    // Recording stopped, now notify JS of interruption and stop capture.
+                    // Pass the finalized file path (when one exists) so JS can keep the
+                    // partial segment instead of stranding it on disk.
+                    NSMutableDictionary *interruptInfo = [NSMutableDictionary dictionary];
+                    if (url) {
+                        interruptInfo[@"filePath"] = url.path;
+                    }
+                    if (error) {
+                        interruptInfo[@"error"] = error.localizedDescription ?: @"Unknown error";
+                    }
                     dispatch_async(dispatch_get_main_queue(), ^{
                         [[NSNotificationCenter defaultCenter]
                             postNotificationName:@"HeyJoeRecordingInterruptedDuringCaptureStop"
-                            object:nil];
+                            object:nil
+                            userInfo:interruptInfo];
                     });
 
                     // Now stop the capture session on captureQueue
@@ -1100,24 +1224,31 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         int pbWidth = (int)CVPixelBufferGetWidth(pixelBuffer);
         int pbHeight = (int)CVPixelBufferGetHeight(pixelBuffer);
 
+        // Center-crop to 16:9/9:16 BEFORE adapting. Scaling the full frame to the
+        // adapted size is non-uniform when the sensor format is 4:3 — that stretched
+        // the live feed on every device whose best capture format isn't 16:9.
+        CGRect senderCrop = HJCenteredSixteenNineCrop(pbWidth, pbHeight);
+        int cropW = (int)senderCrop.size.width;
+        int cropH = (int)senderCrop.size.height;
+
         // Target 720p for WebRTC
         int adaptedWidth, adaptedHeight;
-        if (pbWidth > pbHeight) {
-            adaptedWidth = MIN(pbWidth, 1280);
-            adaptedHeight = MIN(pbHeight, 720);
+        if (cropW > cropH) {
+            adaptedWidth = MIN(cropW, 1280);
+            adaptedHeight = MIN(cropH, 720);
         } else {
-            adaptedWidth = MIN(pbWidth, 720);
-            adaptedHeight = MIN(pbHeight, 1280);
+            adaptedWidth = MIN(cropW, 720);
+            adaptedHeight = MIN(cropH, 1280);
         }
 
         RTCCVPixelBuffer *rtcPixelBuffer = [[RTCCVPixelBuffer alloc]
             initWithPixelBuffer:pixelBuffer
                    adaptedWidth:adaptedWidth
                   adaptedHeight:adaptedHeight
-                      cropWidth:pbWidth
-                     cropHeight:pbHeight
-                          cropX:0
-                          cropY:0];
+                      cropWidth:cropW
+                     cropHeight:cropH
+                          cropX:(int)senderCrop.origin.x
+                          cropY:(int)senderCrop.origin.y];
         RTCVideoFrame *videoFrame = [[RTCVideoFrame alloc] initWithBuffer:rtcPixelBuffer
                                                                  rotation:rotation
                                                               timeStampNs:timeStampNs];
@@ -1182,12 +1313,24 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CVPixelBufferLockBaseAddress(sourceBuffer, kCVPixelBufferLock_ReadOnly);
     CVPixelBufferLockBaseAddress(destBuffer, 0);
 
+    // Center-crop the source to 16:9 before scaling. The writer target is always
+    // 16:9, so scaling the full frame would stretch 4:3 sensor output. The crop
+    // is expressed as plane offsets — no extra buffer copy.
+    int srcW = (int)CVPixelBufferGetWidth(sourceBuffer);
+    int srcH = (int)CVPixelBufferGetHeight(sourceBuffer);
+    CGRect crop = HJCenteredSixteenNineCrop(srcW, srcH);
+    int cropX = (int)crop.origin.x;
+    int cropY = (int)crop.origin.y;
+    int cropW = (int)crop.size.width;
+    int cropH = (int)crop.size.height;
+
     // Scale Y plane (plane 0)
+    size_t yRowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 0);
     vImage_Buffer srcY = {
-        .data = CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 0),
-        .height = CVPixelBufferGetHeightOfPlane(sourceBuffer, 0),
-        .width = CVPixelBufferGetWidthOfPlane(sourceBuffer, 0),
-        .rowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 0)
+        .data = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 0) + (size_t)cropY * yRowBytes + cropX,
+        .height = (vImagePixelCount)cropH,
+        .width = (vImagePixelCount)cropW,
+        .rowBytes = yRowBytes
     };
     vImage_Buffer dstY = {
         .data = CVPixelBufferGetBaseAddressOfPlane(destBuffer, 0),
@@ -1197,12 +1340,15 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     };
     vImage_Error yErr = vImageScale_Planar8(&srcY, &dstY, NULL, kvImageNoFlags);
 
-    // Scale CbCr plane (plane 1) — interleaved 2-byte pairs
+    // Scale CbCr plane (plane 1) — interleaved 2-byte pairs at half resolution.
+    // cropX/cropY are even, so the byte offset is (cropY/2) rows + cropX bytes
+    // (cropX/2 pairs × 2 bytes/pair).
+    size_t cRowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 1);
     vImage_Buffer srcCbCr = {
-        .data = CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 1),
-        .height = CVPixelBufferGetHeightOfPlane(sourceBuffer, 1),
-        .width = CVPixelBufferGetWidthOfPlane(sourceBuffer, 1),
-        .rowBytes = CVPixelBufferGetBytesPerRowOfPlane(sourceBuffer, 1)
+        .data = (uint8_t *)CVPixelBufferGetBaseAddressOfPlane(sourceBuffer, 1) + (size_t)(cropY / 2) * cRowBytes + cropX,
+        .height = (vImagePixelCount)(cropH / 2),
+        .width = (vImagePixelCount)(cropW / 2),
+        .rowBytes = cRowBytes
     };
     vImage_Buffer dstCbCr = {
         .data = CVPixelBufferGetBaseAddressOfPlane(destBuffer, 1),
@@ -1240,21 +1386,35 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         NSLog(@"[HeyJoeCapturer] First encode frame: pixelBuffer=%dx%d format=%.4s",
               actualWidth, actualHeight, (char *)&pixelFormat);
 
-        // Compute target dimensions and bitrate.
-        // For 1080p target, we downscale via vImage before appending.
-        int targetWidth = actualWidth;
-        int targetHeight = actualHeight;
-        int bitrate = 25000000; // 25 Mbps for 4K (H.264)
+        // Compute target dimensions and bitrate. The writer is ALWAYS 16:9 (9:16
+        // portrait): sizing it from the raw sensor dimensions produced 4:3 files on
+        // devices whose best capture format is 4:3, which stretch on 16:9 playback
+        // surfaces. The scale stage center-crops every frame to match.
+        CGRect writerCrop = HJCenteredSixteenNineCrop(actualWidth, actualHeight);
+        int croppedWidth = (int)writerCrop.size.width;
+        int croppedHeight = (int)writerCrop.size.height;
+
+        int targetWidth, targetHeight;
+        int bitrate;
 
         if (self.recordingTargetResolution == HeyJoeRecordingResolution1080p) {
-            if (actualWidth > actualHeight) {
-                targetWidth = MIN(actualWidth, 1920);
-                targetHeight = MIN(actualHeight, 1080);
+            if (croppedWidth > croppedHeight) {
+                targetWidth = MIN(croppedWidth, 1920);
+                targetHeight = MIN(croppedHeight, 1080);
             } else {
-                targetWidth = MIN(actualWidth, 1080);
-                targetHeight = MIN(actualHeight, 1920);
+                targetWidth = MIN(croppedWidth, 1080);
+                targetHeight = MIN(croppedHeight, 1920);
             }
             bitrate = 10000000; // 10 Mbps for 1080p (H.264)
+        } else {
+            if (croppedWidth > croppedHeight) {
+                targetWidth = MIN(croppedWidth, 3840);
+                targetHeight = MIN(croppedHeight, 2160);
+            } else {
+                targetWidth = MIN(croppedWidth, 2160);
+                targetHeight = MIN(croppedHeight, 3840);
+            }
+            bitrate = 25000000; // 25 Mbps for 4K (H.264)
         }
 
         NSLog(@"[HeyJoeCapturer] Setting up asset writer: %dx%d @ %d Mbps H.264 (source: %dx%d, target: %s)",

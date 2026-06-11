@@ -88,23 +88,31 @@ const LocalRecordingButton = ({
         }
     }, [recordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror])
 
+    // Shared bookkeeping for a finished recording file: reset redux state, add the
+    // file to the recordings list and kick off auto-upload. Used by both the normal
+    // stop path and the native interruption path (which also produces a valid file).
+    const saveRecording = useCallback((fileSize: string, filePath?: string) => {
+        stopNativeLocalRecording()
+        const path = filePath || recordingFilePath.current
+        if (path) {
+            const endTime = new Date()
+            const ext = path.split('.').pop()
+            const upKey = `${state['features/talent'].studio?.jitsi_meeting_id}_${formatDateString(startTime.current?.toISOString())}_to_${formatDateString(endTime.toISOString())}.${ext}`
+            addNativeLocalRecording(path, fileSize, startTime.current, endTime, upKey)
+            if (autoUploadLocalRecording) {
+                setTimeout(() => {
+                    uploadRecording(state, path, sessionId, talentId, upKey)
+                }, 1000)
+            }
+        }
+    }, [sessionId, talentId, autoUploadLocalRecording, state])
+
     const stopRecording = useCallback(() => {
         const handleStopResult = (fileSize: string) => {
             if (fileSize.startsWith("ERROR:")) {
                 Alert.alert("Error!", fileSize)
             }
-            stopNativeLocalRecording()
-            if (recordingFilePath.current) {
-                const endTime = new Date()
-                const ext = recordingFilePath.current.split('.').pop()
-                const upKey = `${state['features/talent'].studio?.jitsi_meeting_id}_${formatDateString(startTime.current?.toISOString())}_to_${formatDateString(endTime.toISOString())}.${ext}`
-                addNativeLocalRecording(recordingFilePath.current, fileSize, startTime.current, endTime, upKey)
-                if (autoUploadLocalRecording) {
-                    setTimeout(() => {
-                        uploadRecording(state, recordingFilePath.current, sessionId, talentId, upKey)
-                    }, 1000)
-                }
-            }
+            saveRecording(fileSize)
         }
 
         if (useHighResRecorder) {
@@ -118,7 +126,7 @@ const LocalRecordingButton = ({
                 stopNativeLocalRecording()
             })
         }
-    }, [videoTrack, sessionId, talentId, autoUploadLocalRecording, state])
+    }, [videoTrack, saveRecording])
 
     const handleRecordPress = () => {
         if (!isNativeLocalRecording) {
@@ -197,14 +205,19 @@ const LocalRecordingButton = ({
         }
     }, [enabled, startRecording, stopRecording])
 
-    // Listen for native recording interruption events (room transitions on iOS)
+    // Listen for native recording interruption events (room transitions on iOS).
+    // The capturer finalizes the file before interrupting, so when a file path is
+    // included the partial segment is saved/uploaded instead of stranded on disk.
     useEffect(() => {
         if (!highResRecorderEmitter) return
         const subscription = highResRecorderEmitter.addListener(
             'onRecordingInterrupted',
             (event: any) => {
-                console.log('[HighResRecorder] Recording interrupted by native:', event.reason)
-                if (isNativeLocalRecording) {
+                console.log('[HighResRecorder] Recording interrupted by native:', event.reason, event.filePath)
+                if (!isNativeLocalRecording) return
+                if (event.filePath) {
+                    saveRecording(event.fileSize || '0 B', event.filePath)
+                } else {
                     stopNativeLocalRecording()
                 }
             }
@@ -212,7 +225,7 @@ const LocalRecordingButton = ({
         return () => {
             subscription.remove()
         }
-    }, [isNativeLocalRecording, stopNativeLocalRecording])
+    }, [isNativeLocalRecording, stopNativeLocalRecording, saveRecording])
 
     // Listen for mid-stream recording failures (writer setup/append errors).
     // Without this, JS thinks recording is active but native has already stopped,

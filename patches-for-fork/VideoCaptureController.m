@@ -149,13 +149,49 @@
 - (void)switchCamera {
     self.usingFrontCamera = !self.usingFrontCamera;
     self.deviceId = nil;
-    self.device = nil;
 
-    // Stop and restart with new camera
-    [self.heyJoeCapturer stopCaptureWithCompletionHandler:^{
-        self.running = NO;
-        [self startCapture];
-    }];
+    AVCaptureDevicePosition position =
+        self.usingFrontCamera ? AVCaptureDevicePositionFront : AVCaptureDevicePositionBack;
+    AVCaptureDevice *newDevice = [self findDeviceForPosition:position];
+
+    if (!newDevice) {
+        RCTLogWarn(@"[VideoCaptureController] switchCamera: no device for position %ld", (long)position);
+        return;
+    }
+
+    AVCaptureDeviceFormat *format = [HeyJoeVideoCapturer bestFormatForDevice:newDevice
+                                                             targetFrameRate:self.frameRate];
+    if (!format) {
+        format = [self selectFormatForDevice:newDevice
+                             withTargetWidth:self.width
+                            withTargetHeight:self.height];
+    }
+    if (!format) {
+        RCTLogWarn(@"[VideoCaptureController] switchCamera: no valid formats for device %@", newDevice);
+        return;
+    }
+
+    self.device = newDevice;
+    self.selectedFormat = format;
+
+    // Swap the camera on the live session — an active recording survives the switch.
+    // A full stop/start would force-stop the recording (the file gets finalized and
+    // JS is notified, but the take is cut short), so it's only the fallback path.
+    __weak VideoCaptureController *weakSelf = self;
+    [self.heyJoeCapturer switchCaptureToDevice:newDevice
+                                        format:format
+                                           fps:self.frameRate
+                             completionHandler:^(NSError *err) {
+                                 if (!err) {
+                                     RCTLog(@"[VideoCaptureController] Camera switched in-place");
+                                     return;
+                                 }
+                                 RCTLogWarn(@"[VideoCaptureController] In-place camera switch failed (%@) — falling back to stop/start", err);
+                                 [weakSelf.heyJoeCapturer stopCaptureWithCompletionHandler:^{
+                                     weakSelf.running = NO;
+                                     [weakSelf startCapture];
+                                 }];
+                             }];
 }
 
 #pragma mark NSKeyValueObserving
