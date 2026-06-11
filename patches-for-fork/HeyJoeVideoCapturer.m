@@ -291,66 +291,7 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
         }
 
         // Configure camera format and frame rate
-        if ([device lockForConfiguration:&error]) {
-            device.activeFormat = format;
-
-            CMVideoDimensions dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
-            self.videoWidth = dims.width;
-            self.videoHeight = dims.height;
-
-            CMTime frameDuration = CMTimeMake(1, (int32_t)fps);
-            device.activeVideoMinFrameDuration = frameDuration;
-            device.activeVideoMaxFrameDuration = frameDuration;
-
-            if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
-                device.focusMode = AVCaptureFocusModeContinuousAutoFocus;
-            }
-            if ([device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
-                device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
-            }
-
-            // On a virtual multi-camera that includes the ultra-wide (e.g. the triple
-            // camera), videoZoomFactor 1.0 is the ULTRA-WIDE (0.5x) lens — so without
-            // this the preview would open zoomed out. Start at the wide lens so the
-            // talent sees a normal 1x framing; zoom then ramps up toward the telephoto.
-            if (@available(iOS 13.0, *)) {
-                NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
-                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
-                if (constituents.count > 1) {
-                    NSInteger wideIndex = -1;
-                    for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
-                        if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
-                            wideIndex = i;
-                            break;
-                        }
-                    }
-                    if (wideIndex > 0 && (NSInteger)switchOver.count >= wideIndex) {
-                        CGFloat wideBase = [switchOver[wideIndex - 1] doubleValue];
-                        device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
-                                                     MIN(wideBase, device.maxAvailableVideoZoomFactor));
-                        NSLog(@"[HeyJoeCapturer] Initial zoom set to wide base %.2f (virtual multi-camera)", wideBase);
-                    }
-                }
-            }
-
-            [device unlockForConfiguration];
-            NSLog(@"[HeyJoeCapturer] Camera configured: %dx%d @ %ldfps", self.videoWidth, self.videoHeight, (long)fps);
-
-            // Log optical-zoom capability for the chosen device/format. If switch-over
-            // factors are empty on the back camera, the selected format collapsed the
-            // virtual device to a single lens — zoom would be digital-only and the
-            // format chooser needs revisiting for this device.
-            if (@available(iOS 13.0, *)) {
-                NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
-                NSLog(@"[HeyJoeCapturer] Device %@ — constituents: %lu, switch-over zoom factors: %@, maxZoom: %.2f",
-                      device.localizedName,
-                      (unsigned long)device.constituentDevices.count,
-                      switchOver,
-                      device.maxAvailableVideoZoomFactor);
-            }
-        } else {
-            NSLog(@"[HeyJoeCapturer] Could not lock camera for configuration: %@", error);
-        }
+        [self _configureDevice:device format:format fps:fps];
 
         // Add audio input for recording
         AVCaptureDevice *audioDevice = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeAudio];
@@ -373,28 +314,7 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
 
         if ([self.captureSession canAddOutput:self.videoDataOutput]) {
             [self.captureSession addOutput:self.videoDataOutput];
-
-            AVCaptureConnection *videoConnection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
-            if (videoConnection) {
-                if ([videoConnection isVideoOrientationSupported]) {
-                    videoConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
-                }
-                if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
-                    videoConnection.videoMirrored = YES;
-                }
-
-                // Smooth out handheld shake with the low-latency stabilizer only. The
-                // cinematic modes buffer frames inside the capture pipeline and add
-                // 1-2s of glass-to-glass delay — unacceptable on a live call. Standard
-                // costs roughly one frame. If the active format doesn't support it,
-                // this is silently ignored and activeVideoStabilizationMode stays Off.
-                if (videoConnection.supportsVideoStabilization) {
-                    videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
-                    NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
-                          (long)videoConnection.preferredVideoStabilizationMode,
-                          (long)videoConnection.activeVideoStabilizationMode);
-                }
-            }
+            [self _applyVideoConnectionSettingsForDevice:device];
         } else {
             NSLog(@"[HeyJoeCapturer] Cannot add video data output");
         }
@@ -417,6 +337,178 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
         self.isCapturing = YES;
 
         NSLog(@"[HeyJoeCapturer] Capture session started at %dx%d", self.videoWidth, self.videoHeight);
+
+        if (completionHandler) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(nil);
+            });
+        }
+    });
+}
+
+/// Must be called on captureQueue. Locks the device and applies format, frame rate,
+/// focus/exposure, and the wide-lens zoom baseline. Updates videoWidth/videoHeight.
+- (void)_configureDevice:(AVCaptureDevice *)device
+                  format:(AVCaptureDeviceFormat *)format
+                     fps:(NSInteger)fps {
+    NSError *error = nil;
+
+    if ([device lockForConfiguration:&error]) {
+        device.activeFormat = format;
+
+        CMVideoDimensions dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
+        self.videoWidth = dims.width;
+        self.videoHeight = dims.height;
+
+        CMTime frameDuration = CMTimeMake(1, (int32_t)fps);
+        device.activeVideoMinFrameDuration = frameDuration;
+        device.activeVideoMaxFrameDuration = frameDuration;
+
+        if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
+            device.focusMode = AVCaptureFocusModeContinuousAutoFocus;
+        }
+        if ([device isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
+            device.exposureMode = AVCaptureExposureModeContinuousAutoExposure;
+        }
+
+        // On a virtual multi-camera that includes the ultra-wide (e.g. the triple
+        // camera), videoZoomFactor 1.0 is the ULTRA-WIDE (0.5x) lens — so without
+        // this the preview would open zoomed out. Start at the wide lens so the
+        // talent sees a normal 1x framing; zoom then ramps up toward the telephoto.
+        if (@available(iOS 13.0, *)) {
+            NSArray<AVCaptureDevice *> *constituents = device.constituentDevices;
+            NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+            if (constituents.count > 1) {
+                NSInteger wideIndex = -1;
+                for (NSInteger i = 0; i < (NSInteger)constituents.count; i++) {
+                    if ([constituents[i].deviceType isEqualToString:AVCaptureDeviceTypeBuiltInWideAngleCamera]) {
+                        wideIndex = i;
+                        break;
+                    }
+                }
+                if (wideIndex > 0 && (NSInteger)switchOver.count >= wideIndex) {
+                    CGFloat wideBase = [switchOver[wideIndex - 1] doubleValue];
+                    device.videoZoomFactor = MAX(device.minAvailableVideoZoomFactor,
+                                                 MIN(wideBase, device.maxAvailableVideoZoomFactor));
+                    NSLog(@"[HeyJoeCapturer] Initial zoom set to wide base %.2f (virtual multi-camera)", wideBase);
+                }
+            }
+        }
+
+        [device unlockForConfiguration];
+        NSLog(@"[HeyJoeCapturer] Camera configured: %dx%d @ %ldfps", self.videoWidth, self.videoHeight, (long)fps);
+
+        // Log optical-zoom capability for the chosen device/format. If switch-over
+        // factors are empty on the back camera, the selected format collapsed the
+        // virtual device to a single lens — zoom would be digital-only and the
+        // format chooser needs revisiting for this device.
+        if (@available(iOS 13.0, *)) {
+            NSArray<NSNumber *> *switchOver = device.virtualDeviceSwitchOverVideoZoomFactors;
+            NSLog(@"[HeyJoeCapturer] Device %@ — constituents: %lu, switch-over zoom factors: %@, maxZoom: %.2f",
+                  device.localizedName,
+                  (unsigned long)device.constituentDevices.count,
+                  switchOver,
+                  device.maxAvailableVideoZoomFactor);
+        }
+    } else {
+        NSLog(@"[HeyJoeCapturer] Could not lock camera for configuration: %@", error);
+    }
+}
+
+/// Must be called on captureQueue with videoDataOutput attached to the session.
+/// Removing/re-adding inputs creates a fresh AVCaptureConnection, so this must be
+/// re-applied after every input swap, not just at session setup.
+- (void)_applyVideoConnectionSettingsForDevice:(AVCaptureDevice *)device {
+    AVCaptureConnection *videoConnection = [self.videoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+    if (!videoConnection) {
+        return;
+    }
+
+    if ([videoConnection isVideoOrientationSupported]) {
+        videoConnection.videoOrientation = AVCaptureVideoOrientationPortrait;
+    }
+    if (device.position == AVCaptureDevicePositionFront && [videoConnection isVideoMirroringSupported]) {
+        videoConnection.videoMirrored = YES;
+    }
+
+    // Smooth out handheld shake with the low-latency stabilizer only. The
+    // cinematic modes buffer frames inside the capture pipeline and add
+    // 1-2s of glass-to-glass delay — unacceptable on a live call. Standard
+    // costs roughly one frame. If the active format doesn't support it,
+    // this is silently ignored and activeVideoStabilizationMode stays Off.
+    if (videoConnection.supportsVideoStabilization) {
+        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
+        NSLog(@"[HeyJoeCapturer] Video stabilization requested (mode=%ld), active=%ld",
+              (long)videoConnection.preferredVideoStabilizationMode,
+              (long)videoConnection.activeVideoStabilizationMode);
+    }
+}
+
+- (void)switchCaptureToDevice:(AVCaptureDevice *)device
+                       format:(AVCaptureDeviceFormat *)format
+                          fps:(NSInteger)fps
+            completionHandler:(void (^)(NSError *))completionHandler {
+
+    dispatch_async(self.captureQueue, ^{
+        if (!self.isCapturing || !self.captureSession) {
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: no running session");
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler([NSError errorWithDomain:@"HeyJoeCapturer" code:30
+                        userInfo:@{NSLocalizedDescriptionKey: @"No running capture session to switch"}]);
+                });
+            }
+            return;
+        }
+
+        NSError *inputError = nil;
+        AVCaptureDeviceInput *newInput = [AVCaptureDeviceInput deviceInputWithDevice:device error:&inputError];
+        if (!newInput) {
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: failed to create input: %@", inputError);
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler(inputError ?: [NSError errorWithDomain:@"HeyJoeCapturer" code:31
+                        userInfo:@{NSLocalizedDescriptionKey: @"Failed to create input for new camera"}]);
+                });
+            }
+            return;
+        }
+
+        AVCaptureDeviceInput *oldInput = self.videoInput;
+
+        [self.captureSession beginConfiguration];
+
+        if (oldInput) {
+            [self.captureSession removeInput:oldInput];
+        }
+
+        if ([self.captureSession canAddInput:newInput]) {
+            [self.captureSession addInput:newInput];
+            self.videoInput = newInput;
+        } else {
+            // Restore the old input so the session keeps producing frames instead of
+            // going black — the caller falls back to a full stop/start.
+            if (oldInput && [self.captureSession canAddInput:oldInput]) {
+                [self.captureSession addInput:oldInput];
+            }
+            [self.captureSession commitConfiguration];
+            NSLog(@"[HeyJoeCapturer] switchCaptureToDevice: cannot add input for %@ — old input restored", device.localizedName);
+            if (completionHandler) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completionHandler([NSError errorWithDomain:@"HeyJoeCapturer" code:32
+                        userInfo:@{NSLocalizedDescriptionKey: @"Cannot add input for new camera"}]);
+                });
+            }
+            return;
+        }
+
+        [self _configureDevice:device format:format fps:fps];
+        [self _applyVideoConnectionSettingsForDevice:device];
+
+        [self.captureSession commitConfiguration];
+
+        NSLog(@"[HeyJoeCapturer] Switched camera in-place to %@ (%dx%d) — recordingActive=%d",
+              device.localizedName, self.videoWidth, self.videoHeight, self.recordingActive);
 
         if (completionHandler) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -456,11 +548,21 @@ static void *kRecordingQueueSpecificKey = &kRecordingQueueSpecificKey;
                 NSLog(@"[HeyJoeCapturer] Recording state=%ld during capture stop — stopping recording first",
                       (long)self.recordingState);
                 [self _stopRecordingInternalWithCompletionHandler:^(NSURL *url, NSError *error) {
-                    // Recording stopped, now notify JS of interruption and stop capture
+                    // Recording stopped, now notify JS of interruption and stop capture.
+                    // Pass the finalized file path (when one exists) so JS can keep the
+                    // partial segment instead of stranding it on disk.
+                    NSMutableDictionary *interruptInfo = [NSMutableDictionary dictionary];
+                    if (url) {
+                        interruptInfo[@"filePath"] = url.path;
+                    }
+                    if (error) {
+                        interruptInfo[@"error"] = error.localizedDescription ?: @"Unknown error";
+                    }
                     dispatch_async(dispatch_get_main_queue(), ^{
                         [[NSNotificationCenter defaultCenter]
                             postNotificationName:@"HeyJoeRecordingInterruptedDuringCaptureStop"
-                            object:nil];
+                            object:nil
+                            userInfo:interruptInfo];
                     });
 
                     // Now stop the capture session on captureQueue
