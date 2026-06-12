@@ -324,6 +324,100 @@ RCT_EXPORT_METHOD(forceResetRecordingState:(RCTPromiseResolveBlock)resolve
     }
 }
 
+#pragma mark - Chunked Upload Support
+
+RCT_EXPORT_METHOD(getFileInfo:(NSString *)path
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSError *error = nil;
+        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:&error];
+
+        if (!attrs) {
+            resolve(@{ @"exists": @(NO), @"size": @(0) });
+            return;
+        }
+
+        resolve(@{
+            @"exists": @(YES),
+            @"size": attrs[NSFileSize] ?: @(0)
+        });
+    });
+}
+
+/// Uploads a byte range of a file with an HTTP PUT (presigned S3 part URL). The
+/// slice never crosses the JS bridge — it's read and sent natively. Resolves with
+/// the HTTP status and the response ETag (S3's part receipt, needed to complete a
+/// multipart upload).
+RCT_EXPORT_METHOD(uploadFileSlice:(NSString *)path
+                  offset:(nonnull NSNumber *)offset
+                  length:(nonnull NSNumber *)length
+                  url:(NSString *)urlString
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSURL *requestURL = [NSURL URLWithString:urlString];
+        if (!requestURL) {
+            reject(@"bad_url", @"Invalid upload URL", nil);
+            return;
+        }
+
+        NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:path];
+        if (!fh) {
+            reject(@"file_error", [NSString stringWithFormat:@"Cannot open file: %@", path], nil);
+            return;
+        }
+
+        NSData *data = nil;
+        @try {
+            [fh seekToFileOffset:offset.unsignedLongLongValue];
+            data = [fh readDataOfLength:length.unsignedIntegerValue];
+        } @catch (NSException *exception) {
+            [fh closeFile];
+            reject(@"file_error", [NSString stringWithFormat:@"Slice read failed: %@", exception.reason], nil);
+            return;
+        }
+        [fh closeFile];
+
+        if (data.length != length.unsignedIntegerValue) {
+            // The caller computes slices from getFileInfo, so a short read means the
+            // file changed underneath us — fail loudly rather than upload a bad part.
+            reject(@"short_read",
+                   [NSString stringWithFormat:@"Read %lu of %lu bytes at offset %llu",
+                                              (unsigned long)data.length,
+                                              (unsigned long)length.unsignedIntegerValue,
+                                              offset.unsignedLongLongValue],
+                   nil);
+            return;
+        }
+
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:requestURL];
+        request.HTTPMethod = @"PUT";
+        request.timeoutInterval = 120;
+
+        NSURLSessionUploadTask *task = [[NSURLSession sharedSession]
+            uploadTaskWithRequest:request
+                         fromData:data
+                completionHandler:^(NSData *body, NSURLResponse *response, NSError *error) {
+                    if (error) {
+                        reject(@"upload_error", error.localizedDescription, error);
+                        return;
+                    }
+
+                    NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+                    NSString *etag = http.allHeaderFields[@"Etag"] ?: http.allHeaderFields[@"ETag"] ?: @"";
+
+                    resolve(@{
+                        @"status": @(http.statusCode),
+                        @"etag": etag
+                    });
+                }];
+        [task resume];
+    });
+}
+
 #pragma mark - Zoom Control
 
 RCT_EXPORT_METHOD(setZoomFactor:(double)zoomFactor

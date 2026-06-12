@@ -657,6 +657,14 @@ static CGRect HJCenteredSixteenNineCrop(int width, int height) {
         return NO;
     }
 
+    // Write QuickTime movie fragments every few seconds so the file on disk is
+    // valid up to the last fragment boundary at all times. This is what makes
+    // upload-while-recording possible (a tailer ships committed byte ranges as the
+    // file grows and the bytes are identical to the final file), and it doubles as
+    // crash resilience: an app death mid-take loses at most the last fragment
+    // instead of the whole recording.
+    self.assetWriter.movieFragmentInterval = CMTimeMakeWithSeconds(6.0, 600);
+
     // H.264 output settings — more reliable than HEVC for repeated start/stop cycles.
     // The hardware HEVC encoder can malfunction (-12780) after room transitions
     // tear down and recreate the capture pipeline. H.264 is robust against this.

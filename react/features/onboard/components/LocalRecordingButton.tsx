@@ -9,6 +9,7 @@ import { ADD_NATIVE_LOCAL_RECORDING, SET_CURRENT_RECORDING_PATH,
     START_NATIVE_LOCAL_RECORDING, STOP_NATIVE_LOCAL_RECORDING } from '../actionTypes'
 import styles from './styles'
 import { IconRecord } from '../../base/icons/svg'
+import { abortChunkedUpload, startChunkedUpload } from '../chunkedUpload'
 import { addWsListener, removeWsListener, sendMessage, uploadLocalRecordingNative } from '../functions'
 
 console.log("NativeModules", NativeModules)
@@ -84,6 +85,19 @@ const LocalRecordingButton = ({
                 recordingFilePath.current = result.filePath
                 setCurrentReccordingPath(result.filePath)
                 startNativeLocalRecording()
+
+                // Upload-while-recording: ship the growing file to S3 in parts so
+                // only the tail remains when the take stops. On any failure the
+                // post-stop flow falls back to the legacy whole-file upload.
+                if (autoUploadLocalRecording) {
+                    startChunkedUpload({
+                        filePath: result.filePath,
+                        fileName: result.filePath.split('/').pop(),
+                        sessionId,
+                        talentId,
+                        token: state['features/talent'].token
+                    })
+                }
             }).catch((error: any) => {
                 console.error('[HighResRecorder] Error starting recording:', error)
                 Alert.alert("Recording Error", error.message || "Could not start recording")
@@ -111,7 +125,8 @@ const LocalRecordingButton = ({
                 startNativeLocalRecording()
             })
         }
-    }, [enable1080p, iosRecordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror])
+    }, [enable1080p, iosRecordingQuality, videoTrack, nativeLocalRecordings, roomName, mirror,
+        autoUploadLocalRecording, sessionId, talentId, state])
 
     // Shared bookkeeping for a finished recording file: reset redux state, add the
     // file to the recordings list and kick off auto-upload. Used by both the normal
@@ -148,6 +163,8 @@ const LocalRecordingButton = ({
                 console.error('[HighResRecorder] Error stopping recording:', error)
                 Alert.alert("Recording Error", error.message || "Could not stop recording")
                 stopNativeLocalRecording()
+                // No upload will follow a failed stop — release the multipart upload.
+                abortChunkedUpload(recordingFilePath.current)
             })
         } else {
             // Android/Fallback: Use legacy Recorder

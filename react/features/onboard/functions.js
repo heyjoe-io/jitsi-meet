@@ -5,6 +5,7 @@ import { getDomainFromUrl } from '../base/util/uri';
 import axios from 'axios';
 
 import { setOnboard } from './actions';
+import { finishChunkedUpload, hasChunkedSession } from './chunkedUpload';
 import { STORE_NAME } from './reducer';
 import { SET_UPLOAD_ERROR, UPDATE_LOCAL_RECORDING_STATUS, UPDATE_UPLOAD_PROGRESS, UPLOAD_NATIVE_LOCAL_RECORDING_FINISH, UPLOAD_NATIVE_LOCAL_RECORDING_START } from './actionTypes';
 import { colors } from '../base/ui/Tokens';
@@ -420,7 +421,44 @@ export async function uploadLocalRecordingNative(
         
         const currentGroupId = res[0]._id;
         console.log('🎯 Using group ID:', currentGroupId);
-        
+
+        // If a chunked session ran during the recording, most bytes are already in
+        // S3 — drain the tail and complete instead of re-sending the whole file.
+        // Any chunked failure falls through to the legacy upload below (the full
+        // file is on disk either way).
+        if (hasChunkedSession(validPath)) {
+            sendMessage(`talent-session-${sessionId}`, { type: 'upload-started', talentId, sessionId, upKey });
+
+            const chunked = await finishChunkedUpload({
+                filePath: validPath,
+                upKey,
+                session: sessionId,
+                group: currentGroupId,
+                onProgress: progress => {
+                    const display = Math.min(progress, 99);
+                    dispatch({
+                        type: UPDATE_UPLOAD_PROGRESS,
+                        key: localFilePath,
+                        progress: display
+                    });
+                    sendMessage(`talent-session-${sessionId}`, { type: 'upload-progress', talentId, sessionId, upKey, progress: display });
+                }
+            });
+
+            if (chunked.ok) {
+                console.log('🎉 Chunked upload completed');
+                sendMessage(`talent-session-${sessionId}`, { type: 'upload-complete', talentId, sessionId, upKey });
+                dispatch({
+                    type: UPLOAD_NATIVE_LOCAL_RECORDING_FINISH,
+                    key: localFilePath,
+                    ok: !!chunked.result?._id
+                });
+
+                return;
+            }
+            console.warn('⚠️ Chunked upload failed — falling back to legacy whole-file upload');
+        }
+
         const fullUrl = "https://casting.heyjoe.io/api/videos/upload-video";
         const fileName = validPath.split('/').pop();
         
