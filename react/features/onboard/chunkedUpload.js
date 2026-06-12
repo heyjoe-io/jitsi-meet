@@ -1,10 +1,14 @@
 // Chunked upload-while-recording (iOS).
 //
-// The recorder writes QuickTime movie fragments every ~6s, so the file on disk is
-// valid up to the last fragment boundary at all times. This module tails the growing
-// file and ships it to S3 as multipart-upload parts while the take is still rolling;
-// when the recording stops, only the tail remains and the upload completes within
-// seconds instead of re-sending the whole file.
+// The recorder writes a standard QuickTime file (the deliverable format must not
+// change — native files are handed off downstream). While recording, the file is
+// append-only, so this module tails it and ships committed byte ranges to S3 as
+// multipart-upload parts. The finalize step then patches a small header region at
+// the FRONT of the file (mdat size) and appends the moov index — so at finish we
+// VERIFY every uploaded part's hash against the disk and re-upload the ones that
+// changed (in practice just part 1), then upload the tail and complete. The
+// assembled S3 object is byte-identical to the local file; when the recording
+// stops, only the tail + one patched part remain to send.
 //
 // Backend contract (casting API, Bearer auth) — see Chunked_Upload_Handoff.md:
 //   POST /api/videos/chunked-upload/initiate  { fileName, session, talentId }
@@ -59,13 +63,14 @@ async function api(token, endpoint, body) {
 }
 
 /**
- * Upload the next part (s.uploadedBytes .. +length) with retries. On success the
- * session's offset and parts list advance; on exhausted retries the error
- * propagates to the caller (pump tolerates it and retries next tick; finish
- * converts it into the legacy-upload fallback).
+ * PUT one part (a byte range of the file) with retries, returning the part record
+ * { PartNumber, ETag, offset, length, sha256 }. Used both for new parts and for
+ * re-uploading a part the finalize step changed (S3 allows re-PUTting a part
+ * number before complete; the new ETag replaces the old). On exhausted retries
+ * the error propagates (pump tolerates it and retries next tick; finish converts
+ * it into the legacy-upload fallback).
  */
-async function uploadPart(s, length) {
-    const partNumber = s.parts.length + 1;
+async function putPart(s, partNumber, offset, length) {
     let lastError;
 
     for (let attempt = 0; attempt < PART_RETRIES; attempt++) {
@@ -75,14 +80,10 @@ async function uploadPart(s, length) {
                 key: s.key,
                 partNumber
             });
-            const res = await HighResRecorder.uploadFileSlice(s.filePath, s.uploadedBytes, length, url);
+            const res = await HighResRecorder.uploadFileSlice(s.filePath, offset, length, url);
 
             if (res.status >= 200 && res.status < 300 && res.etag) {
-                s.parts.push({ PartNumber: partNumber, ETag: res.etag });
-                s.uploadedBytes += length;
-                console.log(`[ChunkedUpload] Part ${partNumber} uploaded (${Math.round(s.uploadedBytes / 1048576)}MB total)`);
-
-                return;
+                return { PartNumber: partNumber, ETag: res.etag, offset, length, sha256: res.sha256 };
             }
             lastError = new Error(`Part PUT returned status ${res.status}`);
         } catch (error) {
@@ -92,6 +93,18 @@ async function uploadPart(s, length) {
     }
 
     throw lastError;
+}
+
+/**
+ * Upload the next sequential part (s.uploadedBytes .. +length) and advance the
+ * session's offset.
+ */
+async function uploadNextPart(s, length) {
+    const part = await putPart(s, s.parts.length + 1, s.uploadedBytes, length);
+
+    s.parts.push(part);
+    s.uploadedBytes += length;
+    console.log(`[ChunkedUpload] Part ${part.PartNumber} uploaded (${Math.round(s.uploadedBytes / 1048576)}MB total)`);
 }
 
 /**
@@ -112,7 +125,7 @@ function pump(s) {
                 if (!info.exists || info.size - s.uploadedBytes < PART_SIZE) {
                     return;
                 }
-                await uploadPart(s, PART_SIZE);
+                await uploadNextPart(s, PART_SIZE);
             }
         } catch (error) {
             // Tolerated mid-recording — the next tick retries from the same offset.
@@ -172,11 +185,12 @@ export function hasChunkedSession(filePath) {
 
 /**
  * Finish a chunked session after the recording is FINALIZED on disk: drain
- * in-flight work, upload the tail (every part except the final one must be
- * ≥5MB, which holds because only the loop's last slice is short), and ask the
- * backend to assemble. Returns { ok: true, result } with the created video doc,
- * or { ok: false } after aborting — in which case the caller must run the
- * legacy whole-file upload.
+ * in-flight work, verify-and-patch the parts the finalize step rewrote, upload
+ * the tail (every part except the final one must be ≥5MB, which holds because
+ * only the loop's last slice is short), and ask the backend to assemble.
+ * Returns { ok: true, result } with the created video doc, or { ok: false }
+ * after aborting — in which case the caller must run the legacy whole-file
+ * upload.
  */
 export async function finishChunkedUpload({ filePath, upKey, session, group, onProgress }) {
     const sessionKey = keyFor(filePath);
@@ -200,15 +214,30 @@ export async function finishChunkedUpload({ filePath, upKey, session, group, onP
             throw new Error('Recording file missing at finish');
         }
 
+        // Verify-and-patch: the recorder's finalize patches a small header region
+        // at the front of the file (mdat size), so parts uploaded mid-recording can
+        // be stale. Compare each against the disk and re-upload the changed ones —
+        // in practice just part 1. This is what guarantees the assembled S3 object
+        // is byte-identical to the local deliverable.
+        for (let i = 0; i < s.parts.length; i++) {
+            const part = s.parts[i];
+            const { sha256 } = await HighResRecorder.hashFileSlice(s.filePath, part.offset, part.length);
+
+            if (sha256 !== part.sha256) {
+                console.log(`[ChunkedUpload] Part ${part.PartNumber} changed at finalize — re-uploading`);
+                s.parts[i] = await putPart(s, part.PartNumber, part.offset, part.length);
+            }
+        }
+
         while (s.uploadedBytes < info.size) {
-            await uploadPart(s, Math.min(PART_SIZE, info.size - s.uploadedBytes));
+            await uploadNextPart(s, Math.min(PART_SIZE, info.size - s.uploadedBytes));
             onProgress?.(Math.round((s.uploadedBytes / info.size) * 100));
         }
 
         const result = await api(s.token, 'complete', {
             uploadId: s.uploadId,
             key: s.key,
-            parts: s.parts,
+            parts: s.parts.map(({ PartNumber, ETag }) => ({ PartNumber, ETag })),
             session,
             group,
             upKey,

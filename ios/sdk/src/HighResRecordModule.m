@@ -2,6 +2,7 @@
 #import <react-native-webrtc/HeyJoeVideoCapturer.h>
 #import <React/RCTLog.h>
 #import <React/RCTBridge.h>
+#import <CommonCrypto/CommonDigest.h>
 
 @interface HighResRecordModule ()
 
@@ -326,6 +327,70 @@ RCT_EXPORT_METHOD(forceResetRecordingState:(RCTPromiseResolveBlock)resolve
 
 #pragma mark - Chunked Upload Support
 
+static NSString *HJSha256Hex(NSData *data) {
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+    NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+        [hex appendFormat:@"%02x", digest[i]];
+    }
+    return hex;
+}
+
+/// Reads a byte range of a file. Returns nil (with an error message via reject)
+/// on open/seek/short-read failures.
+static NSData *HJReadFileSlice(NSString *path, NSNumber *offset, NSNumber *length,
+                               RCTPromiseRejectBlock reject) {
+    NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:path];
+    if (!fh) {
+        reject(@"file_error", [NSString stringWithFormat:@"Cannot open file: %@", path], nil);
+        return nil;
+    }
+
+    NSData *data = nil;
+    @try {
+        [fh seekToFileOffset:offset.unsignedLongLongValue];
+        data = [fh readDataOfLength:length.unsignedIntegerValue];
+    } @catch (NSException *exception) {
+        [fh closeFile];
+        reject(@"file_error", [NSString stringWithFormat:@"Slice read failed: %@", exception.reason], nil);
+        return nil;
+    }
+    [fh closeFile];
+
+    if (data.length != length.unsignedIntegerValue) {
+        // Callers compute slices from getFileInfo, so a short read means the file
+        // changed underneath us — fail loudly rather than act on bad bytes.
+        reject(@"short_read",
+               [NSString stringWithFormat:@"Read %lu of %lu bytes at offset %llu",
+                                          (unsigned long)data.length,
+                                          (unsigned long)length.unsignedIntegerValue,
+                                          offset.unsignedLongLongValue],
+               nil);
+        return nil;
+    }
+
+    return data;
+}
+
+/// SHA-256 of a byte range — lets JS detect which already-uploaded parts the
+/// recorder's finalize step changed on disk (the header patch at the front of the
+/// file) so just those parts can be re-uploaded.
+RCT_EXPORT_METHOD(hashFileSlice:(NSString *)path
+                  offset:(nonnull NSNumber *)offset
+                  length:(nonnull NSNumber *)length
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSData *data = HJReadFileSlice(path, offset, length, reject);
+        if (!data) {
+            return;
+        }
+        resolve(@{ @"sha256": HJSha256Hex(data) });
+    });
+}
+
 RCT_EXPORT_METHOD(getFileInfo:(NSString *)path
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
@@ -364,34 +429,14 @@ RCT_EXPORT_METHOD(uploadFileSlice:(NSString *)path
             return;
         }
 
-        NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:path];
-        if (!fh) {
-            reject(@"file_error", [NSString stringWithFormat:@"Cannot open file: %@", path], nil);
+        NSData *data = HJReadFileSlice(path, offset, length, reject);
+        if (!data) {
             return;
         }
 
-        NSData *data = nil;
-        @try {
-            [fh seekToFileOffset:offset.unsignedLongLongValue];
-            data = [fh readDataOfLength:length.unsignedIntegerValue];
-        } @catch (NSException *exception) {
-            [fh closeFile];
-            reject(@"file_error", [NSString stringWithFormat:@"Slice read failed: %@", exception.reason], nil);
-            return;
-        }
-        [fh closeFile];
-
-        if (data.length != length.unsignedIntegerValue) {
-            // The caller computes slices from getFileInfo, so a short read means the
-            // file changed underneath us — fail loudly rather than upload a bad part.
-            reject(@"short_read",
-                   [NSString stringWithFormat:@"Read %lu of %lu bytes at offset %llu",
-                                              (unsigned long)data.length,
-                                              (unsigned long)length.unsignedIntegerValue,
-                                              offset.unsignedLongLongValue],
-                   nil);
-            return;
-        }
+        // Hash what we're sending — JS stores it per part and compares against the
+        // on-disk bytes at finish to detect parts the finalize step rewrote.
+        NSString *sha256 = HJSha256Hex(data);
 
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:requestURL];
         request.HTTPMethod = @"PUT";
@@ -411,7 +456,8 @@ RCT_EXPORT_METHOD(uploadFileSlice:(NSString *)path
 
                     resolve(@{
                         @"status": @(http.statusCode),
-                        @"etag": etag
+                        @"etag": etag,
+                        @"sha256": sha256
                     });
                 }];
         [task resume];
