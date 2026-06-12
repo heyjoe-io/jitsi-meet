@@ -5,14 +5,9 @@ import { useSelector } from 'react-redux';
 import { IReduxState } from '../../../../app/types';
 import { CAMERA_FACING_MODE } from '../../constants';
 
-const { HighResRecorder } = NativeModules;
+import { UI_STOPS, emitUiZoom, subscribeUiZoom } from './cameraZoom';
 
-/**
- * UI zoom stops to offer, expressed as multiples of the wide (1x) lens — the same
- * 1x / 2x / 5x selector the iOS camera and Instagram Edits show. Stops that exceed the
- * device's max zoom are filtered out at render time.
- */
-const UI_STOPS = [ 1, 2, 5 ];
+const { HighResRecorder } = NativeModules;
 
 /**
  * Throttle for native immediate-zoom calls while dragging (~30fps). Keeps the slider
@@ -55,6 +50,7 @@ const CameraZoomBar: React.FC = () => {
     const [ config, setConfig ] = useState<IZoomConfig | null>(null);
     const [ uiZoom, setUiZoom ] = useState(1);
     const configRef = useRef<IZoomConfig | null>(null);
+    const uiZoomRef = useRef(1);
     const lastSentRef = useRef(0);
     const barWidthRef = useRef(0);
 
@@ -63,6 +59,15 @@ const CameraZoomBar: React.FC = () => {
     const isBackCamera = facingMode === CAMERA_FACING_MODE.ENVIRONMENT;
 
     configRef.current = config;
+    uiZoomRef.current = uiZoom;
+
+    // Track zoom applied by the CD (RemoteCameraControl) so the pill highlights the
+    // position the director chose. Local changes already update state directly.
+    useEffect(() => subscribeUiZoom((z, source) => {
+        if (source === 'remote') {
+            setUiZoom(z);
+        }
+    }), []);
 
     // Read zoom config whenever the rear camera becomes the live capture device.
     useEffect(() => {
@@ -152,16 +157,41 @@ const CameraZoomBar: React.FC = () => {
 
             const width = barWidthRef.current || 1;
             const x = Math.max(0, Math.min(evt.nativeEvent.locationX, width));
-            const frac = x / width;
             const wideBase = c.wideBaseZoomFactor || 1;
             const maxUi = c.maxZoom / wideBase;
+            const stops = UI_STOPS.filter(s => s <= maxUi + 0.01);
 
-            // Map the bar width across [1x, top stop] (capped to device max).
-            const topUi = Math.min(maxUi, UI_STOPS[UI_STOPS.length - 1]);
-            const target = 1 + (frac * (topUi - 1));
+            // Anchor the gesture to the chip centers (chips are evenly spaced), so the
+            // position directly under a chip is exactly that stop and halfway between
+            // two chips is halfway between their values — e.g. midway between 2× and
+            // 5× reads 3.5×. A linear sweep of the whole range felt wrong: the point
+            // under the "2×" chip mapped to 3×. This is the Edits-style behavior of
+            // letting a drag settle anywhere between lens stops.
+            const centers = stops.map((_s, i) => ((i + 0.5) / stops.length) * width);
+            let target;
+
+            if (stops.length < 2 || x <= centers[0]) {
+                target = stops[0];
+            } else if (x >= centers[centers.length - 1]) {
+                target = stops[stops.length - 1];
+            } else {
+                let i = 0;
+
+                while (x > centers[i + 1]) {
+                    i++;
+                }
+                const frac = (x - centers[i]) / (centers[i + 1] - centers[i]);
+
+                target = stops[i] + (frac * (stops[i + 1] - stops[i]));
+            }
 
             applyUiZoom(target, true);
-        }
+        },
+
+        // Where the finger lifts is where the zoom stays — report that resting value
+        // (the CD mirrors it in the web UI).
+        onPanResponderRelease: () => emitUiZoom(uiZoomRef.current, 'local'),
+        onPanResponderTerminate: () => emitUiZoom(uiZoomRef.current, 'local')
     })).current;
 
     // Hide on Android, on the front camera, when the camera is off, or when there's
@@ -194,7 +224,10 @@ const CameraZoomBar: React.FC = () => {
                         <TouchableOpacity
                             key = { s }
                             style = { [ styles.stop, isActive && styles.stopActive ] }
-                            onPress = { () => applyUiZoom(s, false) }>
+                            onPress = { () => {
+                                applyUiZoom(s, false);
+                                emitUiZoom(s, 'local');
+                            } }>
                             <Text style = { [ styles.stopLabel, isActive && styles.stopLabelActive ] }>
                                 { isActive ? `${uiZoom.toFixed(1)}×` : `${s}×` }
                             </Text>

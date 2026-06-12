@@ -70,6 +70,33 @@ they are byte-identical to fork HEAD `da4d7ab` as of this handoff.
 3. **Don't edit `node_modules` and stop there** — always land changes on the
    fork branch and bump the pin, or the next install silently reverts them.
 
+## Remote camera control (CD → talent)
+
+`RemoteCameraControl` (headless, mounted in `Conference.tsx`) listens on the same
+websocket channel as remote recording (`talent-session-${sessionId}`). Contract for
+the CD web app:
+
+**CD → phone**
+
+| message | effect |
+| --- | --- |
+| `{ type: 'flip-camera', facingMode?: 'user' \| 'environment' }` | Flip the camera. With `facingMode` it acts as "switch to" (no-op when already there). Works on iOS and Android; safe mid-recording. |
+| `{ type: 'set-camera-zoom', uiZoom: 2 }` | Zoom as a wide-lens multiple (the pill's 1x/2x/5x scale, fractional values fine). Clamped to the device range; ignored when there's no optical zoom. |
+| `{ type: 'get-camera-state' }` | Request a `camera-state` report. |
+
+**Phone → CD**
+
+`{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
+`{ currentUiZoom, maxUiZoom, stops }` or `null` when zoom can't be offered (front
+camera, single-lens device, muted video, Android). Sent on mount, after every
+flip/mute change, after a remote zoom is applied, and (debounced 300ms) when the
+talent moves the zoom locally. Drive the CD UI from these reports — render the zoom
+control only when `zoom` is non-null, and use `stops`/`maxUiZoom` rather than
+hardcoding 1/2/5.
+
+Shared zoom helpers (stops list, UI↔raw conversion, change events) live in
+`react/features/base/media/components/native/cameraZoom.ts`.
+
 ## Build
 
 ```bash
