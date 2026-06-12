@@ -90,11 +90,13 @@ web app:
 **Phone → CD** (reported on room `talent-session-${sessionId}`)
 
 `{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
-`{ currentUiZoom, maxUiZoom, stops }` or `null` when zoom can't be offered (front
-camera, single-lens device, muted video, Android). Sent on mount, after every
-flip/mute change, after a remote zoom is applied, and (debounced 300ms) when the
-talent moves the zoom locally. Drive the CD UI from these reports — render the zoom
-control only when `zoom` is non-null, and use `stops`/`maxUiZoom` rather than
+`{ currentUiZoom, maxUiZoom, stops, optical }` or `null` when zoom can't be offered
+(single-lens REAR camera, muted video, Android). The front camera reports digital
+zoom capped at 2x (`optical: false`, `stops: [1, 2]`) — that crop stays mostly
+lossless in the 1080p recording because capture is 3088px wide. Sent on mount, after
+every flip/mute change, after a remote zoom is applied, and (debounced 300ms) when
+the talent moves the zoom locally. Drive the CD UI from these reports — render the
+zoom control only when `zoom` is non-null, and use `stops`/`maxUiZoom` rather than
 hardcoding 1/2/5.
 
 Shared zoom helpers (stops list, UI↔raw conversion, change events) live in

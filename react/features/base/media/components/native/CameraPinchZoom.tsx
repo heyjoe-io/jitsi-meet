@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { View, PanResponder, NativeModules, Platform, StyleSheet, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 
+import { SINGLE_LENS_MAX_UI_ZOOM } from './cameraZoom';
+
 const { HighResRecorder } = NativeModules;
 
 // Minimum distance between fingers to consider it a valid pinch (avoid division issues)
@@ -105,8 +107,8 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
 
         const getZoomInfo = async () => {
             try {
-                if (HighResRecorder?.getZoomInfo) {
-                    const info = await HighResRecorder.getZoomInfo();
+                if (HighResRecorder?.getZoomConfig) {
+                    const info = await HighResRecorder.getZoomConfig();
 
                     // Only update if component is still mounted
                     if (zoomState.current.isMounted) {
@@ -114,6 +116,19 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
                         zoomState.current.minZoom = info.minZoom ?? 1.0;
                         zoomState.current.maxZoom = info.maxZoom ?? 1.0;
                         zoomState.current.baseZoom = info.currentZoom ?? 1.0;
+
+                        // The front camera only zooms digitally — cap the pinch at the
+                        // same point as the zoom bar policy (mostly lossless in the
+                        // 1080p recording) instead of letting it crop all the way to
+                        // the device's 10x+ digital max. Single-lens REAR cameras keep
+                        // their historical unbounded pinch.
+                        if (!info.isMultiLens && info.devicePosition === 'front') {
+                            const wideBase = info.wideBaseZoomFactor || 1;
+
+                            zoomState.current.maxZoom = Math.min(
+                                zoomState.current.maxZoom,
+                                wideBase * SINGLE_LENS_MAX_UI_ZOOM);
+                        }
                     }
                 }
             } catch {
