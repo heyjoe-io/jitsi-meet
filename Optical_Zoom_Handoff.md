@@ -72,11 +72,14 @@ they are byte-identical to fork HEAD `da4d7ab` as of this handoff.
 
 ## Remote camera control (CD → talent)
 
-`RemoteCameraControl` (headless, mounted in `Conference.tsx`) listens on the same
-websocket channel as remote recording (`talent-session-${sessionId}`). Contract for
-the CD web app:
+`RemoteCameraControl` (headless, mounted in `Conference.tsx`) listens on the phone's
+websocket. **Rooms are asymmetric** — the phone only ever JOINS `talent-${talentId}`
+(see `initWebsocket` in `react/features/onboard/functions.js`), so CD→phone commands
+must be sent to that room (same as `start-local-recording`). The phone SENDS its
+reports to `talent-session-${sessionId}`, which the CD joins. Contract for the CD
+web app:
 
-**CD → phone**
+**CD → phone** (send to room `talent-${talentId}`)
 
 | message | effect |
 | --- | --- |
@@ -84,7 +87,7 @@ the CD web app:
 | `{ type: 'set-camera-zoom', uiZoom: 2 }` | Zoom as a wide-lens multiple (the pill's 1x/2x/5x scale, fractional values fine). Clamped to the device range; ignored when there's no optical zoom. |
 | `{ type: 'get-camera-state' }` | Request a `camera-state` report. |
 
-**Phone → CD**
+**Phone → CD** (reported on room `talent-session-${sessionId}`)
 
 `{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
 `{ currentUiZoom, maxUiZoom, stops }` or `null` when zoom can't be offered (front
