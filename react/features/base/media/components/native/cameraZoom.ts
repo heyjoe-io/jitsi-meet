@@ -96,30 +96,34 @@ export function subscribeUiZoom(listener: ZoomListener) {
 
 /**
  * Normalize a native zoom config to UI terms, applying the zoom policy:
- * multi-lens rear camera gets its full (optical) range with the 1x/2x/5x stops;
- * a single-lens front camera gets digital zoom with the 1x/2x/3x stops capped at
- * SINGLE_LENS_MAX_UI_ZOOM; a single-lens rear camera gets nothing (we deliberately
- * don't surface digital-only zoom where users expect optical reach).
+ * multi-lens rear camera gets the 1x/2x/5x optical stops; a single-lens front
+ * camera gets the 1x/2x/3x digital stops capped at SINGLE_LENS_MAX_UI_ZOOM; a
+ * single-lens rear camera gets nothing (we deliberately don't surface digital-only
+ * zoom where users expect optical reach).
+ *
+ * The usable range (maxUiZoom) tops out at the highest OFFERED stop — never the
+ * device's raw videoZoomFactor ceiling, which on a rear multi-lens camera is the
+ * digital-crop max (40x+) far past any real glass. That ceiling was leaking into
+ * the CD's zoom slider.
  */
 function toZoomState(c: any): IZoomState | null {
     const front = !c.isMultiLens;
-    const wideBase = c.wideBaseZoomFactor || 1;
-    let maxUiZoom = c.maxZoom / wideBase;
 
-    if (front) {
-        if (c.devicePosition !== 'front') {
-            return null;
-        }
-        maxUiZoom = Math.min(maxUiZoom, SINGLE_LENS_MAX_UI_ZOOM);
+    if (front && c.devicePosition !== 'front') {
+        return null;
     }
 
-    const baseStops = front ? FRONT_UI_STOPS : UI_STOPS;
+    const wideBase = c.wideBaseZoomFactor || 1;
+    const deviceMaxUi = c.maxZoom / wideBase;
+    const ceilingUi = front ? Math.min(deviceMaxUi, SINGLE_LENS_MAX_UI_ZOOM) : deviceMaxUi;
+    const stops = (front ? FRONT_UI_STOPS : UI_STOPS).filter(s => s <= ceilingUi + 0.01);
+    const maxUiZoom = stops.length ? stops[stops.length - 1] : 1;
 
     return {
         currentUiZoom: Math.min((c.currentZoom || wideBase) / wideBase, maxUiZoom),
         isMultiLens: Boolean(c.isMultiLens),
         maxUiZoom,
-        stops: baseStops.filter(s => s <= maxUiZoom + 0.01),
+        stops,
         warnAboveUiZoom: front ? FRONT_WARN_ABOVE_UI_ZOOM : null,
         wideBaseZoomFactor: wideBase
     };
