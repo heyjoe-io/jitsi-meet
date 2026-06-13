@@ -138,12 +138,30 @@ function pump(s) {
 }
 
 /**
- * Begin a chunked upload session for a recording that just started. Failure is
- * silent by design: with no session registered, the post-stop flow takes the
- * legacy whole-file path.
+ * Begin a chunked upload session for a recording that just started. On any
+ * precondition miss it logs why and returns; with no session registered, the
+ * post-stop flow takes the legacy whole-file path.
  */
 export function startChunkedUpload({ filePath, fileName, sessionId, talentId, token }) {
-    if (!HighResRecorder?.uploadFileSlice || !filePath) {
+    // Log on entry, BEFORE the guards, so "did the phone even try?" is never a
+    // silent unknown again. No '[ChunkedUpload] start requested' line at all means
+    // startChunkedUpload was never called (autoUpload off / wrong build).
+    console.log('[ChunkedUpload] start requested', {
+        hasNativeSlice: Boolean(HighResRecorder?.uploadFileSlice),
+        hasFilePath: Boolean(filePath)
+    });
+
+    if (!filePath) {
+        console.warn('[ChunkedUpload] no filePath — using legacy upload');
+
+        return;
+    }
+    if (!HighResRecorder?.uploadFileSlice) {
+        // JS is present but the native method isn't — almost always a stale iOS
+        // build where HighResRecordModule.m wasn't recompiled (clean build folder
+        // + pod install + fresh archive).
+        console.warn('[ChunkedUpload] native uploadFileSlice missing — using legacy upload (rebuild native module)');
+
         return;
     }
 
