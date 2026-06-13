@@ -17,9 +17,14 @@ const LOCAL_ZOOM_REPORT_DEBOUNCE_MS = 300;
 
 /**
  * RemoteCameraControl — headless (renders nothing). Lets the casting director drive
- * the talent's camera over the same websocket channel used for remote recording.
+ * the talent's camera over the websocket.
  *
- * CD → phone:
+ * Rooms are asymmetric: the phone only JOINS `talent-${talentId}` (initWebsocket in
+ * onboard/functions.js), so the CD must send commands there — same room as
+ * `start-local-recording`. The phone SENDS its reports to
+ * `talent-session-${sessionId}`, which the CD joins.
+ *
+ * CD → phone (room `talent-${talentId}`):
  *   { type: 'flip-camera', facingMode?: 'user' | 'environment' }
  *       Toggles the camera. With facingMode, acts as "switch to" and no-ops when
  *       already there — explicit targets can't double-flip on a re-send.
@@ -29,12 +34,13 @@ const LOCAL_ZOOM_REPORT_DEBOUNCE_MS = 300;
  *   { type: 'get-camera-state' }
  *       Ask for a camera-state report (e.g. when the CD UI mounts mid-session).
  *
- * Phone → CD (room `talent-session-${sessionId}`):
+ * Phone → CD (reported on room `talent-session-${sessionId}`):
  *   { type: 'camera-state', talentId, facingMode, videoMuted, zoom }
- *       zoom is { currentUiZoom, maxUiZoom, stops } or null when zoom can't be
- *       offered (front camera, single-lens device, video muted, Android). Sent on
- *       mount, after every flip/mute change, after applying a remote zoom, and
- *       (debounced) when the talent moves the zoom themselves.
+ *       zoom is { currentUiZoom, maxUiZoom, stops, optical } or null when zoom can't
+ *       be offered (single-lens rear camera, video muted, Android). The front camera
+ *       reports digital zoom capped at 2x with optical=false. Sent on mount, after
+ *       every flip/mute change, after applying a remote zoom, and (debounced) when
+ *       the talent moves the zoom themselves.
  */
 const RemoteCameraControl = () => {
     const dispatch = useDispatch();
@@ -59,17 +65,21 @@ const RemoteCameraControl = () => {
             return;
         }
 
-        const isBackCamera = facingModeRef.current === CAMERA_FACING_MODE.ENVIRONMENT;
         let zoom = null;
 
-        if (Platform.OS === 'ios' && isBackCamera && !videoMutedRef.current) {
-            const state = await readZoomState();
+        if (Platform.OS === 'ios' && !videoMutedRef.current) {
+            const expected = facingModeRef.current === CAMERA_FACING_MODE.ENVIRONMENT ? 'back' : 'front';
+            const state = await readZoomState(expected);
 
             if (state) {
                 zoom = {
                     currentUiZoom: typeof appliedUiZoom === 'number' ? appliedUiZoom : state.currentUiZoom,
                     maxUiZoom: state.maxUiZoom,
-                    stops: state.stops
+                    stops: state.stops,
+
+                    // True when the stops ride real lens handoffs (multi-lens rear
+                    // camera); false for the front camera's capped digital zoom.
+                    optical: state.isMultiLens
                 };
             }
         }

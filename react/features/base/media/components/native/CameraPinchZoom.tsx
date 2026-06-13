@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { View, PanResponder, NativeModules, Platform, StyleSheet, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 
+import { SINGLE_LENS_MAX_UI_ZOOM } from './cameraZoom';
+
 const { HighResRecorder } = NativeModules;
 
 // Minimum distance between fingers to consider it a valid pinch (avoid division issues)
@@ -72,6 +74,12 @@ const getTouchDistance = (touches: any[]): number => {
 /**
  * Fetch zoom info from the native module.
  * Returns null on failure.
+ *
+ * Uses getZoomConfig (not getZoomInfo) so we can read isMultiLens / devicePosition /
+ * wideBaseZoomFactor and apply the same front-camera cap the zoom bar uses — the
+ * front camera only zooms digitally, and we cap the pinch at SINGLE_LENS_MAX_UI_ZOOM
+ * (mostly lossless in 1080p recording) instead of letting it crop to the device's
+ * 10x+ digital max. Single-lens REAR cameras keep their historical unbounded pinch.
  */
 const fetchZoomInfo = async (): Promise<{
     currentZoom: number;
@@ -79,13 +87,20 @@ const fetchZoomInfo = async (): Promise<{
     maxZoom: number;
 } | null> => {
     try {
-        if (HighResRecorder?.getZoomInfo) {
-            const info = await HighResRecorder.getZoomInfo();
+        if (HighResRecorder?.getZoomConfig) {
+            const info = await HighResRecorder.getZoomConfig();
+            let maxZoom = info.maxZoom ?? 5.0;
+
+            if (!info.isMultiLens && info.devicePosition === 'front') {
+                const wideBase = info.wideBaseZoomFactor || 1;
+
+                maxZoom = Math.min(maxZoom, wideBase * SINGLE_LENS_MAX_UI_ZOOM);
+            }
 
             return {
                 currentZoom: info.currentZoom ?? 1.0,
                 minZoom: info.minZoom ?? 1.0,
-                maxZoom: info.maxZoom ?? 5.0
+                maxZoom
             };
         }
     } catch {

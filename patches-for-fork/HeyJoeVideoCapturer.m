@@ -1714,9 +1714,19 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         CGFloat maxZoom = 1.0;
         CGFloat wideBase = 1.0;
         BOOL isMultiLens = NO;
+        NSString *devicePosition = @"unknown";
         NSMutableArray<NSNumber *> *switchOver = [NSMutableArray array];
 
         if (device) {
+            // Position lets JS tell WHOSE config this is — a camera flip completes
+            // asynchronously, so reads right after a flip still describe the old
+            // camera and callers retry until the position matches what they expect.
+            if (device.position == AVCaptureDevicePositionFront) {
+                devicePosition = @"front";
+            } else if (device.position == AVCaptureDevicePositionBack) {
+                devicePosition = @"back";
+            }
+
             currentZoom = device.videoZoomFactor;
             minZoom = device.minAvailableVideoZoomFactor;
             maxZoom = device.maxAvailableVideoZoomFactor;
@@ -1757,6 +1767,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
             @"maxZoom": @(maxZoom),
             @"wideBaseZoomFactor": @(wideBase),
             @"isMultiLens": @(isMultiLens),
+            @"devicePosition": devicePosition,
             @"switchOverZoomFactors": switchOver
         };
 

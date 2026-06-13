@@ -123,7 +123,9 @@ typedef NS_ENUM(NSInteger, HJRecordingState) {
 /// dictionary with: currentZoom, minZoom, maxZoom (raw videoZoomFactor values),
 /// wideBaseZoomFactor (the raw factor that corresponds to UI "1x", i.e. the wide lens),
 /// isMultiLens (BOOL — whether a virtual multi-lens device with optical switching is
-/// active), and switchOverZoomFactors (array of raw factors where the lens hands off).
+/// active), devicePosition ("front"/"back"/"unknown" — which camera this config
+/// describes; lets callers detect stale reads right after a flip), and
+/// switchOverZoomFactors (array of raw factors where the lens hands off).
 /// @param completionHandler Called on main thread with the config dictionary
 - (void)getZoomConfigWithCompletionHandler:(void (^)(NSDictionary *config))completionHandler;
 

@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import { IReduxState } from '../../../../app/types';
 import { CAMERA_FACING_MODE } from '../../constants';
 
-import { UI_STOPS, emitUiZoom, subscribeUiZoom } from './cameraZoom';
+import { IZoomState, emitUiZoom, readZoomState, subscribeUiZoom } from './cameraZoom';
 
 const { HighResRecorder } = NativeModules;
 
@@ -16,47 +16,32 @@ const { HighResRecorder } = NativeModules;
 const DRAG_THROTTLE_MS = 33;
 
 /**
- * The redux facing-mode flip happens before the native capture session has actually
- * switched devices, so the first config reads after a camera flip can still describe
- * the old (single-lens front) camera. Retry on this cadence until the multi-lens rear
- * device is live.
- */
-const CONFIG_RETRY_MS = 500;
-const CONFIG_RETRY_MAX = 8;
-
-interface IZoomConfig {
-    currentZoom: number;
-    isMultiLens: boolean;
-    maxZoom: number;
-    minZoom: number;
-    wideBaseZoomFactor: number;
-}
-
-/**
- * CameraZoomBar - a horizontal 1x/2x/5x zoom selector for the local camera.
+ * CameraZoomBar - a horizontal zoom selector for the local camera.
  *
  * Tap a stop to jump to it (smooth ramp), or press and slide across the bar to zoom
- * continuously. Zoom is applied at the sensor level via the HighResRecorder native
- * module, so the live WebRTC feed and the local recording both reflect it — which is
- * also why the bar doesn't need to be attached to any particular video view. It is
- * mounted at the conference level, just above the toolbar, and shows whenever the
- * rear camera is live (no need to pin the self-view).
+ * continuously — the gesture is anchored to the chip centers, so halfway between two
+ * chips is halfway between their values and the zoom stays wherever the finger lifts.
+ * Zoom is applied at the sensor level via the HighResRecorder native module, so the
+ * live WebRTC feed and the local recording both reflect it — which is also why the bar
+ * doesn't need to be attached to any particular video view. It is mounted at the
+ * conference level, just above the toolbar.
  *
- * Only shown on iOS, and only when the active rear device is a virtual multi-lens
- * camera with a telephoto (so the stops map to real optical glass rather than digital
- * crop). On the front camera or a single-lens device, the bar hides itself.
+ * Only shown on iOS, and only where the zoom policy (cameraZoom.ts) offers something:
+ * the rear camera when it's a multi-lens device (1x/2x/5x mapping to real glass), or
+ * the front camera with digital zoom capped at 2x (mostly lossless in the 1080p
+ * recording). Single-lens rear cameras get no bar — we deliberately don't surface
+ * digital-only zoom where users expect optical reach.
  */
 const CameraZoomBar: React.FC = () => {
-    const [ config, setConfig ] = useState<IZoomConfig | null>(null);
+    const [ config, setConfig ] = useState<IZoomState | null>(null);
     const [ uiZoom, setUiZoom ] = useState(1);
-    const configRef = useRef<IZoomConfig | null>(null);
+    const configRef = useRef<IZoomState | null>(null);
     const uiZoomRef = useRef(1);
     const lastSentRef = useRef(0);
     const barWidthRef = useRef(0);
 
     const facingMode = useSelector((state: IReduxState) => state['features/base/media'].video.facingMode);
     const videoMuted = useSelector((state: IReduxState) => Boolean(state['features/base/media'].video.muted));
-    const isBackCamera = facingMode === CAMERA_FACING_MODE.ENVIRONMENT;
 
     configRef.current = config;
     uiZoomRef.current = uiZoom;
@@ -69,47 +54,36 @@ const CameraZoomBar: React.FC = () => {
         }
     }), []);
 
-    // Read zoom config whenever the rear camera becomes the live capture device.
+    // Read zoom state whenever the live camera changes. readZoomState retries until
+    // the reported device position matches the redux facing mode — the native switch
+    // completes after redux updates, so early reads describe the old camera.
     useEffect(() => {
-        if (Platform.OS !== 'ios' || !isBackCamera || videoMuted || !HighResRecorder?.getZoomConfig) {
+        if (Platform.OS !== 'ios' || videoMuted) {
             setConfig(null);
 
             return undefined;
         }
 
         let cancelled = false;
-        let attempts = 0;
-        let timer: ReturnType<typeof setTimeout> | undefined;
+        const expected = facingMode === CAMERA_FACING_MODE.ENVIRONMENT ? 'back' : 'front';
 
-        const read = () => {
-            HighResRecorder.getZoomConfig()
-                .then((c: IZoomConfig) => {
-                    if (cancelled) {
-                        return;
-                    }
+        setConfig(null);
+        readZoomState(expected).then(state => {
+            if (cancelled) {
+                return;
+            }
 
-                    if (!c.isMultiLens && attempts < CONFIG_RETRY_MAX) {
-                        attempts++;
-                        timer = setTimeout(read, CONFIG_RETRY_MS);
+            setConfig(state);
 
-                        return;
-                    }
-
-                    setConfig(c);
-                    const wideBase = c.wideBaseZoomFactor || 1;
-
-                    setUiZoom((c.currentZoom || wideBase) / wideBase);
-                })
-                .catch(() => { /* keep defaults; bar stays hidden */ });
-        };
-
-        read();
+            if (state) {
+                setUiZoom(state.currentUiZoom);
+            }
+        });
 
         return () => {
             cancelled = true;
-            timer && clearTimeout(timer);
         };
-    }, [ isBackCamera, videoMuted ]);
+    }, [ facingMode, videoMuted ]);
 
     /**
      * Apply a UI zoom multiple (1x-based). When immediate, set directly for slider
@@ -122,10 +96,8 @@ const CameraZoomBar: React.FC = () => {
             return;
         }
 
-        const wideBase = c.wideBaseZoomFactor || 1;
-        const maxUi = c.maxZoom / wideBase;
-        const clampedUi = Math.max(1, Math.min(targetUi, maxUi));
-        const raw = wideBase * clampedUi;
+        const clampedUi = Math.max(1, Math.min(targetUi, c.maxUiZoom));
+        const raw = c.wideBaseZoomFactor * clampedUi;
 
         setUiZoom(clampedUi);
 
@@ -157,9 +129,7 @@ const CameraZoomBar: React.FC = () => {
 
             const width = barWidthRef.current || 1;
             const x = Math.max(0, Math.min(evt.nativeEvent.locationX, width));
-            const wideBase = c.wideBaseZoomFactor || 1;
-            const maxUi = c.maxZoom / wideBase;
-            const stops = UI_STOPS.filter(s => s <= maxUi + 0.01);
+            const stops = c.stops;
 
             // Anchor the gesture to the chip centers (chips are evenly spaced), so the
             // position directly under a chip is exactly that stop and halfway between
@@ -194,16 +164,13 @@ const CameraZoomBar: React.FC = () => {
         onPanResponderTerminate: () => emitUiZoom(uiZoomRef.current, 'local')
     })).current;
 
-    // Hide on Android, on the front camera, when the camera is off, or when there's
-    // no real optical zoom to offer (single-lens device) — we deliberately don't
-    // surface a digital-only zoom.
-    if (Platform.OS !== 'ios' || !isBackCamera || videoMuted || !config?.isMultiLens) {
+    // Hide on Android, when the camera is off, or when the zoom policy offers nothing
+    // for the live camera (single-lens rear device).
+    if (Platform.OS !== 'ios' || videoMuted || !config) {
         return null;
     }
 
-    const wideBase = config.wideBaseZoomFactor || 1;
-    const maxUi = config.maxZoom / wideBase;
-    const stops = UI_STOPS.filter(s => s <= maxUi + 0.01);
+    const stops = config.stops;
 
     // Which stop is currently "active" (closest to the live zoom).
     const activeStop = stops.reduce((best, s) =>
