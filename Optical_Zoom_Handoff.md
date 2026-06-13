@@ -91,10 +91,13 @@ web app:
 **Phone → CD** (reported on room `talent-session-${sessionId}`)
 
 `{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
-`{ currentUiZoom, maxUiZoom, stops, optical }` or `null` when zoom can't be offered
-(single-lens REAR camera, muted video, Android). The front camera reports digital
-zoom (`optical: false`, `stops: [1, 2, 3]`) — invaluable for virtual slates; 3x only
-mildly upscales the 1080p recording and keeps slate text legible. Sent on mount, after
+`{ currentUiZoom, maxUiZoom, stops, optical, warnAboveUiZoom }` or `null` when zoom
+can't be offered (single-lens REAR camera, muted video, Android). The front camera
+reports digital zoom (`optical: false`, `stops: [1, 2, 3]`, `warnAboveUiZoom: 2`) —
+invaluable for virtual slates; 3x only mildly upscales the 1080p recording and keeps
+slate text legible. **Show a quality warning (e.g. ⚠️) when `currentUiZoom >
+warnAboveUiZoom`** — the talent's pill does this; `warnAboveUiZoom: null` means
+optical zoom that never warns. Sent on mount, after
 every flip/mute change, after a remote zoom is applied, and (debounced 300ms) when
 the talent moves the zoom locally. Drive the CD UI from these reports — render the
 zoom control only when `zoom` is non-null, and use `stops`/`maxUiZoom` rather than
@@ -136,6 +139,8 @@ Needs a physical multi-lens iPhone (Pro model ideally, for the 5x telephoto).
 6. **Front digital zoom (virtual slates):** on the front camera the pill shows
    1x/2x/3x and pinch caps at 3x. Hold a slate/ID at arm's length and zoom to
    3x — the text must stay clearly legible in both the live feed and the
-   recording. If 3x looks too soft (or you want more reach), change the last
-   value of `FRONT_UI_STOPS` in `cameraZoom.ts` — it drives the stops, the pill,
-   the pinch cap, and the remote-control range together.
+   recording. Past 2x the active label gains a ⚠️ (quality-loss warning,
+   `FRONT_WARN_ABOVE_UI_ZOOM`); at/below 2x there's none. If 3x looks too soft
+   (or you want more reach), change the last value of `FRONT_UI_STOPS` in
+   `cameraZoom.ts` — it drives the stops, the pill, the pinch cap, and the
+   remote-control range together.

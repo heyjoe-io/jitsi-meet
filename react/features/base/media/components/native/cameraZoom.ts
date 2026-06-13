@@ -28,6 +28,14 @@ export const FRONT_UI_STOPS = [ 1, 2, 3 ];
 export const SINGLE_LENS_MAX_UI_ZOOM = FRONT_UI_STOPS[FRONT_UI_STOPS.length - 1];
 
 /**
+ * Front-camera UI zoom above which the digital crop is upscaling enough to soften
+ * the recording. At/below this it's effectively lossless; above it the UI shows a
+ * warning so the talent/CD knows they're trading sharpness for reach (fine for a
+ * slate, not for a beauty shot). Optical (rear multi-lens) zoom never warns.
+ */
+export const FRONT_WARN_ABOVE_UI_ZOOM = 2;
+
+/**
  * Which camera a zoom config describes, as reported by native. Used to detect stale
  * reads right after a camera flip (the native switch completes after redux updates).
  */
@@ -42,6 +50,12 @@ export interface IZoomState {
     isMultiLens: boolean;
     maxUiZoom: number;
     stops: number[];
+
+    /**
+     * UI zoom above which quality degrades enough to warn the user (front digital
+     * zoom). null when zoom is optical and never warns.
+     */
+    warnAboveUiZoom: number | null;
 
     /**
      * Raw videoZoomFactor that corresponds to UI 1x — multiply a UI value by this
@@ -106,6 +120,7 @@ function toZoomState(c: any): IZoomState | null {
         isMultiLens: Boolean(c.isMultiLens),
         maxUiZoom,
         stops: baseStops.filter(s => s <= maxUiZoom + 0.01),
+        warnAboveUiZoom: front ? FRONT_WARN_ABOVE_UI_ZOOM : null,
         wideBaseZoomFactor: wideBase
     };
 }

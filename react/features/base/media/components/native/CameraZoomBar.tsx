@@ -176,6 +176,11 @@ const CameraZoomBar: React.FC = () => {
     const activeStop = stops.reduce((best, s) =>
         (Math.abs(s - uiZoom) < Math.abs(best - uiZoom) ? s : best), stops[0]);
 
+    // Past the lossless point the front-camera digital crop is upscaling — flag it
+    // so the talent knows they're trading sharpness for reach. Optical zoom (rear
+    // multi-lens) has warnAboveUiZoom === null and never warns.
+    const warnQuality = config.warnAboveUiZoom !== null && uiZoom > config.warnAboveUiZoom + 0.01;
+
     return (
         <View style = { styles.wrapper } pointerEvents = 'box-none'>
             <View
@@ -196,7 +201,7 @@ const CameraZoomBar: React.FC = () => {
                                 emitUiZoom(s, 'local');
                             } }>
                             <Text style = { [ styles.stopLabel, isActive && styles.stopLabelActive ] }>
-                                { isActive ? `${uiZoom.toFixed(1)}×` : `${s}×` }
+                                { isActive ? `${warnQuality ? '⚠️ ' : ''}${uiZoom.toFixed(1)}×` : `${s}×` }
                             </Text>
                         </TouchableOpacity>
                     );

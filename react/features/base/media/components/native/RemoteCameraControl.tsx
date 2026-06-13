@@ -36,9 +36,10 @@ const LOCAL_ZOOM_REPORT_DEBOUNCE_MS = 300;
  *
  * Phone → CD (reported on room `talent-session-${sessionId}`):
  *   { type: 'camera-state', talentId, facingMode, videoMuted, zoom }
- *       zoom is { currentUiZoom, maxUiZoom, stops, optical } or null when zoom can't
- *       be offered (single-lens rear camera, video muted, Android). The front camera
- *       reports digital zoom (stops 1/2/3) with optical=false. Sent on mount, after
+ *       zoom is { currentUiZoom, maxUiZoom, stops, optical, warnAboveUiZoom } or null
+ *       when zoom can't be offered (single-lens rear camera, video muted, Android).
+ *       The front camera reports digital zoom (stops 1/2/3, optical=false,
+ *       warnAboveUiZoom=2 → CD should flag softness past 2x). Sent on mount, after
  *       every flip/mute change, after applying a remote zoom, and (debounced) when
  *       the talent moves the zoom themselves.
  */
@@ -78,8 +79,12 @@ const RemoteCameraControl = () => {
                     stops: state.stops,
 
                     // True when the stops ride real lens handoffs (multi-lens rear
-                    // camera); false for the front camera's capped digital zoom.
-                    optical: state.isMultiLens
+                    // camera); false for the front camera's digital zoom.
+                    optical: state.isMultiLens,
+
+                    // UI zoom above which front digital zoom softens the image — the
+                    // CD should warn past it. null when optical (never warns).
+                    warnAboveUiZoom: state.warnAboveUiZoom
                 };
             }
         }
