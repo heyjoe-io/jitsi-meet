@@ -16,11 +16,12 @@ wide → telephoto) — true optical 2x/5x rather than digital crop. Because the
 a single capture pipeline, the live WebRTC feed **and** the local recording both
 reflect the zoom, same as the existing pinch-to-zoom.
 
-A **1x/2x/5x pill** (`CameraZoomBar`) sits just above the toolbar whenever the
-rear camera is live. Tap a stop for a smooth ramp; press and slide across the
-pill for continuous zoom. It hides itself on the front camera, when video is
-muted, on Android, and on devices without a telephoto (we deliberately don't
-offer digital-only zoom).
+A zoom pill (`CameraZoomBar`) sits just above the toolbar whenever the live camera
+offers zoom. On a multi-lens rear camera it's **1x/2x/5x** mapping to real glass; on
+the front camera it's **1x/2x/3x** digital zoom (great for virtual slates). Tap a
+stop for a smooth ramp; press and slide across the pill for continuous zoom. It hides
+itself when video is muted, on Android, and on a single-lens rear camera (we
+deliberately don't offer digital-only zoom where users expect optical reach).
 
 ## Where the code lives
 
@@ -90,10 +91,13 @@ web app:
 **Phone → CD** (reported on room `talent-session-${sessionId}`)
 
 `{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
-`{ currentUiZoom, maxUiZoom, stops, optical }` or `null` when zoom can't be offered
-(single-lens REAR camera, muted video, Android). The front camera reports digital
-zoom capped at 2x (`optical: false`, `stops: [1, 2]`) — that crop stays mostly
-lossless in the 1080p recording because capture is 3088px wide. Sent on mount, after
+`{ currentUiZoom, maxUiZoom, stops, optical, warnAboveUiZoom }` or `null` when zoom
+can't be offered (single-lens REAR camera, muted video, Android). The front camera
+reports digital zoom (`optical: false`, `stops: [1, 2, 3]`, `warnAboveUiZoom: 2`) —
+invaluable for virtual slates; 3x only mildly upscales the 1080p recording and keeps
+slate text legible. **Show a quality warning (e.g. ⚠️) when `currentUiZoom >
+warnAboveUiZoom`** — the talent's pill does this; `warnAboveUiZoom: null` means
+optical zoom that never warns. Sent on mount, after
 every flip/mute change, after a remote zoom is applied, and (debounced 300ms) when
 the talent moves the zoom locally. Drive the CD UI from these reports — render the
 zoom control only when `zoom` is non-null, and use `stops`/`maxUiZoom` rather than
@@ -116,8 +120,8 @@ Needs a physical multi-lens iPhone (Pro model ideally, for the 5x telephoto).
 
 1. **Bar placement/visibility:** join a call, flip to the rear camera. The
    1x/2x/5x pill should appear just above the toolbar within ~1–2s — without
-   pinning the self-view. Flip to front: pill disappears. Mute video: pill
-   disappears.
+   pinning the self-view. Flip to front: pill switches to 1x/2x/3x (digital).
+   Mute video: pill disappears.
 2. **Optical switch-over:** watch the Xcode console for
    `[HeyJoeCapturer] Device ... switch-over zoom factors: (...)`. Tapping 2x/5x
    should cross those factors — confirm visually that the image quality jumps
@@ -132,3 +136,11 @@ Needs a physical multi-lens iPhone (Pro model ideally, for the 5x telephoto).
    the uploaded file.
 5. **Pinch-to-zoom regression:** pinch on the pinned self-view still works and
    the pill's active stop follows the pinch the next time the config is read.
+6. **Front digital zoom (virtual slates):** on the front camera the pill shows
+   1x/2x/3x and pinch caps at 3x. Hold a slate/ID at arm's length and zoom to
+   3x — the text must stay clearly legible in both the live feed and the
+   recording. Past 2x the active label gains a ⚠️ (quality-loss warning,
+   `FRONT_WARN_ABOVE_UI_ZOOM`); at/below 2x there's none. If 3x looks too soft
+   (or you want more reach), change the last value of `FRONT_UI_STOPS` in
+   `cameraZoom.ts` — it drives the stops, the pill, the pinch cap, and the
+   remote-control range together.

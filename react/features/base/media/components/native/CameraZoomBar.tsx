@@ -28,9 +28,9 @@ const DRAG_THROTTLE_MS = 33;
  *
  * Only shown on iOS, and only where the zoom policy (cameraZoom.ts) offers something:
  * the rear camera when it's a multi-lens device (1x/2x/5x mapping to real glass), or
- * the front camera with digital zoom capped at 2x (mostly lossless in the 1080p
- * recording). Single-lens rear cameras get no bar — we deliberately don't surface
- * digital-only zoom where users expect optical reach.
+ * the front camera with digital zoom (1x/2x/3x — great for virtual slates). Single-
+ * lens rear cameras get no bar — we deliberately don't surface digital-only zoom
+ * where users expect optical reach.
  */
 const CameraZoomBar: React.FC = () => {
     const [ config, setConfig ] = useState<IZoomState | null>(null);
@@ -176,6 +176,11 @@ const CameraZoomBar: React.FC = () => {
     const activeStop = stops.reduce((best, s) =>
         (Math.abs(s - uiZoom) < Math.abs(best - uiZoom) ? s : best), stops[0]);
 
+    // Past the lossless point the front-camera digital crop is upscaling — flag it
+    // so the talent knows they're trading sharpness for reach. Optical zoom (rear
+    // multi-lens) has warnAboveUiZoom === null and never warns.
+    const warnQuality = config.warnAboveUiZoom !== null && uiZoom > config.warnAboveUiZoom + 0.01;
+
     return (
         <View style = { styles.wrapper } pointerEvents = 'box-none'>
             <View
@@ -196,7 +201,7 @@ const CameraZoomBar: React.FC = () => {
                                 emitUiZoom(s, 'local');
                             } }>
                             <Text style = { [ styles.stopLabel, isActive && styles.stopLabelActive ] }>
-                                { isActive ? `${uiZoom.toFixed(1)}×` : `${s}×` }
+                                { isActive ? `${warnQuality ? '⚠️ ' : ''}${uiZoom.toFixed(1)}×` : `${s}×` }
                             </Text>
                         </TouchableOpacity>
                     );

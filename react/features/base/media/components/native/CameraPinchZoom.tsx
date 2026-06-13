@@ -78,8 +78,8 @@ const getTouchDistance = (touches: any[]): number => {
  * Uses getZoomConfig (not getZoomInfo) so we can read isMultiLens / devicePosition /
  * wideBaseZoomFactor and apply the same front-camera cap the zoom bar uses — the
  * front camera only zooms digitally, and we cap the pinch at SINGLE_LENS_MAX_UI_ZOOM
- * (mostly lossless in 1080p recording) instead of letting it crop to the device's
- * 10x+ digital max. Single-lens REAR cameras keep their historical unbounded pinch.
+ * (legible for virtual slates) instead of letting it crop to the device's 10x+
+ * digital max. Single-lens REAR cameras keep their historical unbounded pinch.
  */
 const fetchZoomInfo = async (): Promise<{
     currentZoom: number;
