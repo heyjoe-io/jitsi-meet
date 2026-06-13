@@ -10,14 +10,22 @@ const { HighResRecorder } = NativeModules;
 export const UI_STOPS = [ 1, 2, 5 ];
 
 /**
- * Zoom cap for single-lens cameras (the front camera), where zoom is a digital crop.
- * We capture the front sensor at 3088px wide but record 1080p and send 720p, so up to
- * ~1.6x the crop only discards pixels we weren't keeping anyway — 2x is the familiar
- * stop just past that, still close to lossless in the 1080p file. Beyond it quality
- * drops fast, so the cap is firm. (Single-lens REAR cameras get no zoom at all — see
- * readZoomState.)
+ * UI zoom stops for the front (single fixed lens) camera. Zoom there is a digital
+ * crop — there's no glass to hand off to — but it's invaluable for virtual slates,
+ * where reach to read a slate/ID matters more than pixel-for-pixel sharpness. We
+ * capture the front sensor well above 1080p, so 1x–~1.6x is genuinely lossless and
+ * 3x only mildly upscales the 1080p recording (≈1.5–1.9x) while keeping slate text
+ * clearly legible. Past ~4x a tiny sensor crop is blown up into 1080p — mushy and
+ * shake-prone — so 3x is the cap. Bump the last stop to raise it.
  */
-export const SINGLE_LENS_MAX_UI_ZOOM = 2;
+export const FRONT_UI_STOPS = [ 1, 2, 3 ];
+
+/**
+ * Hard zoom cap for single-lens cameras (the front camera), in UI multiples — the
+ * top front stop. (Single-lens REAR cameras get no zoom at all — see readZoomState;
+ * we don't surface digital-only zoom where users expect optical reach.)
+ */
+export const SINGLE_LENS_MAX_UI_ZOOM = FRONT_UI_STOPS[FRONT_UI_STOPS.length - 1];
 
 /**
  * Which camera a zoom config describes, as reported by native. Used to detect stale
@@ -74,27 +82,30 @@ export function subscribeUiZoom(listener: ZoomListener) {
 
 /**
  * Normalize a native zoom config to UI terms, applying the zoom policy:
- * multi-lens rear camera gets its full (optical) range; a single-lens front camera
- * gets digital zoom capped at SINGLE_LENS_MAX_UI_ZOOM; a single-lens rear camera
- * gets nothing (we deliberately don't surface digital-only zoom where users expect
- * optical reach).
+ * multi-lens rear camera gets its full (optical) range with the 1x/2x/5x stops;
+ * a single-lens front camera gets digital zoom with the 1x/2x/3x stops capped at
+ * SINGLE_LENS_MAX_UI_ZOOM; a single-lens rear camera gets nothing (we deliberately
+ * don't surface digital-only zoom where users expect optical reach).
  */
 function toZoomState(c: any): IZoomState | null {
+    const front = !c.isMultiLens;
     const wideBase = c.wideBaseZoomFactor || 1;
     let maxUiZoom = c.maxZoom / wideBase;
 
-    if (!c.isMultiLens) {
+    if (front) {
         if (c.devicePosition !== 'front') {
             return null;
         }
         maxUiZoom = Math.min(maxUiZoom, SINGLE_LENS_MAX_UI_ZOOM);
     }
 
+    const baseStops = front ? FRONT_UI_STOPS : UI_STOPS;
+
     return {
         currentUiZoom: Math.min((c.currentZoom || wideBase) / wideBase, maxUiZoom),
         isMultiLens: Boolean(c.isMultiLens),
         maxUiZoom,
-        stops: UI_STOPS.filter(s => s <= maxUiZoom + 0.01),
+        stops: baseStops.filter(s => s <= maxUiZoom + 0.01),
         wideBaseZoomFactor: wideBase
     };
 }

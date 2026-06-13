@@ -118,10 +118,10 @@ const CameraPinchZoom: React.FC<IProps> = ({ children, enabled = true, onPress }
                         zoomState.current.baseZoom = info.currentZoom ?? 1.0;
 
                         // The front camera only zooms digitally — cap the pinch at the
-                        // same point as the zoom bar policy (mostly lossless in the
-                        // 1080p recording) instead of letting it crop all the way to
-                        // the device's 10x+ digital max. Single-lens REAR cameras keep
-                        // their historical unbounded pinch.
+                        // same point as the zoom bar policy (SINGLE_LENS_MAX_UI_ZOOM,
+                        // legible for virtual slates) instead of letting it crop all
+                        // the way to the device's 10x+ digital max. Single-lens REAR
+                        // cameras keep their historical unbounded pinch.
                         if (!info.isMultiLens && info.devicePosition === 'front') {
                             const wideBase = info.wideBaseZoomFactor || 1;
 

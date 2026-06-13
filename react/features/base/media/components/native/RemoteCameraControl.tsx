@@ -38,7 +38,7 @@ const LOCAL_ZOOM_REPORT_DEBOUNCE_MS = 300;
  *   { type: 'camera-state', talentId, facingMode, videoMuted, zoom }
  *       zoom is { currentUiZoom, maxUiZoom, stops, optical } or null when zoom can't
  *       be offered (single-lens rear camera, video muted, Android). The front camera
- *       reports digital zoom capped at 2x with optical=false. Sent on mount, after
+ *       reports digital zoom (stops 1/2/3) with optical=false. Sent on mount, after
  *       every flip/mute change, after applying a remote zoom, and (debounced) when
  *       the talent moves the zoom themselves.
  */
