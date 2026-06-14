@@ -126,6 +126,16 @@ function pump(s) {
                     return;
                 }
                 await uploadNextPart(s, PART_SIZE);
+
+                // Report progress against the CURRENT (still-growing) file size.
+                // The final size is unknown mid-recording, so this is a "keeping
+                // pace" indicator: it hovers near 100% while upload keeps up with
+                // recording and dips if it falls behind. Capped at 99 — only the
+                // finish/complete path reaches 100. Replaces the frozen-0%-then-jump
+                // the CD bar showed before. (finish() reports true percent at stop.)
+                const pct = Math.min(99, Math.round((s.uploadedBytes / info.size) * 100));
+
+                s.onProgress?.(pct);
             }
         } catch (error) {
             // Tolerated mid-recording — the next tick retries from the same offset.
@@ -142,7 +152,7 @@ function pump(s) {
  * precondition miss it logs why and returns; with no session registered, the
  * post-stop flow takes the legacy whole-file path.
  */
-export function startChunkedUpload({ filePath, fileName, sessionId, talentId, token }) {
+export function startChunkedUpload({ filePath, fileName, sessionId, talentId, token, onProgress }) {
     // Log on entry, BEFORE the guards, so "did the phone even try?" is never a
     // silent unknown again. No '[ChunkedUpload] start requested' line at all means
     // startChunkedUpload was never called (autoUpload off / wrong build).
@@ -184,7 +194,8 @@ export function startChunkedUpload({ filePath, fileName, sessionId, talentId, to
                 pumping: null,
                 finishing: false,
                 aborted: false,
-                timer: null
+                timer: null,
+                onProgress
             };
 
             s.timer = setInterval(() => pump(s), POLL_MS);

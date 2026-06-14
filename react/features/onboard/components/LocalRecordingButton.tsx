@@ -95,7 +95,15 @@ const LocalRecordingButton = ({
                         fileName: result.filePath.split('/').pop(),
                         sessionId,
                         talentId,
-                        token: state['features/talent'].token
+                        token: state['features/talent'].token,
+                        // Drive the CD's per-talent upload bar while recording (the
+                        // pump uploads parts as the file grows). CD chip keys on
+                        // talentId — same message shape as the legacy/finish path.
+                        onProgress: (progress: number) => {
+                            sendMessage(`talent-session-${sessionId}`, {
+                                type: 'upload-progress', talentId, sessionId, progress
+                            })
+                        }
                     })
                 }
             }).catch((error: any) => {
