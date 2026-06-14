@@ -86,13 +86,17 @@ web app:
 | --- | --- |
 | `{ type: 'flip-camera', facingMode?: 'user' \| 'environment' }` | Flip the camera. With `facingMode` it acts as "switch to" (no-op when already there). Works on iOS and Android; safe mid-recording. |
 | `{ type: 'set-camera-zoom', uiZoom: 2 }` | Zoom as a wide-lens multiple (the pill's 1x/2x/5x scale, fractional values fine). Clamped to the device range; ignored when there's no optical zoom. |
+| `{ type: 'set-recording-quality', quality: '1080p' \| '4K' }` | Resolution for the **next** recording (can't change a take already rolling). "Session-wide" = the CD sends this to every talent's room in the group. Note: 4K (25 Mbps) outpaces chunked upload on most uplinks. |
 | `{ type: 'get-camera-state' }` | Request a `camera-state` report. |
 
 **Phone → CD** (reported on room `talent-session-${sessionId}`)
 
-`{ type: 'camera-state', talentId, facingMode, videoMuted, zoom }` where `zoom` is
+`{ type: 'camera-state', talentId, facingMode, videoMuted, zoom, recordingQuality,
+isRecording }` where `zoom` is
 `{ currentUiZoom, maxUiZoom, stops, optical, warnAboveUiZoom }` or `null` when zoom
-can't be offered (single-lens REAR camera, muted video, Android). The front camera
+can't be offered (single-lens REAR camera, muted video, Android). `recordingQuality`
+is `'1080p'|'4K'`; `isRecording` lets the CD disable the quality toggle mid-take (a
+change wouldn't apply until the next recording). The front camera
 reports digital zoom (`optical: false`, `stops: [1, 2, 3]`, `warnAboveUiZoom: 2`) —
 invaluable for virtual slates; 3x only mildly upscales the 1080p recording and keeps
 slate text legible. **Show a quality warning (e.g. ⚠️) when `currentUiZoom >
