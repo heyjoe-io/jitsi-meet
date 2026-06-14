@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { IReduxState } from '../../../../app/types';
+import { SET_IOS_RECORDING_QUALITY } from '../../../../onboard/actionTypes';
 import { addWsListener, removeWsListener, sendMessage } from '../../../../onboard/functions';
 import { toggleCameraFacingMode } from '../../actions';
 import { CAMERA_FACING_MODE } from '../../constants';
@@ -31,17 +32,23 @@ const LOCAL_ZOOM_REPORT_DEBOUNCE_MS = 300;
  *   { type: 'set-camera-zoom', uiZoom: number }
  *       Zoom as a wide-lens multiple (the pill's 1x/2x/5x scale). Clamped to the
  *       device range; ignored when there's no optical zoom to drive.
+ *   { type: 'set-recording-quality', quality: '1080p' | '4K' }
+ *       Set the resolution for the NEXT recording (the writer dimensions are fixed
+ *       at record start, so it can't change a take already rolling). "Session-wide"
+ *       on the CD is just this sent to every talent's room. Reports back.
  *   { type: 'get-camera-state' }
  *       Ask for a camera-state report (e.g. when the CD UI mounts mid-session).
  *
  * Phone → CD (reported on room `talent-session-${sessionId}`):
- *   { type: 'camera-state', talentId, facingMode, videoMuted, zoom }
+ *   { type: 'camera-state', talentId, facingMode, videoMuted, zoom, recordingQuality, isRecording }
  *       zoom is { currentUiZoom, maxUiZoom, stops, optical, warnAboveUiZoom } or null
  *       when zoom can't be offered (single-lens rear camera, video muted, Android).
  *       The front camera reports digital zoom (stops 1/2/3, optical=false,
- *       warnAboveUiZoom=2 → CD should flag softness past 2x). Sent on mount, after
- *       every flip/mute change, after applying a remote zoom, and (debounced) when
- *       the talent moves the zoom themselves.
+ *       warnAboveUiZoom=2 → CD should flag softness past 2x). recordingQuality is
+ *       '1080p'|'4K'; isRecording lets the CD disable the quality toggle mid-take
+ *       (a change wouldn't apply until the next one). Sent on mount, after every
+ *       flip/mute/quality/recording change, after applying a remote zoom, and
+ *       (debounced) when the talent moves the zoom themselves.
  */
 const RemoteCameraControl = () => {
     const dispatch = useDispatch();
@@ -49,17 +56,23 @@ const RemoteCameraControl = () => {
     const talentId = useSelector((state: IReduxState) => state['features/talent'].talent?._id);
     const facingMode = useSelector((state: IReduxState) => state['features/base/media'].video.facingMode);
     const videoMuted = useSelector((state: IReduxState) => Boolean(state['features/base/media'].video.muted));
+    const recordingQuality = useSelector((state: IReduxState) => state['features/talent'].iosRecordingQuality || '1080p');
+    const isRecording = useSelector((state: IReduxState) => Boolean(state['features/talent'].isNativeLocalRecording));
 
     // Refs so the long-lived ws handler always sees current values.
     const sessionIdRef = useRef(sessionId);
     const talentIdRef = useRef(talentId);
     const facingModeRef = useRef(facingMode);
     const videoMutedRef = useRef(videoMuted);
+    const recordingQualityRef = useRef(recordingQuality);
+    const isRecordingRef = useRef(isRecording);
 
     sessionIdRef.current = sessionId;
     talentIdRef.current = talentId;
     facingModeRef.current = facingMode;
     videoMutedRef.current = videoMuted;
+    recordingQualityRef.current = recordingQuality;
+    isRecordingRef.current = isRecording;
 
     const reportCameraState = useCallback(async (appliedUiZoom?: number) => {
         if (!sessionIdRef.current || !talentIdRef.current) {
@@ -94,7 +107,9 @@ const RemoteCameraControl = () => {
             talentId: talentIdRef.current,
             facingMode: facingModeRef.current,
             videoMuted: videoMutedRef.current,
-            zoom
+            zoom,
+            recordingQuality: recordingQualityRef.current,
+            isRecording: isRecordingRef.current
         });
     }, []);
 
@@ -135,6 +150,25 @@ const RemoteCameraControl = () => {
                     });
                     break;
                 }
+                case 'set-recording-quality': {
+                    const quality = msg.quality;
+
+                    if (quality !== '1080p' && quality !== '4K') {
+                        break;
+                    }
+                    console.log('[RemoteCameraControl] Remote recording quality:', quality);
+
+                    // Applies to the NEXT recording — startRecording reads this from
+                    // redux. Harmless if a take is rolling; it just won't take effect
+                    // until the next one (CD disables the toggle mid-take via isRecording).
+                    dispatch({ type: SET_IOS_RECORDING_QUALITY, quality });
+
+                    // Optimistic so the immediate ack carries the new value; the redux
+                    // update re-reports via the effect below as confirmation.
+                    recordingQualityRef.current = quality;
+                    reportCameraState();
+                    break;
+                }
                 case 'get-camera-state':
                     reportCameraState();
                     break;
@@ -146,10 +180,12 @@ const RemoteCameraControl = () => {
         return () => removeWsListener(handler);
     }, [ dispatch, reportCameraState ]);
 
-    // Announce camera state on mount and whenever the camera flips or video mutes.
+    // Announce camera state on mount and whenever the camera flips, video mutes,
+    // recording quality changes, or recording starts/stops (so the CD can enable/
+    // disable the quality toggle and reflect the live setting).
     useEffect(() => {
         reportCameraState();
-    }, [ facingMode, videoMuted, reportCameraState ]);
+    }, [ facingMode, videoMuted, recordingQuality, isRecording, reportCameraState ]);
 
     // Talent-initiated zoom changes (pill taps/drags) — tell the CD, debounced.
     useEffect(() => {
