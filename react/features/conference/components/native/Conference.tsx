@@ -20,6 +20,7 @@ import { FULLSCREEN_ENABLED } from '../../../base/flags/constants';
 import { getFeatureFlag } from '../../../base/flags/functions';
 import CameraZoomBar from '../../../base/media/components/native/CameraZoomBar';
 import RemoteCameraControl from '../../../base/media/components/native/RemoteCameraControl';
+import RemoteGimbalControl from '../../../base/media/components/native/RemoteGimbalControl';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
 import TintedView from '../../../base/react/components/native/TintedView';
@@ -486,6 +487,8 @@ class Conference extends AbstractConference<IProps, State> {
                 <TestConnectionInfo />
 
                 <RemoteCameraControl />
+
+                <RemoteGimbalControl />
 
                 {
                     _shouldDisplayTileView
