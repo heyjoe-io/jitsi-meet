@@ -11,6 +11,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2681BB562C7A0B42CFBA6719 /* libPods-JitsiMeet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D6152FF9E9F7B0E86F70A21D /* libPods-JitsiMeet.a */; };
 		361974E2A13624D7735D619D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */; };
+		3DBBF0E3E923D36F85DDF0D1 /* DockKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C60D6A4BADE15067F4ED764 /* DockKit.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		4341A9062CF0D63200940D93 /* hermes.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; };
 		4341A9072CF0D63200940D93 /* hermes.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65962E4CF3D700FF99D2 /* RecordModule.m */; };
@@ -85,6 +86,7 @@
 		58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = HighResRecordModule.m; path = ../sdk/src/HighResRecordModule.m; sourceTree = SOURCE_ROOT; };
 		58CF65992E4CF3D700FF99D2 /* HighResRecordModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HighResRecordModule.h; path = ../sdk/src/HighResRecordModule.h; sourceTree = SOURCE_ROOT; };
 		5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6C60D6A4BADE15067F4ED764 /* DockKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DockKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/DockKit.framework; sourceTree = DEVELOPER_DIR; };
 		756FCE06C08D9B947653C98A /* Pods-JitsiMeet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-JitsiMeet.debug.xcconfig"; path = "Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet.debug.xcconfig"; sourceTree = "<group>"; };
 		75DCF92BCEC6069058749642 /* GimbalModule.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = GimbalModule.h; path = ../sdk/src/GimbalModule.h; sourceTree = SOURCE_ROOT; };
 		B3B083EB1D4955FF0069CEE7 /* app.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = app.entitlements; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 				FD572B9827EDF32300A800FB /* GiphyUISDK.xcframework in Frameworks */,
 				2681BB562C7A0B42CFBA6719 /* libPods-JitsiMeet.a in Frameworks */,
 				4341A9062CF0D63200940D93 /* hermes.xcframework in Frameworks */,
+				3DBBF0E3E923D36F85DDF0D1 /* DockKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,6 +132,7 @@
 				0BD6B4361EF82A6B00D1F4CD /* WebRTC.framework */,
 				4EC49B8625BED71300E76218 /* ReplayKit.framework */,
 				D6152FF9E9F7B0E86F70A21D /* libPods-JitsiMeet.a */,
+				D7CFA3C25CF505BF31ED39F5 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -207,6 +211,14 @@
 			);
 			name = Pods;
 			path = ../Pods;
+			sourceTree = "<group>";
+		};
+		D7CFA3C25CF505BF31ED39F5 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				6C60D6A4BADE15067F4ED764 /* DockKit.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
