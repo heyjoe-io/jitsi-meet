@@ -15,6 +15,8 @@
 		4341A9072CF0D63200940D93 /* hermes.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 4341A9052CF0D63200940D93 /* hermes.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65962E4CF3D700FF99D2 /* RecordModule.m */; };
 		58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */; };
+		8C27C3C49023A1EBA2EC5E9A /* GimbalModule.m in Sources */ = {isa = PBXBuildFile; fileRef = CDD5E5861F053A5D3EA45496 /* GimbalModule.m */; };
+		A482AFB676F6E06813FB21FA /* GimbalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C759B55E6F920A3BFAA4A99C /* GimbalController.swift */; };
 		DEA0B7122D7EF16E0062A9F6 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */; };
 		DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7132D7EF7590062A9F6 /* AppDelegate.swift */; };
 		DEA9F289258A6EA800D4CD74 /* JitsiMeetSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEA9F288258A6EA800D4CD74 /* JitsiMeetSDK.framework */; };
@@ -84,7 +86,10 @@
 		58CF65992E4CF3D700FF99D2 /* HighResRecordModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = HighResRecordModule.h; path = ../sdk/src/HighResRecordModule.h; sourceTree = SOURCE_ROOT; };
 		5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		756FCE06C08D9B947653C98A /* Pods-JitsiMeet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-JitsiMeet.debug.xcconfig"; path = "Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet.debug.xcconfig"; sourceTree = "<group>"; };
+		75DCF92BCEC6069058749642 /* GimbalModule.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = GimbalModule.h; path = ../sdk/src/GimbalModule.h; sourceTree = SOURCE_ROOT; };
 		B3B083EB1D4955FF0069CEE7 /* app.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = app.entitlements; sourceTree = "<group>"; };
+		C759B55E6F920A3BFAA4A99C /* GimbalController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GimbalController.swift; path = ../sdk/src/GimbalController.swift; sourceTree = SOURCE_ROOT; };
+		CDD5E5861F053A5D3EA45496 /* GimbalModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = GimbalModule.m; path = ../sdk/src/GimbalModule.m; sourceTree = SOURCE_ROOT; };
 		D6152FF9E9F7B0E86F70A21D /* libPods-JitsiMeet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-JitsiMeet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE050388256E904600DEE3A5 /* WebRTC.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = WebRTC.xcframework; path = "../../node_modules/react-native-webrtc/apple/WebRTC.xcframework"; sourceTree = "<group>"; };
 		DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -178,6 +183,9 @@
 				CDD71F5E1157E9F283DF92A8 /* Pods */,
 				5C1BE20ECD5DEEB48FED90B5 /* PrivacyInfo.xcprivacy */,
 				58890DD42E4C724B0040B936 /* Recovered References */,
+				C759B55E6F920A3BFAA4A99C /* GimbalController.swift */,
+				CDD5E5861F053A5D3EA45496 /* GimbalModule.m */,
+				75DCF92BCEC6069058749642 /* GimbalModule.h */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -428,6 +436,8 @@
 				DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */,
 				58CF65972E4CF3D700FF99D2 /* RecordModule.m in Sources */,
 				58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */,
+				A482AFB676F6E06813FB21FA /* GimbalController.swift in Sources */,
+				8C27C3C49023A1EBA2EC5E9A /* GimbalModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
