@@ -97,7 +97,10 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
     // MARK: - Commands
 
     /// Run one of the seven V1 commands. completion(ok, error) on an arbitrary queue.
-    @objc public func executeCommand(_ command: String, completion: @escaping (Bool, String?) -> Void) {
+    // completion is @Sendable so it can be safely called both from the early guard
+    // paths (current task) and from inside the Task below — without it, Xcode 26's
+    // strict concurrency rejects the Task closure capturing a non-Sendable callback.
+    @objc public func executeCommand(_ command: String, completion: @escaping @Sendable (Bool, String?) -> Void) {
         #if canImport(DockKit)
         guard #available(iOS 17.0, *) else {
             completion(false, "Gimbal control requires iOS 17 or later")
