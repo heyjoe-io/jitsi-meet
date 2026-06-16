@@ -1,9 +1,14 @@
 #import "GimbalModule.h"
 #import <React/RCTLog.h>
 
-// HJGimbalController is a Swift class in this SDK target; the generated Swift header
-// exposes it to Objective-C. If the SDK's product module name differs, adjust here.
-#if __has_include(<JitsiMeetSDK/JitsiMeetSDK-Swift.h>)
+// HJGimbalController is a Swift class compiled into the consuming target. The
+// generated -Swift.h name is derived from the target's product module name:
+// the app target ("jitsi-meet" → identifier "jitsi_meet") emits jitsi_meet-Swift.h,
+// the SDK target emits JitsiMeetSDK-Swift.h. Check both so the gimbal files can be
+// hosted by either target without touching this import.
+#if __has_include("jitsi_meet-Swift.h")
+#import "jitsi_meet-Swift.h"
+#elif __has_include(<JitsiMeetSDK/JitsiMeetSDK-Swift.h>)
 #import <JitsiMeetSDK/JitsiMeetSDK-Swift.h>
 #else
 #import "JitsiMeetSDK-Swift.h"
