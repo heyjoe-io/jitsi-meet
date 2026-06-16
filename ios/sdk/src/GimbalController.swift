@@ -129,7 +129,9 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
                     // duration/reference args, add them here.
                     try await DockAccessoryManager.shared.setSystemTrackingEnabled(false)
                     self.isTracking = false
-                    try await accessory.setOrientation(Rotation3D.identity)
+                    // setOrientation is synchronous and returns an animation handle
+                    // we don't need to await — fire-and-forget the move to neutral.
+                    _ = try accessory.setOrientation(Rotation3D.identity)
                 case "pan_left":
                     try await self.nudge(accessory, pitch: 0, yaw: Self.nudgeRate)
                 case "pan_right":
