@@ -18,8 +18,12 @@ import Spatial
 /// Vector3D/Rotation3D (not simd). Axis signs + nudge magnitude must be tuned on the
 /// physical Insta360 gimbal.
 @objc(HJGimbalController)
-public class HJGimbalController: NSObject {
+public class HJGimbalController: NSObject, @unchecked Sendable {
 
+    // @unchecked Sendable: this is an ObjC-interop singleton whose mutable state is
+    // low-contention (status bools + one accessory ref) and only mutated from its own
+    // serialized Tasks. We vouch for its cross-concurrency safety so strict concurrency
+    // allows the shared singleton and Task self-captures.
     @objc public static let shared = HJGimbalController()
 
     /// Posted (main thread) on any support/connected/tracking change.
@@ -62,8 +66,11 @@ public class HJGimbalController: NSObject {
 
         Task { [weak self] in
             do {
-                // accessoryStateChanges is a throwing async sequence.
-                for try await change in DockAccessoryManager.shared.accessoryStateChanges {
+                // accessoryStateChanges is a throwing async sequence AND the property
+                // access itself throws, so evaluate it with `try` before iterating
+                // (the `try` in `for try await` covers the iteration, not this access).
+                let stateChanges = try DockAccessoryManager.shared.accessoryStateChanges
+                for try await change in stateChanges {
                     guard let self = self else { return }
 
                     if change.state == .docked {
