@@ -1,23 +1,22 @@
 import Foundation
-import simd
 
+// DockKit ships only in the iPhoneOS SDK (not the simulator SDK), so EVERY
+// DockKit-typed member must be compiled out on simulator via canImport — not just
+// gated by @available. The two-layer gate: #if canImport(DockKit) for SDK/type
+// availability, @available(iOS 17, *) for the OS version within the device SDK.
 #if canImport(DockKit)
 import DockKit
+import Spatial
 #endif
 
 /// DockKit gimbal control (iOS 17+). Owns the connected accessory, runs the seven
-/// V1 commands, and posts `statusDidChangeNotification` whenever support/connection/
-/// tracking changes so the RN layer can re-report capability to Casting Admin.
+/// V1 commands, and posts `statusDidChangeNotification` on any support/connection/
+/// tracking change so the RN layer can re-report capability to Casting Admin.
 ///
-/// Exposed to Objective-C (the RN module) via @objc; DockKit's async APIs are wrapped
-/// in completion handlers so ObjC can call them.
-///
-/// NOTE for the build/device pass: the DockKit call sites below (marked DOCKKIT) use
-/// the framework's documented shapes (setSystemTrackingEnabled / setAngularVelocity /
-/// setOrientation, accessoryStateChanges). Confirm the exact signatures against the
-/// 17+ SDK in Xcode, and tune the nudge axis signs + magnitude against the physical
-/// Insta360 gimbal — "which way is left" and the right step size can only be set on
-/// hardware.
+/// On simulator (no DockKit) or iOS < 17, `isSupported` is false and every command
+/// fails cleanly. DockKit calls are isolated below; the motor API uses Spatial's
+/// Vector3D/Rotation3D (not simd). Axis signs + nudge magnitude must be tuned on the
+/// physical Insta360 gimbal.
 @objc(HJGimbalController)
 public class HJGimbalController: NSObject {
 
@@ -26,59 +25,60 @@ public class HJGimbalController: NSObject {
     /// Posted (main thread) on any support/connected/tracking change.
     @objc public static let statusDidChangeNotification = Notification.Name("HJGimbalStatusDidChange")
 
-    /// Angular speed for a manual pan/tilt nudge, rad/s. Tune on device.
-    private static let nudgeRate: Float = 0.6
-    /// How long a single nudge runs before stopping, giving a discrete step.
+    /// Manual nudge tuning — rad/s and step duration. Tune on device.
+    private static let nudgeRate: Double = 0.6
     private static let nudgeNanos: UInt64 = 300_000_000 // 0.3s
 
     private var isTracking = false
     private var observing = false
 
-    // Stored as Any so the property exists on iOS < 17 (DockAccessory is 17+).
+    /// Holds a `DockAccessory` at runtime, typed as AnyObject so the property exists
+    /// on SDKs without DockKit (simulator). Nil ⇒ no gimbal docked.
     private var _accessory: AnyObject?
-
-    @available(iOS 17.0, *)
-    private var accessory: DockAccessory? {
-        get { _accessory as? DockAccessory }
-        set { _accessory = newValue }
-    }
 
     // MARK: - Status
 
     @objc public var isSupported: Bool {
+        #if canImport(DockKit)
         if #available(iOS 17.0, *) { return true }
+        #endif
 
         return false
     }
 
     @objc public var isConnected: Bool {
-        if #available(iOS 17.0, *) { return accessory != nil }
-
-        return false
+        _accessory != nil
     }
 
     @objc public var isTrackingActive: Bool { isTracking }
 
+    // MARK: - Observation
+
     /// Begin watching for gimbal connect/disconnect. Safe to call repeatedly.
     @objc public func startObserving() {
+        #if canImport(DockKit)
         guard #available(iOS 17.0, *), !observing else { return }
         observing = true
 
         Task { [weak self] in
-            // DOCKKIT: accessoryStateChanges is an async sequence of connect/disconnect
-            // events; each carries the accessory and its docked state.
-            for await change in DockAccessoryManager.shared.accessoryStateChanges {
-                guard let self = self else { return }
+            do {
+                // accessoryStateChanges is a throwing async sequence.
+                for try await change in DockAccessoryManager.shared.accessoryStateChanges {
+                    guard let self = self else { return }
 
-                if change.state == .docked {
-                    self.accessory = change.accessory
-                } else {
-                    self.accessory = nil
-                    self.isTracking = false
+                    if change.state == .docked {
+                        self._accessory = change.accessory
+                    } else {
+                        self._accessory = nil
+                        self.isTracking = false
+                    }
+                    self.postStatusChange()
                 }
-                self.postStatusChange()
+            } catch {
+                // Stream ended/errored — leave status as-is.
             }
         }
+        #endif
     }
 
     private func postStatusChange() {
@@ -91,12 +91,13 @@ public class HJGimbalController: NSObject {
 
     /// Run one of the seven V1 commands. completion(ok, error) on an arbitrary queue.
     @objc public func executeCommand(_ command: String, completion: @escaping (Bool, String?) -> Void) {
+        #if canImport(DockKit)
         guard #available(iOS 17.0, *) else {
             completion(false, "Gimbal control requires iOS 17 or later")
 
             return
         }
-        guard let accessory = self.accessory else {
+        guard let accessory = _accessory as? DockAccessory else {
             completion(false, "Gimbal not connected")
 
             return
@@ -106,18 +107,19 @@ public class HJGimbalController: NSObject {
             do {
                 switch command {
                 case "start_tracking":
-                    // DOCKKIT
                     try await DockAccessoryManager.shared.setSystemTrackingEnabled(true)
                     self.isTracking = true
                 case "stop_tracking":
                     try await DockAccessoryManager.shared.setSystemTrackingEnabled(false)
                     self.isTracking = false
                 case "recenter":
-                    // Manual move requires tracking off; point level/forward.
+                    // Manual move requires tracking off; point neutral. setOrientation
+                    // has defaulted params on the 17+ SDK, so the identity rotation
+                    // alone should satisfy it — if your SDK requires explicit
+                    // duration/reference args, add them here.
                     try await DockAccessoryManager.shared.setSystemTrackingEnabled(false)
                     self.isTracking = false
-                    // DOCKKIT: neutral orientation (identity quaternion).
-                    try await accessory.setOrientation(simd_quatf(angle: 0, axis: simd_float3(0, 1, 0)))
+                    try await accessory.setOrientation(Rotation3D.identity)
                 case "pan_left":
                     try await self.nudge(accessory, pitch: 0, yaw: Self.nudgeRate)
                 case "pan_right":
@@ -137,17 +139,22 @@ public class HJGimbalController: NSObject {
                 completion(false, error.localizedDescription)
             }
         }
+        #else
+        completion(false, "Gimbal control is not available on this device")
+        #endif
     }
 
+    #if canImport(DockKit)
     /// A discrete manual nudge: spin briefly, then stop. Requires tracking off.
-    /// Axis convention (verify on device): x = pitch (tilt), y = yaw (pan), z = roll.
+    /// Axis convention to confirm on device: x = pitch (tilt), y = yaw (pan), z = roll.
     @available(iOS 17.0, *)
-    private func nudge(_ accessory: DockAccessory, pitch: Float, yaw: Float) async throws {
+    private func nudge(_ accessory: DockAccessory, pitch: Double, yaw: Double) async throws {
         try await DockAccessoryManager.shared.setSystemTrackingEnabled(false)
         isTracking = false
-        // DOCKKIT: angular velocity in rad/s.
-        try await accessory.setAngularVelocity(simd_float3(pitch, yaw, 0))
+        // Spatial Vector3D, rad/s.
+        try await accessory.setAngularVelocity(Vector3D(x: pitch, y: yaw, z: 0))
         try await Task.sleep(nanoseconds: Self.nudgeNanos)
-        try await accessory.setAngularVelocity(simd_float3(0, 0, 0))
+        try await accessory.setAngularVelocity(Vector3D(x: 0, y: 0, z: 0))
     }
+    #endif
 }

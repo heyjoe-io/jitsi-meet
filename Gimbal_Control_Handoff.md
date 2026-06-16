@@ -51,11 +51,15 @@ device test happens before Wednesday — the native + hardware is where the sche
    `#import <JitsiMeetSDK/JitsiMeetSDK-Swift.h>` (guarded with `__has_include`). If the
    product module name differs, fix the import. This is the first ObjC→Swift `-Swift.h`
    consumer in the SDK, so verify it resolves.
-3. **Verify the DockKit call sites** (marked `// DOCKKIT` in `GimbalController.swift`)
-   against the iOS 17+ SDK in Xcode: `setSystemTrackingEnabled`, `setAngularVelocity`,
-   `setOrientation`, and the `accessoryStateChanges` element shape (`.accessory` /
-   `.state == .docked`). I used the documented forms; Xcode will flag any signature nit —
-   all isolated to that one file.
+3. **DockKit signatures — corrected (round 2).** Resolved from the integrator's
+   compiler feedback: all DockKit-typed members are now inside `#if canImport(DockKit)`
+   (fixes the simulator "cannot find type 'DockAccessory'" — DockKit isn't in the sim
+   SDK); `accessoryStateChanges` uses `for try await`; motor APIs use Spatial
+   `Vector3D` / `Rotation3D.identity` (not simd). Two spots still only verifiable with
+   the device SDK in front of you: (a) the `accessoryStateChanges` element shape
+   (`change.state == .docked` / `change.accessory`), and (b) whether `setOrientation`
+   needs explicit `duration`/reference args (the identity rotation alone should satisfy
+   its defaulted params). Both isolated to `GimbalController.swift`.
 4. **Tune on the physical gimbal** (in `GimbalController.swift`): `nudgeRate` (step
    speed) and `nudgeNanos` (step duration), and the pan/tilt **axis signs** — confirm
    `pan_left` actually goes left and `tilt_up` up. The axis convention (x=pitch, y=yaw)
