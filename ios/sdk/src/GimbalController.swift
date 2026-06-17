@@ -65,24 +65,28 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
         observing = true
 
         Task { [weak self] in
-            do {
-                // accessoryStateChanges is a throwing async sequence AND the property
-                // access itself throws, so evaluate it with `try` before iterating
-                // (the `try` in `for try await` covers the iteration, not this access).
-                let stateChanges = try DockAccessoryManager.shared.accessoryStateChanges
-                for try await change in stateChanges {
-                    guard let self = self else { return }
-
-                    if change.state == .docked {
-                        self._accessory = change.accessory
-                    } else {
-                        self._accessory = nil
-                        self.isTracking = false
+            // Resilient: if the stream ends or throws (e.g. it was opened at module
+            // init before any camera session existed), back off and re-subscribe
+            // instead of going permanently deaf to later docks.
+            while true {
+                guard let self = self else { return }
+                do {
+                    // accessoryStateChanges is a throwing async sequence AND the property
+                    // access itself throws, so evaluate it with `try` before iterating.
+                    let stateChanges = try DockAccessoryManager.shared.accessoryStateChanges
+                    for try await change in stateChanges {
+                        if change.state == .docked {
+                            self._accessory = change.accessory
+                        } else {
+                            self._accessory = nil
+                            self.isTracking = false
+                        }
+                        self.postStatusChange()
                     }
-                    self.postStatusChange()
+                } catch {
+                    // Stream ended/errored — re-subscribe after a brief backoff.
                 }
-            } catch {
-                // Stream ended/errored — leave status as-is.
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
         }
         #endif

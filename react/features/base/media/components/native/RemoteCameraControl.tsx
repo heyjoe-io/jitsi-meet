@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { IReduxState } from '../../../../app/types';
-import { SET_IOS_RECORDING_QUALITY } from '../../../../onboard/actionTypes';
+import { SET_RECORDING_QUALITY } from '../../../../onboard/actionTypes';
 import { addWsListener, removeWsListener, sendMessage } from '../../../../onboard/functions';
 import { toggleCameraFacingMode } from '../../actions';
 import { CAMERA_FACING_MODE } from '../../constants';
@@ -56,7 +56,7 @@ const RemoteCameraControl = () => {
     const talentId = useSelector((state: IReduxState) => state['features/talent'].talent?._id);
     const facingMode = useSelector((state: IReduxState) => state['features/base/media'].video.facingMode);
     const videoMuted = useSelector((state: IReduxState) => Boolean(state['features/base/media'].video.muted));
-    const recordingQuality = useSelector((state: IReduxState) => state['features/talent'].iosRecordingQuality || '1080p');
+    const recordingQuality = useSelector((state: IReduxState) => state['features/talent'].recordingQuality || '1080p');
     const isRecording = useSelector((state: IReduxState) => Boolean(state['features/talent'].isNativeLocalRecording));
 
     // Refs so the long-lived ws handler always sees current values.
@@ -158,10 +158,14 @@ const RemoteCameraControl = () => {
                     }
                     console.log('[RemoteCameraControl] Remote recording quality:', quality);
 
-                    // Applies to the NEXT recording — startRecording reads this from
-                    // redux. Harmless if a take is rolling; it just won't take effect
-                    // until the next one (CD disables the toggle mid-take via isRecording).
-                    dispatch({ type: SET_IOS_RECORDING_QUALITY, quality });
+                    // Applies to the NEXT recording — startRecording (LocalRecordingButton)
+                    // reads `recordingQuality` from redux for enable4K. Must be the SAME
+                    // field the phone's own toggle writes (SET_RECORDING_QUALITY); a prior
+                    // SET_IOS_RECORDING_QUALITY wrote a separate `iosRecordingQuality` that
+                    // nothing recorded from, so the CD toggle silently did nothing.
+                    // Harmless if a take is rolling; applies to the next one (CD disables
+                    // the toggle mid-take via isRecording).
+                    dispatch({ type: SET_RECORDING_QUALITY, quality });
 
                     // Optimistic so the immediate ack carries the new value; the redux
                     // update re-reports via the effect below as confirmation.
