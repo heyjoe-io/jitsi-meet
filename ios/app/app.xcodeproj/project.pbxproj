@@ -42,7 +42,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-
 /* Begin PBXCopyFilesBuildPhase section */
 		0B26BE701EC5BC3C00EEFB41 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -135,14 +134,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4EB06020260E026600F524C5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4EB06024260E026600F524C5 /* ReplayKit.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -230,7 +221,6 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* jitsi-meet.app */,
-				4EB06023260E026600F524C5 /* JitsiMeetBroadcastExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -322,7 +312,6 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* JitsiMeet */,
-				4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -496,11 +485,9 @@
 /* Begin PBXTargetDependency section */
 		4EB0602A260E026600F524C5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */;
 			targetProxy = 4EB06029260E026600F524C5 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
 
 /* Begin PBXVariantGroup section */
 		13B07FB11A68108700A75B9A /* LaunchScreen.storyboard */ = {

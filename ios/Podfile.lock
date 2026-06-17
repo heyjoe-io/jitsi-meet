@@ -1501,6 +1501,8 @@ PODS:
     - ReactCommon/turbomodule/core
   - react-native-background-timer (2.4.1):
     - React-Core
+  - react-native-blob-util (0.24.7):
+    - React-Core
   - react-native-get-random-values (1.11.0):
     - React-Core
   - react-native-keep-awake (1.3.1):
@@ -1610,7 +1612,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-webrtc (124.0.7):
+  - react-native-webrtc (124.0.4):
     - JitsiWebRTC (~> 124.0.0)
     - React-Core
   - react-native-webview (13.13.5):
@@ -2052,6 +2054,8 @@ PODS:
     - React-Core
   - RNSVG (15.11.2):
     - React-Core
+  - RNWatch (1.1.0):
+    - React
   - SocketRocket (0.7.1)
   - SplashView (0.0.18):
     - DoubleConversion
@@ -2127,6 +2131,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-background-timer (from `../node_modules/react-native-background-timer`)
+  - react-native-blob-util (from `../node_modules/react-native-blob-util`)
   - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
   - "react-native-keep-awake (from `../node_modules/@sayem314/react-native-keep-awake`)"
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
@@ -2180,6 +2185,7 @@ DEPENDENCIES:
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSound (from `../node_modules/react-native-sound`)
   - RNSVG (from `../node_modules/react-native-svg`)
+  - RNWatch (from `../node_modules/react-native-watch-connectivity`)
   - SplashView (from `../node_modules/react-native-splash-view`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -2291,6 +2297,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-background-timer:
     :path: "../node_modules/react-native-background-timer"
+  react-native-blob-util:
+    :path: "../node_modules/react-native-blob-util"
   react-native-get-random-values:
     :path: "../node_modules/react-native-get-random-values"
   react-native-keep-awake:
@@ -2397,6 +2405,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-sound"
   RNSVG:
     :path: "../node_modules/react-native-svg"
+  RNWatch:
+    :path: "../node_modules/react-native-watch-connectivity"
   SplashView:
     :path: "../node_modules/react-native-splash-view"
   Yoga:
@@ -2464,6 +2474,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: cfe4726ba1929b9dab4645c78376a9165375d62f
   React-microtasksnativemodule: c99b8f1240609566de105b73f2569c0f22880ee1
   react-native-background-timer: 4638ae3bee00320753647900b21260b10587b6f7
+  react-native-blob-util: 32d49c4e825abb0bee1e9c0056d58c9ed53d17c1
   react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
   react-native-keep-awake: 03b74eebe4f2bb5e8478fc8f420651a92463b6f8
   react-native-netinfo: 5364263f903da576bdef9c84a76fe243ab06812c
@@ -2473,7 +2484,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 2243039f43d10cb1ea30ec5ac57fc6d1448413f4
   react-native-slider: 6d03bbb4451b244b1ba954b67de12a1d8698f892
   react-native-video: 44253ad8f35d5f1ff1f69e15da07701b9437d2d4
-  react-native-webrtc: e8f0ce746353adc2744a2b933645e1aeb41eaa74
+  react-native-webrtc: 2261a482150195092246fe70b3aff976f2e11ec5
   react-native-webview: 1b5778b306d4ed09d13829a6e7a6550e3c1a644a
   react-native-worklets-core: d87885e4cd1424b1b1eb187aa77d407ea01f9c4c
   React-NativeModulesApple: 74051ff264ce0b89ac799b56314f8f440a95ee4d
@@ -2517,14 +2528,11 @@ SPEC CHECKSUMS:
   RNScreens: 62fdbbc4c984150b34c36f095c6ba2510ca9b6a5
   RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
   RNSVG: ab84f2de7dd4f2c86d01825b8a65e0ef712fc36b
+  RNWatch: 28fe1f5e0c6410d45fd20925f4796fce05522e3f
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SplashView: 1f70e5be12f45df018a7236c23aa6919ee509c2f
   Yoga: 9663a18d096f7f7e17a535cf00849db756709955
 
-<<<<<<< HEAD
-PODFILE CHECKSUM: 248ee42a02d07e62fb5db4c39a2b606591d53159
-=======
-PODFILE CHECKSUM: 7c37a89916893e11159576c8b308b7b5c25246c9
->>>>>>> origin/stable-recording
+PODFILE CHECKSUM: e2bfcb4a261aee2ba9a5686f8f8c9a8cacddaaa0
 
 COCOAPODS: 1.16.2
