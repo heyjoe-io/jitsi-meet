@@ -7,7 +7,6 @@ import { hideDialog } from '../../../base/dialog/actions';
 import Icon from '../../../base/icons/components/Icon';
 import { IconSearch } from '../../../base/icons/svg';
 import { getFieldValue } from '../../../base/react/functions';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import Dialog from '../../../base/ui/components/web/Dialog';
 import Spinner from '../../../base/ui/components/web/Spinner';
 import { NOTES_MAX_LENGTH } from '../../constants';
@@ -29,28 +28,28 @@ const useStyles = makeStyles()(theme => {
         searchIcon: {
             display: 'block',
             position: 'absolute',
-            color: theme.palette.text03,
+            color: theme.palette.salesforceSearchIcon,
             left: 16,
             top: 10,
             width: 20,
             height: 20
         },
         resultLabel: {
-            fontSize: '15px',
+            fontSize: '1rem',
             margin: '16px 0 8px'
         },
         recordsSearch: {
-            backgroundColor: theme.palette.field01,
+            backgroundColor: theme.palette.salesforceSearchBackground,
             border: '1px solid',
             borderRadius: theme.shape.borderRadius,
-            borderColor: theme.palette.ui05,
-            color: theme.palette.text01,
+            borderColor: theme.palette.salesforceSearchBorder,
+            color: theme.palette.salesforceSearchText,
             padding: '10px 16px 10px 44px',
             width: '100%',
             height: 40,
             '&::placeholder': {
-                color: theme.palette.text03,
-                ...withPixelLineHeight(theme.typography.bodyShortRegular)
+                color: theme.palette.salesforceSearchPlaceholder,
+                ...theme.typography.bodyShortRegular
             }
         },
         spinner: {
@@ -95,7 +94,7 @@ const useStyles = makeStyles()(theme => {
             padding: 0
         },
         recordInfo: {
-            backgroundColor: theme.palette.ui03,
+            backgroundColor: theme.palette.inputFieldBackground,
             padding: '0 16px',
             borderRadius: theme.shape.borderRadius,
             marginBottom: '28px'
@@ -107,16 +106,16 @@ const useStyles = makeStyles()(theme => {
             padding: '10px 0'
         },
         notes: {
-            lineHeight: '18px',
+            lineHeight: '1.125rem',
             minHeight: '130px',
             resize: 'vertical',
             width: '100%',
             boxSizing: 'border-box',
             overflow: 'hidden',
             border: '1px solid',
-            borderColor: theme.palette.ui05,
-            backgroundColor: theme.palette.field01,
-            color: theme.palette.text01,
+            borderColor: theme.palette.salesforceSearchBorder,
+            backgroundColor: theme.palette.inputBackground,
+            color: theme.palette.inputText,
             borderRadius: theme.shape.borderRadius,
             padding: '10px 16px'
         }

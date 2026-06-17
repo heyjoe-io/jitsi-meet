@@ -7,6 +7,7 @@ import {
     Linking,
     NativeSyntheticEvent,
     SafeAreaView,
+    StatusBar,
     StyleProp,
     TextInputFocusEventData,
     TextStyle,
@@ -26,6 +27,8 @@ import Button from '../../base/ui/components/native/Button';
 import Input from '../../base/ui/components/native/Input';
 import { BUTTON_TYPES } from '../../base/ui/constants.native';
 import getUnsafeRoomText from '../../base/util/getUnsafeRoomText.native';
+
+import { screen } from '../../mobile/navigation/routes';
 
 import {
     IProps as AbstractProps,
@@ -284,12 +287,15 @@ class TalentPage extends AbstractWelcomePage<IProps> {
             );
         } else {
             joinButton = (
-                <Button
-                    accessibilityLabel = { 'welcomepage.accessibilityLabel.join' }
-                    labelKey = { 'welcomepage.join' }
-                    labelStyle = { styles.joinButtonLabel }
-                    onClick = { this._onJoin }
-                    type = { BUTTON_TYPES.PRIMARY } />
+                <TouchableOpacity
+                    accessibilityLabel = { t('welcomepage.accessibilityLabel.join') }
+                    activeOpacity = { 0.7 }
+                    onPress = { this._onJoin }
+                    style = { styles.button as ViewStyle }>
+                    <Text style = { styles.buttonText as TextStyle }>
+                        { t('welcomepage.join').toUpperCase() }
+                    </Text>
+                </TouchableOpacity>
             );
         }
 
@@ -306,7 +312,8 @@ class TalentPage extends AbstractWelcomePage<IProps> {
         };
 
         return (
-            <TouchableHighlight
+            <TouchableOpacity
+                activeOpacity = { 0.7 }
                 onPress = { () => {
                     joinRoom(_studio.test_meeting_id);
                 } }
@@ -314,7 +321,7 @@ class TalentPage extends AbstractWelcomePage<IProps> {
                 <Text style = { styles.buttonText as TextStyle }>
                     Join {_studio.name} Lobby
                 </Text>
-            </TouchableHighlight>
+            </TouchableOpacity>
         );
     }
 
@@ -329,13 +336,14 @@ class TalentPage extends AbstractWelcomePage<IProps> {
                     isSettingsScreenFocused && styles.roomNameInputContainer,
                     { opacity: this.state.roomNameInputAnimation }
                 ] as StyleProp<ViewStyle> }>
-                <TouchableHighlight
+                <TouchableOpacity
+                    activeOpacity = { 0.7 }
                     onPress = { () => this._onMoreOptions(!this.state.showEnterRoomNumber) }
-                    style = { styles.talentButton as ViewStyle }>
-                    <Text style = { styles.buttonText as TextStyle }>
+                    style = { styles.optionsButton as ViewStyle }>
+                    <Text style = { styles.optionsButtonText as TextStyle }>
                         More Options
                     </Text>
-                </TouchableHighlight>
+                </TouchableOpacity>
                 { this.state.showEnterRoomNumber && <SafeAreaView style = { styles.roomContainer as StyleProp<ViewStyle> }>
                     <View style = { styles.joinControls } >
                         <Text style = { styles.enterRoomText as StyleProp<TextStyle> }>
@@ -364,15 +372,16 @@ class TalentPage extends AbstractWelcomePage<IProps> {
 
     _renderLocalRecordingsButton() {
         return (
-            <TouchableHighlight
+            <TouchableOpacity
+                activeOpacity = { 0.7 }
                 onPress = { () => {
-                    this.props.navigation.navigate('Local Recordings');
+                    this.props.navigation.navigate(screen.recordings.main);
                 } }
-                style = { styles.talentButton as ViewStyle }>
-                <Text style = { styles.buttonText as TextStyle }>
+                style = { styles.optionsButton as ViewStyle }>
+                <Text style = { styles.optionsButtonText as TextStyle }>
                     Local Recordings
                 </Text>
-            </TouchableHighlight>
+            </TouchableOpacity>
         );
     }
 
@@ -410,6 +419,7 @@ class TalentPage extends AbstractWelcomePage<IProps> {
                 <View style = { styles.talentPage as ViewStyle }>
                     <View style = { styles.talentTopContainer as ViewStyle }>
                         <Image
+                            resizeMode = 'contain'
                             source = { HEY_JOE_LOGO }
                             style = { styles.logo as ImageStyle } />
                         <View>

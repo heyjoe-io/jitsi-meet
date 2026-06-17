@@ -1,6 +1,6 @@
 // wdio.firefox.conf.ts
 // extends the main configuration file changing first participant to be Firefox
-import { merge } from 'lodash-es';
+import { mergeWith } from 'lodash-es';
 import process from 'node:process';
 
 // @ts-ignore
@@ -19,20 +19,23 @@ if (process.env.HEADLESS === 'true') {
     ffArgs.push('--headless');
 }
 
-const mergedConfig = merge(defaultConfig, {
+const mergedConfig = mergeWith(defaultConfig, {
     exclude: [
-        'specs/**/iFrameApi*.spec.ts', // FF does not support uploading files (uploadFile)
+        'specs/iframe/*.spec.ts', // FF does not support uploading files (uploadFile)
 
         // FF does not support setting a file as mic input, no dominant speaker events
-        'specs/3way/activeSpeaker.spec.ts',
-        'specs/3way/startMuted.spec.ts', // bad audio levels
-        'specs/4way/desktopSharing.spec.ts',
-        'specs/4way/lastN.spec.ts',
+        'specs/media/activeSpeaker.spec.ts',
+        'specs/media/startMuted.spec.ts', // bad audio levels
+        'specs/media/desktopSharing.spec.ts',
+        'specs/media/lastN.spec.ts',
 
-        // when unmuting a participant, we see the presence in debug logs imidiately,
+        // fails randomly for failed downloading asset and page stays in incomplete state
+        'specs/misc/urlNormalisation.spec.ts',
+
+        // when unmuting a participant, we see the presence in debug logs immediately,
         // but for 15 seconds it is not received/processed by the client
         // (also the menu disappears after clicking one of the moderation options, does not happen manually)
-        'specs/3way/audioVideoModeration.spec.ts'
+        'specs/media/audioVideoModeration.spec.ts'
     ],
     capabilities: {
         p1: {
@@ -47,7 +50,11 @@ const mergedConfig = merge(defaultConfig, {
             }
         }
     }
-}, { clone: false });
+}, (objValue: any, srcValue: any) => {
+    if (Array.isArray(objValue)) {
+        return objValue.concat(srcValue);
+    }
+});
 
 // Remove the chrome options from the first participant
 // @ts-ignore

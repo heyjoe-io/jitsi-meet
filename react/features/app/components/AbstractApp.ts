@@ -1,4 +1,4 @@
-import Clipboard from '@react-native-community/clipboard';
+import Clipboard from '@react-native-clipboard/clipboard';
 import BaseApp from '../../base/app/components/BaseApp';
 import { toURLString } from '../../base/util/uri';
 import { appNavigate } from '../actions';

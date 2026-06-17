@@ -1,4 +1,4 @@
-import { setRoom } from '../base/conference/actions';
+import { setRoom } from '../base/conference/actions.native';
 import { getConferenceState } from '../base/conference/functions';
 import {
     configWillLoad,
@@ -18,7 +18,7 @@ import isInsecureRoomName from '../base/util/isInsecureRoomName';
 import { parseURLParams } from '../base/util/parseURLParams';
 import {
     appendURLParam,
-    getBackendSafeRoomName,
+    getNormalizedRoomName,
     parseURIString,
     searchQueryToObject,
     toURLString
@@ -31,7 +31,7 @@ import {
 import { screen } from '../mobile/navigation/routes';
 import { clearNotifications } from '../notifications/actions';
 import { setOnboard, setTalentInfo } from '../onboard';
-import { isUnsafeRoomWarningEnabled } from '../prejoin/functions';
+import { isUnsafeRoomWarningEnabled } from '../prejoin/functions.native';
 
 import { maybeRedirectToTokenAuthUrl } from './actions.any';
 import { addTrackStateToURL, getDefaultURL } from './functions.native';
@@ -137,7 +137,7 @@ export function appNavigate(uri?: string, options: IReloadNowOptions = {}) {
         let url = `${baseURL}config.js`;
 
         // XXX In order to support multiple shards, tell the room to the deployment.
-        room && (url = appendURLParam(url, 'room', getBackendSafeRoomName(room) ?? ''));
+        room && (url = appendURLParam(url, 'room', getNormalizedRoomName(room) ?? ''));
 
         const { release } = parseURLParams(location, true, 'search');
 

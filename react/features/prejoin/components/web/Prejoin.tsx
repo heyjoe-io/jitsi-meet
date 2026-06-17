@@ -15,7 +15,6 @@ import ActionButton from '../../../base/premeeting/components/web/ActionButton';
 import PreMeetingScreen from '../../../base/premeeting/components/web/PreMeetingScreen';
 import { updateSettings } from '../../../base/settings/actions';
 import { getDisplayName } from '../../../base/settings/functions.web';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import { getLocalJitsiVideoTrack } from '../../../base/tracks/functions.web';
 import Button from '../../../base/ui/components/web/Button';
 import Input from '../../../base/ui/components/web/Input';
@@ -164,18 +163,18 @@ const useStyles = makeStyles()(theme => {
         },
 
         avatarName: {
-            ...withPixelLineHeight(theme.typography.bodyShortBoldLarge),
-            color: theme.palette.text01,
+            ...theme.typography.bodyShortBoldLarge,
+            color: theme.palette.prejoinTitleText,
             marginBottom: theme.spacing(5),
             textAlign: 'center'
         },
 
         error: {
-            backgroundColor: theme.palette.actionDanger,
-            color: theme.palette.text01,
+            backgroundColor: theme.palette.prejoinActionButtonDanger,
+            color: theme.palette.prejoinActionButtonPrimaryText,
             borderRadius: theme.shape.borderRadius,
             width: '100%',
-            ...withPixelLineHeight(theme.typography.labelRegular),
+            ...theme.typography.labelRegular,
             boxSizing: 'border-box',
             padding: theme.spacing(1),
             textAlign: 'center',
@@ -191,8 +190,8 @@ const useStyles = makeStyles()(theme => {
         dropdownButtons: {
             width: '300px',
             padding: '8px 0',
-            backgroundColor: theme.palette.action02,
-            color: theme.palette.text04,
+            backgroundColor: theme.palette.prejoinActionButtonSecondary,
+            color: theme.palette.prejoinActionButtonSecondaryText,
             borderRadius: theme.shape.borderRadius,
             position: 'relative',
             top: `-${theme.spacing(3)}`,
@@ -503,7 +502,8 @@ function mapStateToProps(state: IReduxState) {
     const { joiningInProgress } = state['features/prejoin'];
     const { room } = state['features/base/conference'];
     const { unsafeRoomConsent } = state['features/base/premeeting'];
-    const { showPrejoinWarning: showRecordingWarning } = state['features/base/config'].recordings ?? {};
+    const config = state['features/base/config'];
+    const { showPrejoinWarning: showRecordingWarning } = config.recordings ?? {};
 
     return {
         deviceStatusVisible: isDeviceStatusVisible(state),

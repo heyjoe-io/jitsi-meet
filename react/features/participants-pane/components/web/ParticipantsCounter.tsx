@@ -3,17 +3,16 @@ import { useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
 import { getParticipantCountForDisplay } from '../../../base/participants/functions';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 
 const useStyles = makeStyles()(theme => {
     return {
         badge: {
-            backgroundColor: theme.palette.ui03,
+            backgroundColor: theme.palette.participantCounterBadge,
             borderRadius: '100%',
             height: '16px',
             minWidth: '16px',
-            color: theme.palette.text01,
-            ...withPixelLineHeight(theme.typography.labelBold),
+            color: theme.palette.participantCounterText,
+            ...theme.typography.labelBold,
             pointerEvents: 'none',
             position: 'absolute',
             right: '-4px',

@@ -64,6 +64,7 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         if (getState()['features/visitors'].iAmVisitor) {
 
             const { demoteActorDisplayName } = getState()['features/visitors'];
+            const { showJoinMeetingDialog = true } = getState()['features/base/config'].visitors || {};
 
             if (demoteActorDisplayName) {
                 const notificationParams: INotificationProps = {
@@ -78,8 +79,8 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                     dispatch(showNotification(notificationParams, NOTIFICATION_TIMEOUT_TYPE.STICKY));
                     dispatch(setVisitorDemoteActor(undefined));
                 });
-            } else {
-                dispatch(openDialog(JoinMeetingDialog));
+            } else if (showJoinMeetingDialog) {
+                dispatch(openDialog('JoinMeetingDialog', JoinMeetingDialog));
             }
 
         } else {

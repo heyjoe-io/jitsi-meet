@@ -18,6 +18,10 @@
 		58CF659A2E4CF3D700FF99D2 /* HighResRecordModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 58CF65982E4CF3D700FF99D2 /* HighResRecordModule.m */; };
 		8C27C3C49023A1EBA2EC5E9A /* GimbalModule.m in Sources */ = {isa = PBXBuildFile; fileRef = CDD5E5861F053A5D3EA45496 /* GimbalModule.m */; };
 		A482AFB676F6E06813FB21FA /* GimbalController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C759B55E6F920A3BFAA4A99C /* GimbalController.swift */; };
+		AA0001012E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */; };
+		AA0001022E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */; };
+		AA0001032E4F000100BRAND1 /* MyriadPro-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */; };
+		AA0001042E4F000100BRAND1 /* MyriadPro-Regular_2.otf in Resources */ = {isa = PBXBuildFile; fileRef = AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */; };
 		DEA0B7122D7EF16E0062A9F6 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */; };
 		DEA0B7142D7EF7590062A9F6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA0B7132D7EF7590062A9F6 /* AppDelegate.swift */; };
 		DEA9F289258A6EA800D4CD74 /* JitsiMeetSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DEA9F288258A6EA800D4CD74 /* JitsiMeetSDK.framework */; };
@@ -27,6 +31,17 @@
 		FD572B9827EDF32300A800FB /* GiphyUISDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = FD572B9727EDF32300A800FB /* GiphyUISDK.xcframework */; };
 		FD572B9927EDF32300A800FB /* GiphyUISDK.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FD572B9727EDF32300A800FB /* GiphyUISDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4EB06029260E026600F524C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4EB06022260E026600F524C5;
+			remoteInfo = "JitsiMeetBroadcast Extension";
+		};
+/* End PBXContainerItemProxy section */
+
 
 /* Begin PBXCopyFilesBuildPhase section */
 		0B26BE701EC5BC3C00EEFB41 /* Embed Frameworks */ = {
@@ -89,6 +104,10 @@
 		6C60D6A4BADE15067F4ED764 /* DockKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DockKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/DockKit.framework; sourceTree = DEVELOPER_DIR; };
 		756FCE06C08D9B947653C98A /* Pods-JitsiMeet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-JitsiMeet.debug.xcconfig"; path = "Target Support Files/Pods-JitsiMeet/Pods-JitsiMeet.debug.xcconfig"; sourceTree = "<group>"; };
 		75DCF92BCEC6069058749642 /* GimbalModule.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = GimbalModule.h; path = ../sdk/src/GimbalModule.h; sourceTree = SOURCE_ROOT; };
+		AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "RedHatDisplay-VariableFont_wght.ttf"; sourceTree = "<group>"; };
+		AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadVariableConcept-Roman.otf"; sourceTree = "<group>"; };
+		AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadPro-Bold.otf"; sourceTree = "<group>"; };
+		AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "MyriadPro-Regular_2.otf"; sourceTree = "<group>"; };
 		B3B083EB1D4955FF0069CEE7 /* app.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = app.entitlements; sourceTree = "<group>"; };
 		C759B55E6F920A3BFAA4A99C /* GimbalController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GimbalController.swift; path = ../sdk/src/GimbalController.swift; sourceTree = SOURCE_ROOT; };
 		CDD5E5861F053A5D3EA45496 /* GimbalModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = GimbalModule.m; path = ../sdk/src/GimbalModule.m; sourceTree = SOURCE_ROOT; };
@@ -113,6 +132,14 @@
 				2681BB562C7A0B42CFBA6719 /* libPods-JitsiMeet.a in Frameworks */,
 				4341A9062CF0D63200940D93 /* hermes.xcframework in Frameworks */,
 				3DBBF0E3E923D36F85DDF0D1 /* DockKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4EB06020260E026600F524C5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EB06024260E026600F524C5 /* ReplayKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +171,10 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				DEA0B7112D7EF16E0062A9F6 /* ViewController.swift */,
+				AA0001052E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf */,
+				AA0001062E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf */,
+				AA0001072E4F000100BRAND1 /* MyriadPro-Bold.otf */,
+				AA0001082E4F000100BRAND1 /* MyriadPro-Regular_2.otf */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -199,6 +230,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* jitsi-meet.app */,
+				4EB06023260E026600F524C5 /* JitsiMeetBroadcastExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -245,6 +277,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				4EB0602A260E026600F524C5 /* PBXTargetDependency */,
 			);
 			name = JitsiMeet;
 			productName = "Jitsi Meet";
@@ -289,6 +322,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* JitsiMeet */,
+				4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -301,6 +335,10 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				13B07FBD1A68108700A75B9A /* LaunchScreen.storyboard in Resources */,
 				361974E2A13624D7735D619D /* PrivacyInfo.xcprivacy in Resources */,
+				AA0001012E4F000100BRAND1 /* RedHatDisplay-VariableFont_wght.ttf in Resources */,
+				AA0001022E4F000100BRAND1 /* MyriadVariableConcept-Roman.otf in Resources */,
+				AA0001032E4F000100BRAND1 /* MyriadPro-Bold.otf in Resources */,
+				AA0001042E4F000100BRAND1 /* MyriadPro-Regular_2.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -454,6 +492,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4EB0602A260E026600F524C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4EB06022260E026600F524C5 /* JitsiMeetBroadcastExtension */;
+			targetProxy = 4EB06029260E026600F524C5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 
 /* Begin PBXVariantGroup section */
 		13B07FB11A68108700A75B9A /* LaunchScreen.storyboard */ = {

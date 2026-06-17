@@ -4,7 +4,6 @@ import { connect } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
 import { IconCloseLarge } from '../../../base/icons/svg';
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import Button from '../../../base/ui/components/web/Button';
 import { BUTTON_TYPES } from '../../../base/ui/constants.any';
 import {
@@ -24,8 +23,8 @@ const useStyles = makeStyles()(theme => {
             alignItems: 'center',
             backgroundColor: theme.palette.support05,
             borderRadius: theme.shape.borderRadius,
-            ...withPixelLineHeight(theme.typography.bodyShortRegular),
-            color: theme.palette.text01
+            ...theme.typography.bodyShortRegular,
+            color: theme.palette.chatRecipientText
         },
 
         text: {

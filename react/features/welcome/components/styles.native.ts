@@ -3,12 +3,9 @@ import { StyleSheet } from 'react-native';
 import { BoxModel } from '../../base/styles/components/styles/BoxModel';
 import BaseTheme from '../../base/ui/components/BaseTheme.native';
 
-export const AVATAR_SIZE = 104;
+import { HJBorderRadius, HJColors, HJFonts, HJShadow } from './brandConstants';
 
-/**
- * The default color of text on the WelcomePage.
- */
-const TEXT_COLOR = BaseTheme.palette.text01;
+export const AVATAR_SIZE = 104;
 
 /**
  * The styles of the React {@code Components} of the feature welcome including
@@ -17,7 +14,7 @@ const TEXT_COLOR = BaseTheme.palette.text01;
 export default {
 
     blankPageText: {
-        color: TEXT_COLOR,
+        color: BaseTheme.palette.text01,
         fontSize: 18
     },
 
@@ -37,13 +34,13 @@ export default {
      * Join button style.
      */
     button: {
-        backgroundColor: BaseTheme.palette.action01,
-        borderColor: BaseTheme.palette.action01,
-        borderRadius: BaseTheme.shape.borderRadius,
+        backgroundColor: HJColors.primary,
+        borderColor: HJColors.primary,
+        borderRadius: HJBorderRadius.md,
         borderWidth: 1,
-        height: BaseTheme.spacing[7],
+        height: 48,
         justifyContent: 'center',
-        paddingHorizontal: BaseTheme.spacing[4]
+        paddingHorizontal: 16
     },
 
     joinButtonLabel: {
@@ -52,12 +49,13 @@ export default {
 
     joinButtonText: {
         alignSelf: 'center',
-        color: BaseTheme.palette.text01,
+        color: HJColors.white,
         fontSize: 14
     },
 
     enterRoomText: {
-        color: TEXT_COLOR,
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
         fontSize: 18,
         marginBottom: BoxModel.margin
     },
@@ -83,7 +81,7 @@ export default {
      * The text of the hint box.
      */
     hintText: {
-        color: BaseTheme.palette.text01,
+        color: HJColors.gray800,
         textAlign: 'center'
     },
 
@@ -102,19 +100,12 @@ export default {
         paddingTop: 10
     },
 
-    /**
-     * A view that contains the field and hint box.
-     */
-    joinControls: {
-        padding: BoxModel.padding
-    },
-
     messageContainer: {
-        backgroundColor: BaseTheme.palette.ui03,
-        borderRadius: BaseTheme.shape.borderRadius,
-        marginVertical: BaseTheme.spacing[1],
-        paddingHorizontal: BaseTheme.spacing[2],
-        paddingVertical: 2 * BaseTheme.spacing[2]
+        backgroundColor: HJColors.gray100,
+        borderRadius: HJBorderRadius.md,
+        marginVertical: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 16
     },
 
     roomNameInputContainer: {
@@ -140,7 +131,7 @@ export default {
     },
 
     reducedUIText: {
-        color: TEXT_COLOR,
+        color: BaseTheme.palette.text01,
         fontSize: 12
     },
 
@@ -150,7 +141,7 @@ export default {
     roomContainer: {
         alignSelf: 'stretch',
         flexDirection: 'column',
-        marginHorizontal: BaseTheme.spacing[2]
+        marginHorizontal: 8
     },
 
     /**
@@ -165,10 +156,10 @@ export default {
      */
     textInput: {
         backgroundColor: 'transparent',
-        borderColor: BaseTheme.palette.ui10,
+        borderColor: HJColors.gray300,
         borderRadius: 4,
         borderWidth: 1,
-        color: TEXT_COLOR,
+        color: HJColors.gray800,
         fontSize: 23,
         height: 50,
         padding: 4,
@@ -179,7 +170,7 @@ export default {
      * Application title style.
      */
     title: {
-        color: TEXT_COLOR,
+        color: HJColors.primary,
         fontSize: 25,
         marginBottom: 2 * BoxModel.margin,
         textAlign: 'center'
@@ -188,7 +179,7 @@ export default {
     insecureRoomNameWarningContainer: {
         alignItems: 'center',
         flexDirection: 'row',
-        paddingHorizontal: BaseTheme.spacing[1]
+        paddingHorizontal: 4
     },
 
     insecureRoomNameWarningIcon: {
@@ -198,7 +189,7 @@ export default {
     },
 
     insecureRoomNameWarningText: {
-        color: BaseTheme.palette.text01,
+        color: HJColors.gray800,
         flex: 1
     },
 
@@ -206,16 +197,17 @@ export default {
      * The style of the top-level container of {@code WelcomePage}.
      */
     safeAreaView: {
-        flex: 1
+        flex: 1,
+        backgroundColor: HJColors.beige
     },
     welcomePage: {
-        backgroundColor: BaseTheme.palette.uiBackground,
+        backgroundColor: HJColors.beige,
         flex: 1,
         overflow: 'hidden',
         paddingTop: 20
     },
     talentPage: {
-        backgroundColor: BaseTheme.palette.uiBackground,
+        backgroundColor: HJColors.beige,
         flex: 1,
         overflow: 'hidden',
         paddingTop: 20,
@@ -228,15 +220,16 @@ export default {
         gap: 20,
     },
     logo: {
-        width: 120,
-        height: 120,
+        width: 200,
+        height: 97,
         alignSelf: 'center'
     },
     onboardContainer: {
         marginHorizontal: 16,
     },
     welcomeText: {
-        color: 'white',
+        color: HJColors.primary,
+        fontFamily: HJFonts.headline,
         fontSize: 24,
         fontWeight: 'bold',
         textAlign: 'center',
@@ -244,10 +237,13 @@ export default {
     },
     cardWrap: {
         marginVertical: 20,
-        backgroundColor: BaseTheme.palette.ui03,
-        borderRadius: 8,
+        backgroundColor: HJColors.white,
+        borderRadius: HJBorderRadius.lg,
+        borderColor: HJColors.gray200,
+        borderWidth: 1,
         flexDirection: 'column',
         gap: 18,
+        ...HJShadow.card,
     },
     card: {
         margin: 10,
@@ -257,34 +253,48 @@ export default {
     },
     cardTitle: {
         fontSize: 18,
+        fontFamily: HJFonts.headline,
         fontWeight: 'bold',
         textAlign: 'center',
-        color: 'white',
+        color: HJColors.primary,
     },
     cardText: {
-        color: 'white',
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
         fontSize: 16,
+        fontWeight: '500',
     },
     talentButton: {
-        backgroundColor: BaseTheme.palette.action01,
-        borderRadius: BaseTheme.shape.borderRadius,
+        backgroundColor: HJColors.primary,
+        borderColor: HJColors.primary,
+        borderRadius: HJBorderRadius.md,
         borderWidth: 1,
-        height: BaseTheme.spacing[7],
+        height: 48,
         justifyContent: 'center',
-        paddingHorizontal: BaseTheme.spacing[4],
+        paddingHorizontal: 16,
         marginVertical: 8,
     },
     optionsButton: {
-        backgroundColor: BaseTheme.palette.ui03,
-        borderRadius: BaseTheme.shape.borderRadius,
+        backgroundColor: HJColors.white,
+        borderColor: HJColors.gray300,
+        borderRadius: HJBorderRadius.md,
         borderWidth: 1,
-        height: BaseTheme.spacing[7],
+        height: 48,
         justifyContent: 'center',
-        paddingHorizontal: BaseTheme.spacing[4],
+        paddingHorizontal: 16,
+        marginVertical: 8,
     },
     buttonText: {
         alignSelf: 'center',
-        color: BaseTheme.palette.text01,
+        color: HJColors.white,
+        fontFamily: HJFonts.headline,
+        fontSize: 16,
+        fontWeight: 'bold'
+    },
+    optionsButtonText: {
+        alignSelf: 'center',
+        color: HJColors.primary,
+        fontFamily: HJFonts.headline,
         fontSize: 16,
         fontWeight: 'bold'
     },
@@ -299,11 +309,15 @@ export default {
         alignItems: 'baseline',
     },
     linkText: {
-        color: '#007AFF',
+        color: HJColors.pink,
+        fontFamily: HJFonts.body,
         fontSize: 16,
+        textDecorationLine: 'underline',
     },
     linkTextSmall: {
-        color: '#007AFF',
+        color: HJColors.pink,
+        fontFamily: HJFonts.body,
+        textDecorationLine: 'underline',
     },
     supportContainer: {
         paddingHorizontal: 18,
@@ -312,10 +326,14 @@ export default {
         justifyContent: 'center',
     },
     supportText: {
-        color: BaseTheme.palette.ui08,
+        color: HJColors.gray500,
+        fontFamily: HJFonts.body,
+        fontWeight: '500',
     },
     customInput: {
-        fontSize: 18,
+        fontSize: 22,
+        fontFamily: HJFonts.body,
+        fontWeight: '500',
         letterSpacing: 0,
         textAlign: 'center'
     },
@@ -333,7 +351,8 @@ export default {
     },
 
     talentInfoText: {
-        color: 'white',
+        color: HJColors.gray800,
+        fontFamily: HJFonts.body,
         textAlign: 'center'
     }
 };

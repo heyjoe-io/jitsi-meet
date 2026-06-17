@@ -3,13 +3,11 @@ import React, { useCallback } from 'react';
 import {
     BackHandler,
     NativeModules,
-    Platform,
-    SafeAreaView,
     StatusBar,
     View,
     ViewStyle
 } from 'react-native';
-import { EdgeInsets, withSafeAreaInsets } from 'react-native-safe-area-context';
+import { Edge, EdgeInsets, SafeAreaView, withSafeAreaInsets } from 'react-native-safe-area-context';
 import { connect, useDispatch } from 'react-redux';
 
 import { appNavigate } from '../../../app/actions.native';
@@ -98,11 +96,6 @@ interface IProps extends AbstractProps {
      * Set to {@code true} when the filmstrip is currently visible.
      */
     _filmstripVisible: boolean;
-
-    /**
-     * The indicator which determines whether fullscreen (immersive) mode is enabled.
-     */
-    _fullscreenEnabled: boolean;
 
     /**
      * The indicator which determines if the display name is visible.
@@ -240,7 +233,8 @@ class Conference extends AbstractConference<IProps, State> {
         const {
             _audioOnlyEnabled,
             _showLobby,
-            _startCarMode
+            _startCarMode,
+            navigation
         } = this.props;
 
         if (!prevProps._showLobby && _showLobby) {
@@ -249,10 +243,10 @@ class Conference extends AbstractConference<IProps, State> {
 
         if (prevProps._showLobby && !_showLobby) {
             if (_audioOnlyEnabled && _startCarMode) {
-                return;
+                navigation.navigate(screen.conference.carmode);
+            } else {
+                navigate(screen.conference.main);
             }
-
-            navigate(screen.conference.main);
         }
     }
 
@@ -279,9 +273,11 @@ class Conference extends AbstractConference<IProps, State> {
      */
     override render() {
         const {
+            _aspectRatio,
             _brandingStyles,
-            _fullscreenEnabled
         } = this.props;
+
+        const isLandscape = _aspectRatio === ASPECT_RATIO_WIDE;
 
         return (
             <Container
@@ -289,14 +285,10 @@ class Conference extends AbstractConference<IProps, State> {
                     styles.conference,
                     _brandingStyles
                 ] }>
+                <StatusBar
+                    animated = { true }
+                    hidden = { isLandscape } />
                 <BrandingImageBackground />
-                {
-                    Platform.OS === 'android'
-                    && <StatusBar
-                        barStyle = 'light-content'
-                        hidden = { _fullscreenEnabled }
-                        translucent = { _fullscreenEnabled } />
-                }
                 { this._renderContent() }
             </Container>
         );
@@ -457,6 +449,7 @@ class Conference extends AbstractConference<IProps, State> {
                 </View>
 
                 <SafeAreaView
+                    edges = { [ 'left', 'right', 'top' ] }
                     pointerEvents = 'box-none'
                     style = {
                         (_toolboxVisible
@@ -465,6 +458,7 @@ class Conference extends AbstractConference<IProps, State> {
                     <TitleBar _createOnPress = { this._createOnPress } />
                 </SafeAreaView>
                 <SafeAreaView
+                    edges = { [ 'bottom', 'left', 'right', !_toolboxVisible && 'top' ].filter(Boolean) as Edge[] }
                     pointerEvents = 'box-none'
                     style = {
                         (_toolboxVisible
@@ -588,7 +582,7 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
     const { startCarMode } = state['features/base/settings'];
     const { enabled: audioOnlyEnabled } = state['features/base/audio-only'];
     const brandingStyles = backgroundColor ? {
-        backgroundColor
+        background: backgroundColor
     } : undefined;
 
     return {
@@ -599,7 +593,6 @@ function _mapStateToProps(state: IReduxState, _ownProps: any) {
         _calendarEnabled: isCalendarEnabled(state),
         _connecting: isConnecting(state),
         _filmstripVisible: isFilmstripVisible(state),
-        _fullscreenEnabled: getFeatureFlag(state, FULLSCREEN_ENABLED, true),
         _isDisplayNameVisible: isDisplayNameVisible(state),
         _isParticipantsPaneOpen: isOpen,
         _largeVideoParticipantId: state['features/large-video'].participantId,

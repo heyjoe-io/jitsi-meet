@@ -4,11 +4,16 @@
  * Podfile are wrong.
  */
 module.exports = {
+    assets: ['./fonts'],
     // Exclude some dependencies from auto-linking for the lite SDK.
     dependencies: {
         '@giphy/react-native-sdk': {
             platforms: {
-                ios: null
+                ios: {
+                    // Disable auto-linking but keep codegen.
+                    // We need it to generate GiphyReactNativeSDKSpec.
+                    scriptPhases: []
+                }
             }
         },
         '@react-native-google-signin/google-signin': {
@@ -17,11 +22,6 @@ module.exports = {
             }
         },
         'react-native-calendar-events': {
-            platforms: {
-                ios: null
-            }
-        },
-        'react-native-watch-connectivity': {
             platforms: {
                 ios: null
             }

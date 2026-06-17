@@ -4,7 +4,6 @@ import { useDispatch } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
 import { hangup } from '../../../base/connection/actions.web';
-import { withPixelLineHeight } from '../../../base/styles/functions';
 import Button from '../../../base/ui/components/web/Button';
 import LoadingIndicator from '../../../base/ui/components/web/Spinner';
 
@@ -15,7 +14,7 @@ const useStyles = makeStyles()(theme => {
             position: 'absolute',
             inset: '0 0 0 0',
             display: 'flex',
-            backgroundColor: theme.palette.ui01,
+            backgroundColor: theme.palette.visitorsQueueBackground,
             zIndex: 252,
 
             '@media (max-width: 720px)': {
@@ -57,8 +56,8 @@ const useStyles = makeStyles()(theme => {
             width: '100%'
         },
         roomName: {
-            ...withPixelLineHeight(theme.typography.heading5),
-            color: theme.palette.text01,
+            ...theme.typography.heading5,
+            color: theme.palette.visitorsQueueText,
             marginBottom: theme.spacing(4),
             overflow: 'hidden',
             textAlign: 'center',

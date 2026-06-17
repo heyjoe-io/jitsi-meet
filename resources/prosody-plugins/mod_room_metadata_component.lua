@@ -62,9 +62,7 @@ function getMetadataJSON(room, metadata)
     return res;
 end
 
-function broadcastMetadata(room)
-    local json_msg = getMetadataJSON(room);
-
+function broadcastMetadata(room, json_msg)
     if not json_msg then
         return;
     end
@@ -88,10 +86,6 @@ function send_metadata(occupant, room, json_msg)
                 participants:append(room._data.participants);
             end
 
-            if room._data.moderator_id then
-                moderators:push(room._data.moderator_id);
-            end
-
             if room._data.moderators then
                 moderators:append(room._data.moderators);
             end
@@ -99,6 +93,8 @@ function send_metadata(occupant, room, json_msg)
             metadata_to_send = table_shallow_copy(metadata_to_send);
             metadata_to_send.participants = participants;
             metadata_to_send.moderators = moderators;
+
+            module:log('info', 'Sending metadata to jicofo room=%s,meeting_id=%s', room.jid, room._data.meetingId);
         end
 
         json_msg = getMetadataJSON(room, metadata_to_send);
@@ -151,7 +147,7 @@ function on_message(event)
     local room = get_room_from_jid(room_jid_match_rewrite(roomJid));
 
     if not room then
-        module:log('warn', 'No room found found for %s/%s',
+        module:log('warn', 'No room found for %s/%s',
                 session.jitsi_web_query_prefix, session.jitsi_web_query_room);
         return false;
     end
@@ -176,24 +172,29 @@ function on_message(event)
         return false;
     end
 
-    if occupant.role ~= 'moderator' then
-        -- will return a non nil filtered data to use, if it is nil, it is not allowed
-        local res = module:context(main_virtual_host):fire_event('jitsi-metadata-allow-moderation',
-                { room = room; actor = occupant; key = jsonData.key ; data = jsonData.data; session = session; });
+    -- will return a non nil filtered data to use, if it is nil, it is not allowed
+    local res = module:context(main_virtual_host):fire_event('jitsi-metadata-allow-moderation',
+            { room = room; actor = occupant; key = jsonData.key ; data = jsonData.data; session = session; });
 
-        if not res then
-            module:log('warn', 'Occupant %s is not moderator and not allowed this operation for %s', from, room.jid);
+    if res == false then
+        module:log('warn', 'Occupant %s features do not allow this operation(%s) for %s', from, jsonData.key, room.jid);
+        return false;
+    elseif res ~= nil then
+        jsonData.data = res;
+    else
+        if occupant.role ~= 'moderator' then
+            module:log('warn', 'Occupant %s is not moderator and not allowed this operation(%s) for %s',
+                from, jsonData.key, room.jid);
             return false;
         end
-
-        jsonData.data = res;
     end
 
     local old_value = room.jitsiMetadata[jsonData.key];
     if not table_equals(old_value, jsonData.data) then
         room.jitsiMetadata[jsonData.key] = jsonData.data;
 
-        broadcastMetadata(room);
+        module:log('info', 'Metadata key "%s" updated by %s in room:%s,meeting_id:%s', jsonData.key, from, room.jid, room._data.meetingId);
+        broadcastMetadata(room, getMetadataJSON(room));
 
         -- fire and event for the change
         main_muc_module:fire_event('jitsi-metadata-updated', { room = room; actor = occupant; key = jsonData.key; });
@@ -218,7 +219,24 @@ function process_main_muc_loaded(main_muc, host_module)
 
     -- The room metadata was updated internally (from another module).
     host_module:hook("room-metadata-changed", function(event)
-        broadcastMetadata(event.room);
+        local room = event.room;
+        local json_msg = getMetadataJSON(room);
+
+        local log_json = json_msg;
+        if room.jitsiMetadata and room.jitsiMetadata.transcription
+                and room.jitsiMetadata.transcription.httpHeaders then
+            local metadata_copy = table_shallow_copy(room.jitsiMetadata);
+            local transcription_copy = table_shallow_copy(metadata_copy.transcription);
+            local headers_redacted = {};
+            for k, _ in pairs(transcription_copy.httpHeaders) do
+                headers_redacted[k] = '***';
+            end
+            transcription_copy.httpHeaders = headers_redacted;
+            metadata_copy.transcription = transcription_copy;
+            log_json = getMetadataJSON(room, metadata_copy) or log_json;
+        end
+        module:log('info', 'Metadata changed internally in room:%s,meeting_id:%s - broadcasting data:%s', room.jid, room._data.meetingId, log_json);
+        broadcastMetadata(room, json_msg);
     end);
 
     -- TODO: Once clients update to read/write metadata for startMuted policy we can drop this
@@ -259,6 +277,17 @@ function process_main_muc_loaded(main_muc, host_module)
             room.jitsiMetadata.startMuted = startMutedMetadata;
 
             host_module:fire_event('room-metadata-changed', { room = room; });
+        end
+    end);
+
+    -- The the connection jid for authenticated users (like jicofo) stays the same,
+    -- so leaving and re-joining will result not sending metatadata again.
+    -- Make sure we clear the sent_initial_metadata entry for the occupant on leave.
+    host_module:hook("muc-occupant-left", function(event)
+        local room, occupant = event.room, event.occupant;
+
+        if room.sent_initial_metadata then
+            room.sent_initial_metadata[jid.bare(event.occupant.jid)] = nil;
         end
     end);
 end
@@ -306,8 +335,7 @@ end
 
 -- Send a message update for metadata before sending the first self presence
 function filter_stanza(stanza, session)
-    if not stanza.attr or not stanza.attr.to or stanza.name ~= 'presence'
-        or stanza.attr.type == 'unavailable' or ends_with(stanza.attr.from, '/focus') then
+    if not stanza.attr or not stanza.attr.to or stanza.name ~= 'presence' or stanza.attr.type == 'unavailable' then
         return stanza;
     end
 

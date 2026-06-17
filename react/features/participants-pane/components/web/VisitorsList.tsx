@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { makeStyles } from 'tss-react/mui';
 
-import { withPixelLineHeight } from '../../../base/styles/functions.web';
 import { admitMultiple, goLive } from '../../../visitors/actions';
 import {
     getPromotionRequests,
@@ -21,7 +20,7 @@ const useStyles = makeStyles()(theme => {
             margin: `${theme.spacing(3)} 0`
         },
         headingW: {
-            color: theme.palette.warning02
+            color: theme.palette.participantWarningText
         },
         drawerActions: {
             listStyleType: 'none',
@@ -30,10 +29,10 @@ const useStyles = makeStyles()(theme => {
         },
         drawerItem: {
             alignItems: 'center',
-            color: theme.palette.text01,
+            color: theme.palette.visitorsQueueText,
             display: 'flex',
             padding: '12px 16px',
-            ...withPixelLineHeight(theme.typography.bodyShortRegularLarge),
+            ...theme.typography.bodyShortRegularLarge,
 
             '&:first-child': {
                 marginTop: '15px'
@@ -41,7 +40,7 @@ const useStyles = makeStyles()(theme => {
 
             '&:hover': {
                 cursor: 'pointer',
-                background: theme.palette.action02
+                background: theme.palette.participantActionButton
             }
         },
         icon: {
@@ -53,12 +52,12 @@ const useStyles = makeStyles()(theme => {
             justifyContent: 'space-between'
         },
         heading: {
-            ...withPixelLineHeight(theme.typography.bodyShortBold),
-            color: theme.palette.text02
+            ...theme.typography.bodyShortBold,
+            color: theme.palette.participantSectionText
         },
         link: {
-            ...withPixelLineHeight(theme.typography.labelBold),
-            color: theme.palette.link01,
+            ...theme.typography.labelBold,
+            color: theme.palette.participantLinkText,
             cursor: 'pointer'
         }
     };

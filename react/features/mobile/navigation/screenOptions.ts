@@ -64,10 +64,10 @@ export const talentScreenOptions = {
 export const localRecordingScreenOptions = {
     headerLeft: () => screenHeaderCloseButton(goBackToWelcomeScreen),
     headerStyle: {
-        backgroundColor: BaseTheme.palette.ui01
+        backgroundColor: '#fcf4e6'
     },
     headerTitleStyle: {
-        color: BaseTheme.palette.text01
+        color: '#000000'
     }
 };
 /**

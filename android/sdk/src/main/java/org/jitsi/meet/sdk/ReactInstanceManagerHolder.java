@@ -23,11 +23,15 @@ import androidx.annotation.Nullable;
 
 import com.facebook.hermes.reactexecutor.HermesExecutorFactory;
 import com.facebook.react.ReactInstanceManager;
+import com.facebook.react.ReactInstanceManagerBuilder;
 import com.facebook.react.ReactPackage;
+import com.facebook.react.ReactPackageTurboModuleManagerDelegate;
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.common.LifecycleState;
+import com.facebook.react.defaults.DefaultTurboModuleManagerDelegate;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.facebook.react.uimanager.ViewManager;
 import com.oney.WebRTCModule.EglUtils;
@@ -102,14 +106,22 @@ class ReactInstanceManagerHolder {
             new com.oney.WebRTCModule.WebRTCModulePackage(),
             new com.swmansion.gesturehandler.RNGestureHandlerPackage(),
             new org.linusu.RNGetRandomValuesPackage(),
-            new com.rnimmersivemode.RNImmersiveModePackage(),
             new com.swmansion.rnscreens.RNScreensPackage(),
             new com.zmxv.RNSound.RNSoundPackage(),
             new com.th3rdwave.safeareacontext.SafeAreaContextPackage(),
             new com.horcrux.svg.SvgPackage(),
             new org.wonday.orientation.OrientationPackage(),
             new com.splashview.SplashViewPackage(),
+            new com.ReactNativeBlobUtil.ReactNativeBlobUtilPackage(),
             new com.worklets.WorkletsCorePackage(),
+            new ReactPackageAdapter() {
+                @Override
+                public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+                    List<NativeModule> modules = new ArrayList<>();
+                    modules.add(new FileUploadModule(reactContext));
+                    return modules;
+                }
+            },
             new ReactPackageAdapter() {
                 @Override
                 public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
@@ -230,7 +242,7 @@ class ReactInstanceManagerHolder {
 
         JitsiMeetLogger.d(TAG, "initializing RN");
 
-        reactInstanceManager
+        ReactInstanceManagerBuilder builder
             = ReactInstanceManager.builder()
                 .setApplication(app)
                 .setCurrentActivity(null)
@@ -239,7 +251,20 @@ class ReactInstanceManagerHolder {
                 .setJavaScriptExecutorFactory(new HermesExecutorFactory())
                 .addPackages(getReactNativePackages())
                 .setUseDeveloperSupport(BuildConfig.DEBUG)
-                .setInitialLifecycleState(LifecycleState.BEFORE_CREATE)
-                .build();
+                .setInitialLifecycleState(LifecycleState.BEFORE_CREATE);
+
+        if (ReactNativeFeatureFlags.enableFabricRenderer() && ReactNativeFeatureFlags.useTurboModules()) {
+            List<ReactPackage> packages = getReactNativePackages();
+
+            JitsiMeetLogger.d(TAG, "New Architecture enabled - configuring TurboModule delegate");
+
+            ReactPackageTurboModuleManagerDelegate.Builder tmDelegate =
+                new DefaultTurboModuleManagerDelegate.Builder()
+                    .setPackages(packages);
+
+            builder.setReactPackageTurboModuleManagerDelegateBuilder(tmDelegate);
+        }
+
+        reactInstanceManager = builder.build();
     }
 }

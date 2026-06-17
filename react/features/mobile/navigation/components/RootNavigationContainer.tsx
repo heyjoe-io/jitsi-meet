@@ -1,7 +1,6 @@
 import { NavigationContainer, Theme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React, { useCallback } from 'react';
-import { StatusBar } from 'react-native';
 import { connect } from 'react-redux';
 
 import { IReduxState, IStore } from '../../../app/types';
@@ -9,8 +8,7 @@ import DialInSummary from '../../../invite/components/dial-in-summary/native/Dia
 import LocalRecordingList from '../../../mobile/recordings/components/LocalRecordings';
 import Prejoin from '../../../prejoin/components/native/Prejoin';
 import UnsafeRoomWarning from '../../../prejoin/components/native/UnsafeRoomWarning';
-// @ts-ignore
-import { isUnsafeRoomWarningEnabled } from '../../../prejoin/functions';
+import { isUnsafeRoomWarningEnabled } from '../../../prejoin/functions.native';
 import VisitorsQueue from '../../../visitors/components/native/VisitorsQueue';
 // @ts-ignore
 import TalentPage from '../../../welcome/components/TalentPage';
@@ -75,11 +73,6 @@ const RootNavigationContainer = ({ dispatch, isUnsafeRoomWarningAvailable, isWel
             onReady = { onReady }
             ref = { rootNavigationRef }
             theme = { navigationContainerTheme as Theme }>
-            <StatusBar
-                animated = { true }
-                backgroundColor = 'transparent'
-                barStyle = { 'light-content' }
-                translucent = { true } />
             <RootStack.Navigator
                 initialRouteName = { initialRouteName }>
                 {
