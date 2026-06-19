@@ -16,15 +16,15 @@ const TICK_MS = 33;
 
 const styles = StyleSheet.create({
     overlay: {
-        position: 'absolute',
-        top: 64,
-        left: 12,
-        right: 12,
-        maxHeight: '45%',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 10,
-        backgroundColor: 'rgba(0, 0, 0, 0.55)'
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.88)'
+    },
+    content: {
+        paddingHorizontal: 20,
+        // Clear the status bar / notch at the top and leave room at the bottom
+        // so the final lines can scroll up into view.
+        paddingTop: 80,
+        paddingBottom: '60%'
     },
     text: {
         color: '#ffffff',
@@ -102,7 +102,11 @@ const Teleprompter = (): JSX.Element | null => {
         }
     }, [ nudgeTrigger ]);
 
-    if (!script) {
+    // Only show while the CD has the teleprompter running (isScrolling). A pause is
+    // sent as scrollSpeed 0 with isScrolling still true, so pausing holds the script
+    // on screen; stopping (isScrolling false) hides it. Pasting a script without
+    // starting it does not show anything.
+    if (!script || !isScrolling) {
         return null;
     }
 
@@ -111,6 +115,7 @@ const Teleprompter = (): JSX.Element | null => {
             pointerEvents = 'none'
             style = { styles.overlay }>
             <ScrollView
+                contentContainerStyle = { styles.content }
                 ref = { scrollRef }
                 scrollEnabled = { false }
                 showsVerticalScrollIndicator = { false }>
