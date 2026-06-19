@@ -19,6 +19,7 @@ import { getFeatureFlag } from '../../../base/flags/functions';
 import CameraZoomBar from '../../../base/media/components/native/CameraZoomBar';
 import RemoteCameraControl from '../../../base/media/components/native/RemoteCameraControl';
 import RemoteGimbalControl from '../../../base/media/components/native/RemoteGimbalControl';
+import Teleprompter from '../../../teleprompter/components/native/Teleprompter';
 import Container from '../../../base/react/components/native/Container';
 import LoadingIndicator from '../../../base/react/components/native/LoadingIndicator';
 import TintedView from '../../../base/react/components/native/TintedView';
@@ -483,6 +484,8 @@ class Conference extends AbstractConference<IProps, State> {
                 <RemoteCameraControl />
 
                 <RemoteGimbalControl />
+
+                <Teleprompter />
 
                 {
                     _shouldDisplayTileView

@@ -3,6 +3,7 @@ import '../mobile/background/reducer';
 import '../mobile/call-integration/reducer';
 import '../mobile/external-api/reducer';
 import '../share-room/reducer';
+import '../teleprompter/reducer';
 
 import './reducer.native';
 
