@@ -52,24 +52,27 @@ const Teleprompter = (): JSX.Element | null => {
 
     const script = tp?.script;
     const fontSize = tp?.fontSize || 28;
-    const scrollSpeed = tp?.scrollSpeed || 30;
+    const scrollSpeed = tp?.scrollSpeed ?? 30;
     const isScrolling = Boolean(tp?.isScrolling);
     const resetTrigger = tp?.resetTrigger || 0;
     const nudgeTrigger = tp?.nudgeTrigger || 0;
     const nudgeDir = tp?.nudgeDir || 0;
 
-    // Auto-scroll loop, paced to scrollSpeed (px/sec) under CD control.
+    // Auto-scroll loop under CD control. Matched to the casting web teleprompter:
+    // it advances scrollSpeed * 0.03 px per animation frame (~60fps) ≈
+    // scrollSpeed * 1.8 px/sec. scrollSpeed 0 is a pause (hold the script still).
     useEffect(() => {
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
         }
 
-        if (!isScrolling || !script) {
+        // scrollSpeed <= 0 = paused: don't run the timer so the script holds in place.
+        if (!isScrolling || !script || scrollSpeed <= 0) {
             return undefined;
         }
 
-        const stepPx = Math.max(0.3, scrollSpeed / (1000 / TICK_MS));
+        const stepPx = (scrollSpeed * 1.8 * TICK_MS) / 1000;
 
         timerRef.current = setInterval(() => {
             posRef.current += stepPx;
