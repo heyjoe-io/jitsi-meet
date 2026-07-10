@@ -33,8 +33,23 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
     private static let nudgeRate: Double = 0.6
     private static let nudgeNanos: UInt64 = 300_000_000 // 0.3s
 
+    /// Continuous-move tuning — rad/s (spec suggests ~30°/s pan, ~20°/s tilt;
+    /// err slower). Tune on the physical gimbal.
+    private static let panRate: Double = 0.52
+    private static let tiltRate: Double = 0.35
+
+    /// Dead-man window (spec hard requirement: 1000ms). The web sends keepalives
+    /// every 250ms; if none arrive for this long the gimbal stops on its own.
+    /// Lives HERE (native) so a stalled/crashed JS runtime can't leave the motor
+    /// spinning — do not move this into the RN layer.
+    private static let deadManNanos: UInt64 = 1_000_000_000
+
     private var isTracking = false
     private var observing = false
+
+    /// The `moveId` of the continuous hold currently driving the motor, if any.
+    private var activeMoveId: String?
+    private var deadManTask: Task<Void, Never>?
 
     /// Holds a `DockAccessory` at runtime, typed as AnyObject so the property exists
     /// on SDKs without DockKit (simulator). Nil ⇒ no gimbal docked.
@@ -80,6 +95,11 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
                         } else {
                             self._accessory = nil
                             self.isTracking = false
+                            // Undocked mid-hold: the motor is gone — clear the
+                            // move bookkeeping so a re-dock starts clean.
+                            self.activeMoveId = nil
+                            self.deadManTask?.cancel()
+                            self.deadManTask = nil
                         }
                         self.postStatusChange()
                     }
@@ -119,6 +139,11 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
 
         Task {
             do {
+                // Spec: a discrete command arriving mid-hold stops the active
+                // move first, then executes (defensive — the web panel tries to
+                // prevent this, but ordering over the wire isn't guaranteed).
+                self.endMove()
+
                 switch command {
                 case "start_tracking":
                     try await DockAccessoryManager.shared.setSystemTrackingEnabled(true)
@@ -157,6 +182,112 @@ public class HJGimbalController: NSObject, @unchecked Sendable {
         }
         #else
         completion(false, "Gimbal control is not available on this device")
+        #endif
+    }
+
+    // MARK: - Continuous press-and-hold moves (Gimbal_Continuous_PanTilt_Spec)
+
+    /// Begin a continuous rotation for the given hold. The newest `move_start`
+    /// always wins — any active hold is superseded. Fails (rather than silently
+    /// stopping tracking) when subject tracking is on, per spec.
+    @objc public func startMove(_ direction: String, moveId: String,
+                                completion: @escaping @Sendable (Bool, String?) -> Void) {
+        #if canImport(DockKit)
+        guard #available(iOS 17.0, *) else {
+            completion(false, "Gimbal control requires iOS 17 or later")
+
+            return
+        }
+        guard let accessory = _accessory as? DockAccessory else {
+            completion(false, "Gimbal not connected")
+
+            return
+        }
+        guard !isTracking else {
+            // DockKit's system tracking owns the motors; manual velocity while
+            // it's on fights the tracker. Spec: report, don't silently stop it.
+            completion(false, "Tracking is on")
+
+            return
+        }
+
+        let velocity: Vector3D
+        switch direction {
+        case "pan_left": velocity = Vector3D(x: 0, y: Self.panRate, z: 0)
+        case "pan_right": velocity = Vector3D(x: 0, y: -Self.panRate, z: 0)
+        case "tilt_up": velocity = Vector3D(x: Self.tiltRate, y: 0, z: 0)
+        case "tilt_down": velocity = Vector3D(x: -Self.tiltRate, y: 0, z: 0)
+        default:
+            completion(false, "Unsupported direction: \(direction)")
+
+            return
+        }
+
+        Task {
+            do {
+                // Supersede any active hold: claim the id first so the old
+                // hold's watchdog (bound to the old id) becomes a no-op, then
+                // let the new velocity simply replace the old one.
+                self.activeMoveId = moveId
+                try await accessory.setAngularVelocity(velocity)
+                self.armDeadMan(for: moveId)
+                completion(true, nil)
+            } catch {
+                if self.activeMoveId == moveId {
+                    self.activeMoveId = nil
+                    self.deadManTask?.cancel()
+                    self.deadManTask = nil
+                }
+                completion(false, error.localizedDescription)
+            }
+        }
+        #else
+        completion(false, "Gimbal control is not available on this device")
+        #endif
+    }
+
+    /// Reset the dead-man timer for the active hold. Stale keepalives (from a
+    /// superseded hold or out-of-order delivery) are ignored — they must never
+    /// extend the current move.
+    @objc public func moveKeepalive(_ moveId: String) {
+        guard moveId == activeMoveId else { return }
+        armDeadMan(for: moveId)
+    }
+
+    /// Stop the active hold. A non-matching or late `move_stop` is a no-op.
+    @objc public func stopMove(_ moveId: String) {
+        guard moveId == activeMoveId else { return }
+        endMove()
+    }
+
+    /// (Re)arm the watchdog: if 1s passes without another keepalive for this
+    /// hold, stop the motor. `move_stop` is best-effort; this is the guarantee.
+    private func armDeadMan(for moveId: String) {
+        deadManTask?.cancel()
+        deadManTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.deadManNanos)
+            guard !Task.isCancelled, let self = self, self.activeMoveId == moveId else { return }
+            self.endMove()
+        }
+    }
+
+    /// Stop rotation and clear the hold. Safe to call when nothing is moving.
+    /// Pushes a status change so the CD panel reflects the settled state
+    /// ("status after a move" in the spec).
+    private func endMove() {
+        let wasMoving = activeMoveId != nil
+
+        activeMoveId = nil
+        deadManTask?.cancel()
+        deadManTask = nil
+
+        #if canImport(DockKit)
+        if wasMoving, #available(iOS 17.0, *), let accessory = _accessory as? DockAccessory {
+            Task {
+                try? await accessory.setAngularVelocity(Vector3D(x: 0, y: 0, z: 0))
+                self.postStatusChange()
+            }
+        }
         #endif
     }
 

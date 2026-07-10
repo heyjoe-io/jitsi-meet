@@ -10,8 +10,10 @@ const { GimbalControl } = NativeModules;
 const gimbalEmitter = GimbalControl ? new NativeEventEmitter(GimbalControl) : null;
 
 /**
- * The seven V1 commands the CD may send. Anything else is rejected by the phone
- * so a future/typo'd command can't be silently dropped.
+ * The seven V1 discrete commands the CD may send. Anything else is rejected by
+ * the phone so a future/typo'd command can't be silently dropped. Continuous
+ * press-and-hold moves (move_start / move_keepalive / move_stop, per
+ * Gimbal_Continuous_PanTilt_Spec) are handled separately before this check.
  */
 const ALLOWED_COMMANDS = [
     'start_tracking',
@@ -22,6 +24,9 @@ const ALLOWED_COMMANDS = [
     'tilt_up',
     'tilt_down'
 ];
+
+/** Directions a continuous hold may move in. */
+const MOVE_DIRECTIONS = [ 'pan_left', 'pan_right', 'tilt_up', 'tilt_down' ];
 
 /**
  * RemoteGimbalControl — headless (renders nothing). Lets the Casting Admin drive a
@@ -69,7 +74,11 @@ const RemoteGimbalControl = () => {
                 talentId: talentIdRef.current,
                 supported: Boolean(status.supported),
                 connected: Boolean(status.connected),
-                tracking: Boolean(status.tracking)
+                tracking: Boolean(status.tracking),
+
+                // Press-and-hold pan/tilt capability — the CD panel switches
+                // the D-pad to hold mode only when it sees this flag.
+                continuousMove: Boolean(GimbalControl?.startMove)
             });
         } catch {
             // Native unavailable (old build / non-iOS) — stay silent; the CD simply
@@ -99,6 +108,45 @@ const RemoteGimbalControl = () => {
                     requestId,
                     ...body
                 });
+
+            // Continuous press-and-hold moves. Per spec: only failures reply
+            // (requestId = moveId) — success is silence, and the web side sets
+            // no timeout on moves. keepalive/stop never reply; the native
+            // dead-man watchdog (1s without keepalive → stop) is the safety
+            // net, so a lost stop can't leave the gimbal spinning.
+            if (command === 'move_start') {
+                if (!GimbalControl.startMove) {
+                    respond({ ok: false, error: 'Continuous move not supported by this build' });
+
+                    return;
+                }
+                if (!MOVE_DIRECTIONS.includes(msg.direction)) {
+                    respond({ ok: false, error: `Unsupported direction: ${msg.direction}` });
+
+                    return;
+                }
+                GimbalControl.startMove(msg.direction, msg.moveId)
+                    .then((result: any) => {
+                        if (!result.ok) {
+                            respond({ ok: false, error: result.error || 'Gimbal move failed' });
+                        }
+                    })
+                    .catch((error: any) => {
+                        respond({ ok: false, error: error?.message || 'Gimbal move failed' });
+                    });
+
+                return;
+            }
+            if (command === 'move_keepalive') {
+                GimbalControl.moveKeepalive?.(msg.moveId);
+
+                return;
+            }
+            if (command === 'move_stop') {
+                GimbalControl.stopMove?.(msg.moveId);
+
+                return;
+            }
 
             if (!ALLOWED_COMMANDS.includes(command)) {
                 respond({ ok: false, error: `Unsupported command: ${command}` });

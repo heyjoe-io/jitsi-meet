@@ -76,4 +76,28 @@ RCT_EXPORT_METHOD(executeCommand:(NSString *)command
     }];
 }
 
+// Continuous press-and-hold moves (Gimbal_Continuous_PanTilt_Spec). Only
+// startMove replies (so a failed start reaches the CD); keepalive/stop are
+// fire-and-forget — the dead-man watchdog in HJGimbalController is the
+// safety guarantee, not these calls.
+RCT_EXPORT_METHOD(startMove:(NSString *)direction
+                  moveId:(NSString *)moveId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [HJGimbalController.shared startMove:direction moveId:moveId completion:^(BOOL ok, NSString *error) {
+        resolve(@{
+            @"ok": @(ok),
+            @"error": error ?: [NSNull null]
+        });
+    }];
+}
+
+RCT_EXPORT_METHOD(moveKeepalive:(NSString *)moveId) {
+    [HJGimbalController.shared moveKeepalive:moveId];
+}
+
+RCT_EXPORT_METHOD(stopMove:(NSString *)moveId) {
+    [HJGimbalController.shared stopMove:moveId];
+}
+
 @end
