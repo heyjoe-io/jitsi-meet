@@ -94,8 +94,11 @@ iOS app version: update `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (both 
 ### Verify fork is included
 
 ```bash
-# iOS: check recording implementation is present
-grep "Cleaning up stale compression session" node_modules/react-native-webrtc/ios/RCTWebRTC/HeyJoeVideoCapturer.m
+# iOS: check recording implementation is present. Marker current as of fork
+# HEAD 2fb74e7f (2026-07). If it comes back 0, don't assume a stale install —
+# the log wording changes over time; md5-compare the file against the fork's
+# raw GitHub copy at the SHA pinned in package-lock.json before "fixing".
+grep "Skipping stale teardown" node_modules/react-native-webrtc/ios/RCTWebRTC/HeyJoeVideoCapturer.m
 
 # Android: check HeyJoeVideoCapturer is present
 ls node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/HeyJoeVideoCapturer.java
