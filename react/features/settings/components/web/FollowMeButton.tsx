@@ -1,0 +1,144 @@
+import { connect } from 'react-redux';
+
+import { IReduxState, IStore } from '../../../app/types';
+import { setFollowMe } from '../../../follow-me/actions';
+import { translate } from '../../../base/i18n/functions';
+import { IconFollowMeOff, IconFollowMeOn } from '../../../base/icons/svg';
+import { getLocalParticipant } from '../../../base/participants/functions';
+import AbstractButton, { IProps as AbstractButtonProps } from '../../../base/toolbox/components/AbstractButton';
+import { isFollowMeActive, isFollowMeRecorderActive } from '../../../follow-me/functions';
+
+/**
+ * The type of the React {@code Component} props of {@link FollowMeButton}.
+ */
+interface IProps extends AbstractButtonProps {
+
+    /**
+     * Redux dispatch function.
+     */
+    dispatch: IStore['dispatch'];
+
+    /**
+     * Whether or not follow-me is currently active.
+     */
+    followMeActive: boolean;
+
+    /**
+     * Whether or not follow-me is enabled.
+     */
+    followMeEnabled: boolean;
+
+    /**
+     * Whether or not follow-me recorder is active.
+     */
+    followMeRecorderActive: boolean;
+
+    /**
+     * Whether or not follow-me recorder is checked.
+     */
+    followMeRecorderChecked: boolean;
+
+    /**
+     * Whether the local participant is the one controlling follow-me.
+     */
+    isLocalModeratorControlling: boolean;
+}
+
+/**
+ * Implementation of a button for toggling follow-me.
+ */
+class FollowMeButton extends AbstractButton<IProps> {
+    override accessibilityLabel = 'toolbar.accessibilityLabel.followMe';
+    override toggledAccessibilityLabel = 'toolbar.accessibilityLabel.followMeOff';
+    override icon = IconFollowMeOff;
+    override toggledIcon = IconFollowMeOn;
+    override label = 'settings.followMe';
+    override toggledLabel = 'settings.followMeOff';
+    override tooltip = 'settings.followMe';
+    override toggledTooltip = 'settings.followMeOff';
+
+    /**
+     * Indicates whether this button is in toggled state or not.
+     *
+     * @override
+     * @protected
+     * @returns {boolean}
+     */
+    override _isToggled() {
+        const { followMeEnabled, followMeActive, followMeRecorderChecked, isLocalModeratorControlling } = this.props;
+
+        // If the local moderator is controlling follow-me, show as toggled (ON)
+        if (isLocalModeratorControlling) {
+            return true;
+        }
+
+        return followMeEnabled && !followMeActive && !followMeRecorderChecked;
+    }
+
+    /**
+     * Indicates whether this button is disabled or not.
+     *
+     * @override
+     * @protected
+     * @returns {boolean}
+     */
+    override _isDisabled() {
+        const { followMeActive, followMeRecorderActive, isLocalModeratorControlling } = this.props;
+
+        // Don't disable the button if the local moderator is the one controlling follow-me
+        // This allows them to toggle it off
+        if (isLocalModeratorControlling) {
+            return false;
+        }
+
+        return followMeActive || followMeRecorderActive;
+    }
+
+    /**
+     * Handles clicking the button, and toggles the follow-me setting.
+     *
+     * @private
+     * @returns {void}
+     */
+    override _handleClick() {
+        const { dispatch, followMeEnabled, followMeActive, followMeRecorderChecked } = this.props;
+
+        if (this._isDisabled()) {
+            return;
+        }
+
+        const newFollowMeEnabled = !(followMeEnabled && !followMeActive && !followMeRecorderChecked);
+
+        dispatch(setFollowMe(newFollowMeEnabled));
+    }
+}
+
+/**
+ * Function that maps parts of Redux state tree into component props.
+ *
+ * @param {Object} state - Redux state.
+ * @returns {Object}
+ */
+function mapStateToProps(state: IReduxState) {
+    const { conference } = state['features/base/conference'];
+    const { followMeEnabled, followMeRecorderEnabled } = state['features/follow-me'];
+    const followMeActive = isFollowMeActive(state);
+    const followMeRecorderActive = isFollowMeRecorderActive(state);
+    const localParticipant = getLocalParticipant(state);
+    const followMeModeratorId = state['features/follow-me'].moderator;
+    const isLocalModeratorControlling = Boolean(
+        localParticipant && followMeModeratorId && localParticipant.id === followMeModeratorId
+    );
+
+    return {
+        followMeEnabled: Boolean(conference && followMeEnabled),
+        followMeActive: Boolean(conference && followMeActive),
+        followMeRecorderActive: Boolean(conference && followMeRecorderActive),
+        followMeRecorderChecked: Boolean(conference && followMeRecorderEnabled),
+        isLocalModeratorControlling
+    };
+}
+
+export { FollowMeButton };
+
+export default translate(connect(mapStateToProps)(FollowMeButton));

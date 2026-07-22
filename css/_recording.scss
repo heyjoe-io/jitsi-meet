@@ -131,17 +131,169 @@
     }
 
     .recording-switch {
-        margin-left: auto;
+        margin: 16px 0 8px 16px;
+    }
+}
+
+// Recording button styling - red color when recording is active
+div[aria-label*="Stop recording"],
+div[aria-pressed="true"][aria-label*="recording"],
+div[aria-pressed="true"][aria-label*="Record"] {
+    background-color: #dc3545 !important; // Red background when recording
+
+    svg {
+        fill: #ffffff !important; // White icon color for contrast
     }
 
-    .authorization-panel {
-        display: flex;
-        flex-direction: column;
-        margin: 0 40px 10px 40px;
-        padding-bottom: 10px;
+    @media (hover: hover) and (pointer: fine) {
+        &:hover {
+            background-color: #c82333 !important; // Darker red on hover
+        }
 
-        .logged-in-panel {
-            padding: 10px;
+        &:active {
+            background-color: #a21b29 !important; // Even darker on click
+        }
+    }
+}
+
+// Alternative selector for recording button when toggled
+div[role="button"][aria-pressed="true"] {
+    &[aria-label*="recording"],
+    &[aria-label*="Record"],
+    &[aria-label*="Stop recording"] {
+        background-color: #dc3545 !important;
+
+        svg {
+            fill: #ffffff !important;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            &:hover {
+                background-color: #c82333 !important;
+            }
+        }
+    }
+}
+
+// Enhanced recording button styling - ensure entire button is red when recording
+.toolbox-icon.toggled {
+    &[aria-label*="recording"],
+    &[aria-label*="Record"],
+    &[aria-label*="Stop recording"] {
+        background-color: #dc3545 !important;
+        border: 2px solid #dc3545 !important;
+
+        svg {
+            fill: #ffffff !important;
+        }
+
+        &:hover {
+            background-color: #c82333 !important;
+            border-color: #c82333 !important;
+        }
+
+        &:active {
+            background-color: #bd2130 !important;
+            border-color: #bd2130 !important;
+        }
+    }
+}
+
+// Additional selector for recording button in various states
+button.toolbox-icon {
+    &[aria-pressed="true"] {
+        &[aria-label*="recording"],
+        &[aria-label*="Record"],
+        &[aria-label*="Stop recording"] {
+            background-color: #dc3545 !important;
+            border: 2px solid #dc3545 !important;
+
+            svg {
+                fill: #ffffff !important;
+            }
+
+            &:hover {
+                background-color: #c82333 !important;
+                border-color: #c82333 !important;
+            }
+        }
+    }
+}
+
+// More comprehensive recording button styling with higher specificity
+.new-toolbox .toolbox-content .toolbox-content-items .toolbox-icon {
+    &.toggled {
+        &[aria-label*="recording"],
+        &[aria-label*="Record"],
+        &[aria-label*="Stop recording"] {
+            background-color: #dc3545 !important;
+            border: 2px solid #dc3545 !important;
+
+            svg, path {
+                fill: #ffffff !important;
+            }
+
+            &:hover {
+                background-color: #c82333 !important;
+                border-color: #c82333 !important;
+            }
+
+            &:active {
+                background-color: #bd2130 !important;
+                border-color: #bd2130 !important;
+            }
+        }
+    }
+
+    // Also target by aria-pressed for additional coverage
+    &[aria-pressed="true"] {
+        &[aria-label*="recording"],
+        &[aria-label*="Record"],
+        &[aria-label*="Stop recording"] {
+            background-color: #dc3545 !important;
+            border: 2px solid #dc3545 !important;
+
+            svg, path {
+                fill: #ffffff !important;
+            }
+
+            &:hover {
+                background-color: #c82333 !important;
+                border-color: #c82333 !important;
+            }
+
+            &:active {
+                background-color: #bd2130 !important;
+                border-color: #bd2130 !important;
+            }
+        }
+    }
+}
+
+// Fallback with even higher specificity - target any recording button that's active
+.new-toolbox .toolbox-content .toolbox-content-items div[role="button"],
+.new-toolbox .toolbox-content .toolbox-content-items button {
+    &.toggled,
+    &[aria-pressed="true"] {
+        &[aria-label*="recording"],
+        &[aria-label*="Record"],
+        &[aria-label*="Stop recording"] {
+            background-color: #dc3545 !important;
+            border: 2px solid #dc3545 !important;
+
+            svg, path {
+                fill: #ffffff !important;
+            }
+
+            &:hover {
+                background-color: #c82333 !important;
+                border-color: #c82333 !important;
+            }
+
+            &:active {
+                background-color: #bd2130 !important;
+                border-color: #bd2130 !important;
+            }
         }
     }
 }

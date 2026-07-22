@@ -173,7 +173,19 @@ MiddlewareRegistry.register(store => next => action => {
         const isWhiteboardActive = isWhiteboardVisible(state);
         let queue;
 
-        if (activeParticipants.find(p => p.participantId === participantId)) {
+        const existingParticipant = activeParticipants.find(p => p.participantId === participantId);
+
+        if (existingParticipant) {
+            // If the participant is already in the active participants with the same pinned status,
+            // don't reorder to avoid video stream interruption
+            if (existingParticipant.pinned === pinned) {
+                const tid = timers.get(participantId);
+
+                clearTimeout(tid);
+                timers.delete(participantId);
+                break;
+            }
+
             queue = activeParticipants.filter(p => p.participantId !== participantId);
             queue.push({
                 participantId,

@@ -361,7 +361,7 @@ export function showStartedRecordingNotification(
             }
         }
 
-        dispatch(showNotification(notifyProps.dialogProps, notifyProps.type));
+        // dispatch(showNotification(notifyProps.dialogProps, notifyProps.type));
     };
 }
 

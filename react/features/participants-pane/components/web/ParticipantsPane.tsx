@@ -76,6 +76,9 @@ const useStyles = makeStyles<IStylesProps>()((theme, { isChatOpen }) => {
             padding: `0 ${participantsPaneTheme.panePadding}px`,
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
 
             '&::-webkit-scrollbar': {
                 display: 'none'
@@ -203,13 +206,14 @@ const ParticipantsPane = () => {
                     onClick = { onClosePane } />
             </div>
             <div className = { classes.container }>
+                <MeetingParticipants
+                    searchString = { searchString }
+                    setSearchString = { setSearchString } />
+                <br className = { classes.antiCollapse } />
                 <VisitorsList />
                 <br className = { classes.antiCollapse } />
                 <LobbyParticipants />
                 <br className = { classes.antiCollapse } />
-                <MeetingParticipants
-                    searchString = { searchString }
-                    setSearchString = { setSearchString } />
                 {isBreakoutRoomsSupported && <RoomList searchString = { searchString } />}
                 {showAddRoomButton && <AddBreakoutRoomButton />}
                 {showCurrentVisitorsList && <CurrentVisitorsList searchString = { searchString } />}

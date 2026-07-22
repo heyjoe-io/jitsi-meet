@@ -11,7 +11,7 @@ import {
     SET_OVERFLOW_DRAWER,
     SET_OVERFLOW_MENU_VISIBLE,
     SET_TOOLBAR_HOVERED,
-    SET_TOOLBOX_TIMEOUT
+    SET_TOOLBOX_TIMEOUT, SPEAKER_MUTED
 } from './actionTypes';
 import { setToolboxVisible } from './actions.web';
 import { getToolbarTimeout } from './functions.web';
@@ -277,4 +277,47 @@ export function closeOverflowMenuIfOpen() {
 
         overflowMenuVisible && dispatch(setOverflowMenuVisible(false));
     };
+}
+
+// eslint-disable-next-line require-jsdoc
+export function setSpeakerMuted(speakerMuted: boolean) {
+    return (dispatch: IStore['dispatch'], getState: IStore['getState']) => {
+        // Update the Redux state
+        dispatch({
+            type: SPEAKER_MUTED,
+            speakerMuted
+        });
+
+        // Apply speaker mute state immediately to all existing audio elements
+        _applySpeakerMuteToAudioElements(speakerMuted);
+    };
+}
+
+/**
+ * Applies speaker mute state to all HTML audio elements.
+ * This function can be called from multiple places to ensure consistency.
+ *
+ * @param {boolean} speakerMuted - Whether speaker should be muted or not.
+ * @private
+ */
+function _applySpeakerMuteToAudioElements(speakerMuted: boolean) {
+    if (typeof document !== 'undefined') {
+        const audioElements = document.querySelectorAll('audio');
+        audioElements.forEach((audio: HTMLAudioElement) => {
+            audio.muted = speakerMuted;
+        });
+    }
+}
+
+/**
+ * Applies speaker mute state to a specific audio element.
+ * Used when new audio elements are created.
+ *
+ * @param {HTMLAudioElement} audioElement - The audio element to apply mute state to.
+ * @param {boolean} speakerMuted - Whether speaker should be muted or not.
+ */
+export function applySpeakerMuteToElement(audioElement: HTMLAudioElement, speakerMuted: boolean) {
+    if (audioElement) {
+        audioElement.muted = speakerMuted;
+    }
 }

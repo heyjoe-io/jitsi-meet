@@ -32,23 +32,23 @@ export const THRESHOLDS = [
     },
     {
         width: 565,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'raisehand', 'reactions', 'participants-pane', 'tileview' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'reactions', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'followme' ]
     },
     {
         width: 520,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'raisehand', 'participants-pane', 'tileview' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'tileview', 'pinallcameras', 'followme' ]
     },
     {
         width: 470,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'raisehand', 'participants-pane' ]
+        order: [ 'microphone', 'camera', 'desktop', 'speaker', 'chat', 'raisehand', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
     },
     {
         width: 420,
-        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane' ]
+        order: [ 'microphone', 'camera', 'desktop', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
     },
     {
         width: 370,
-        order: [ 'microphone', 'camera', 'chat', 'participants-pane' ]
+        order: [ 'microphone', 'camera', 'chat', 'participants-pane', 'maxstageparticipants', 'pinallcameras', 'followme' ]
     },
     {
         width: 225,
@@ -94,11 +94,12 @@ export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'microphone',
     'camera',
     'desktop',
+    'speaker',
     'chat',
-    'raisehand',
-    'reactions',
+    'maxstageparticipants',
     'participants-pane',
     'tileview',
+    'recording',
     'overflowmenu',
     'hangup',
     'invite',
@@ -107,7 +108,6 @@ export const MAIN_TOOLBAR_BUTTONS_PRIORITY = [
     'fullscreen',
     'security',
     'closedcaptions',
-    'recording',
     'livestreaming',
     'linktosalesforce',
     'sharedvideo',
@@ -147,12 +147,13 @@ export const SPINNER_COLOR = '#929292';
  */
 export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'camera',
+    'speaker',
     'chat',
     'closedcaptions',
     'custom-panel',
     'desktop',
     'download',
-    'embedmeeting',
+    // 'embedmeeting', // Removing embedmeeting button from the toolbar
     'etherpad',
     'feedback',
     'filesharing',
@@ -160,9 +161,10 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'hangup',
     'help',
     'highlight',
-    'invite',
+    // 'invite', // Removing invite button from the toolbar
     'linktosalesforce',
     'livestreaming',
+    'maxstageparticipants',
     'microphone',
     'mute-everyone',
     'mute-video-everyone',
@@ -170,6 +172,8 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'polls',
     'profile',
     'raisehand',
+    'pinallcameras',
+    'followme',
     'recording',
     'security',
     'select-background',
@@ -181,7 +185,7 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
     'stats',
     'tileview',
     'toggle-camera',
-    'videoquality',
+    'videoquality', // Removing video quality button from the toolbar
     'whiteboard'
 ];
 
@@ -208,7 +212,7 @@ export const NATIVE_TOOLBAR_BUTTONS: NativeToolbarButton[] = [
 export const VISITORS_MODE_BUTTONS: ToolbarButton[] = [
     'chat',
     'closedcaptions',
-    'fullscreen',
+    // 'fullscreen',
     'hangup',
     'participants-pane',
     'raisehand',

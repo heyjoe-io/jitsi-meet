@@ -53,9 +53,11 @@ import {
 } from '../../react/features/base/participants/functions';
 import { updateSettings } from '../../react/features/base/settings/actions';
 import { getDisplayName } from '../../react/features/base/settings/functions.web';
+import { replaceLocalTrack } from '../../react/features/base/tracks/actions.any';
 import { setCameraFacingMode } from '../../react/features/base/tracks/actions.web';
 import { CAMERA_FACING_MODE_MESSAGE } from '../../react/features/base/tracks/constants';
 import {
+    getLocalAudioTrack,
     getLocalVideoTrack,
     isLocalTrackMuted
 } from '../../react/features/base/tracks/functions';
@@ -170,6 +172,49 @@ let audioAvailable = true;
  * @type {boolean}
  */
 let videoAvailable = true;
+
+/**
+ * Publishes an embedder-supplied raw {@code MediaStreamTrack} as the local video
+ * or audio source, routing it through lib-jitsi-meet's existing replaceTrack
+ * pipeline (the same path desktop-sharing uses to swap a local track).
+ *
+ * This is intentionally NOT a postMessage/transport command: a MediaStreamTrack
+ * is not structured-cloneable and cannot traverse the External API channel. It is
+ * reached only by a SAME-ORIGIN embedder calling the hook installed on this window
+ * (see external_api.js {@code setLocalVideoTrack}/{@code setLocalAudioTrack}); a
+ * cross-origin embedder is blocked by the same-origin policy, which is the guard.
+ *
+ * @param {MediaStreamTrack|null} track - The track to publish (e.g. from a
+ * processed {@code canvas.captureStream()}); {@code null} clears that media type.
+ * @param {string} mediaType - {@code MEDIA_TYPE.VIDEO} or {@code MEDIA_TYPE.AUDIO}.
+ * @returns {Promise<void>}
+ */
+function injectLocalTrack(track, mediaType = MEDIA_TYPE.VIDEO) {
+    const isVideo = mediaType === MEDIA_TYPE.VIDEO;
+    const tracks = APP.store.getState()['features/base/tracks'];
+    const oldJitsiTrack
+        = (isVideo ? getLocalVideoTrack(tracks) : getLocalAudioTrack(tracks))?.jitsiTrack ?? null;
+    let newJitsiTrack = null;
+
+    if (track) {
+        // createLocalTracksFromMediaStreams reads the single track of the matching
+        // kind out of the provided stream, so wrap the raw track in a MediaStream.
+        const trackInfo = {
+            mediaType,
+            sourceType: isVideo ? 'camera' : 'microphone',
+            stream: new MediaStream([ track ]),
+            track
+        };
+
+        if (isVideo) {
+            trackInfo.videoType = VIDEO_TYPE.CAMERA;
+        }
+
+        [ newJitsiTrack ] = JitsiMeetJS.createLocalTracksFromMediaStreams([ trackInfo ]);
+    }
+
+    return APP.store.dispatch(replaceLocalTrack(oldJitsiTrack, newJitsiTrack));
+}
 
 /**
  * Initializes supported commands.
@@ -1295,6 +1340,13 @@ class API {
         this._enabled = true;
 
         initCommands();
+
+        // Same-origin track injection: lets an embedder served from the SAME ORIGIN
+        // hand a MediaStreamTrack it owns/processes (e.g. a zoomed
+        // canvas.captureStream()) straight into the local source, bypassing the
+        // postMessage transport (which can't carry a MediaStreamTrack). A
+        // cross-origin embedder can't reach this — that's the intended guard.
+        window._jitsiMeetInjectLocalTrack = injectLocalTrack;
 
         this.notifyBrowserSupport(isSupportedBrowser());
 

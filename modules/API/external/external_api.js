@@ -1520,6 +1520,75 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
     }
 
     /**
+     * Replaces the local VIDEO source with a caller-supplied MediaStreamTrack —
+     * for example a processed {@code canvas.captureStream()} track that the
+     * embedder also feeds to its own recorder, so a single camera capture drives
+     * both the call and the recording with identical processing (zoom/crop/effects).
+     *
+     * IMPORTANT: this REQUIRES the Jitsi Meet embed to be served from the SAME
+     * ORIGIN as the embedding page. A MediaStreamTrack is not structured-cloneable
+     * and cannot cross a cross-origin iframe boundary, so the track is handed
+     * directly to the iframe rather than sent over the postMessage channel.
+     * Call this after the {@code videoConferenceJoined} event.
+     *
+     * @param {MediaStreamTrack|null} track - The video track to publish, or
+     * {@code null} to clear the local video source.
+     * @returns {Promise} Resolves once the track has been swapped in.
+     */
+    setLocalVideoTrack(track) {
+        return this._injectLocalTrack(track, 'video');
+    }
+
+    /**
+     * Replaces the local AUDIO source with a caller-supplied MediaStreamTrack.
+     * Same same-origin requirement and semantics as {@link setLocalVideoTrack}.
+     *
+     * @param {MediaStreamTrack|null} track - The audio track to publish, or
+     * {@code null} to clear the local audio source.
+     * @returns {Promise} Resolves once the track has been swapped in.
+     */
+    setLocalAudioTrack(track) {
+        return this._injectLocalTrack(track, 'audio');
+    }
+
+    /**
+     * Hands a caller-supplied MediaStreamTrack directly to the (same-origin)
+     * iframe's local-track pipeline, bypassing the postMessage transport (which
+     * cannot carry a MediaStreamTrack). Surfaces a clear error when the embed is
+     * cross-origin or the in-iframe hook is not ready yet.
+     *
+     * @private
+     * @param {MediaStreamTrack|null} track - The track to publish.
+     * @param {string} mediaType - 'video' or 'audio'.
+     * @returns {Promise}
+     */
+    _injectLocalTrack(track, mediaType) {
+        let inject;
+
+        try {
+            // Reading a property off a cross-origin contentWindow throws a
+            // SecurityError — caught below to give an actionable message.
+            inject = this._frame && this._frame.contentWindow
+                && this._frame.contentWindow._jitsiMeetInjectLocalTrack;
+        } catch (e) {
+            return Promise.reject(new Error([
+                'setLocalVideoTrack/setLocalAudioTrack requires the Jitsi Meet embed',
+                'to be served from the SAME ORIGIN as this page (a MediaStreamTrack',
+                `cannot cross a cross-origin iframe). Underlying error: ${e && e.message}`
+            ].join(' ')));
+        }
+
+        if (typeof inject !== 'function') {
+            return Promise.reject(new Error([
+                'setLocalVideoTrack/setLocalAudioTrack: the iframe is not ready yet.',
+                'Call this after the "videoConferenceJoined" event.'
+            ].join(' ')));
+        }
+
+        return Promise.resolve(inject(track, mediaType));
+    }
+
+    /**
      * Starts a file recording or streaming session depending on the passed on params.
      * For RTMP streams, `rtmpStreamKey` must be passed on. `rtmpBroadcastID` is optional.
      * For youtube streams, `youtubeStreamKey` must be passed on. `youtubeBroadcastID` is optional.

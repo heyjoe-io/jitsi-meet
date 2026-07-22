@@ -62,7 +62,7 @@ $watermarkWidth: 71px;
 $watermarkHeight: 32px;
 
 $welcomePageWatermarkWidth: 71px;
-$welcomePageWatermarkHeight: 32px;
+$welcomePageWatermarkHeight: 80px;
 
 /**
  * Welcome page variables.
@@ -83,14 +83,14 @@ $welcomePageButtonBg: #0074E0;
 $welcomePageButtonHoverBg: #4687ED;
 $welcomePageButtonFocusOutline: #00225A;
 
-$welcomePageHeaderContainerMarginTop: 104px;
+$welcomePageHeaderContainerMarginTop: 180px;
 $welcomePageHeaderContainerDisplay: flex;
 $welcomePageHeaderContainerMargin: $welcomePageHeaderContainerMarginTop auto 0;
 
 $welcomePageHeaderTextTitleMarginBottom: 0;
 $welcomePageHeaderTextTitleFontSize: 2.625rem;
 $welcomePageHeaderTextTitleFontWeight: normal;
-$welcomePageHeaderTextTitleLineHeight: 3.125rem;
+$welcomePageHeaderTextTitleLineHeight: 50px;
 $welcomePageHeaderTextTitleOpacity: 1;
 
 $welcomePageEnterRoomDisplay: flex;

@@ -393,7 +393,9 @@ export function getParticipantDisplayName(stateful: IStateful, id: string): stri
         }
 
         if (participant.name) {
-            return participant.name;
+            // Strip a trailing role tag like "First Last (talent)" that the casting
+            // wrapper appends for recording-role detection — it must never be shown.
+            return participant.name.replace(/\s*\([^)]+\)\s*$/, '');
         }
 
         if (participant.local) {

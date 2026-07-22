@@ -17,6 +17,7 @@ export interface IToolboxNativeButton {
 }
 
 export type ToolbarButton = 'camera' |
+    'speaker'|
     'chat' |
     'closedcaptions' |
     'custom-panel' |
@@ -33,6 +34,7 @@ export type ToolbarButton = 'camera' |
     'invite' |
     'linktosalesforce' |
     'livestreaming' |
+    'maxstageparticipants' |
     'microphone' |
     'mute-everyone' |
     'mute-video-everyone' |
@@ -42,6 +44,8 @@ export type ToolbarButton = 'camera' |
     'polls' |
     'profile' |
     'raisehand' |
+    'pinallcameras' |
+    'followme' |
     'reactions' |
     'recording' |
     'security' |

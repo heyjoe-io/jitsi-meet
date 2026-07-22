@@ -272,7 +272,6 @@ ReducerRegistry.register<IConferenceState>('features/base/conference',
 
             return set(state, 'assumedBandwidthBps', assumedBandwidthBps);
         }
-
         case SET_START_REACTIONS_MUTED:
             return set(state, 'startReactionsMuted', action.muted);
 

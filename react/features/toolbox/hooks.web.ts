@@ -43,12 +43,15 @@ import RaiseHandContainerButton from '../reactions/components/web/RaiseHandConta
 import { REACTIONS } from '../reactions/constants';
 import { shouldDisplayReactionsButtons } from '../reactions/functions.any';
 import { useReactionsButton } from '../reactions/hooks.web';
-import { useLiveStreamingButton, useRecordingButton } from '../recording/hooks.web';
+import RecordButton from '../recording/components/Recording/web/RecordButton';
+import { useLiveStreamingButton } from '../recording/hooks.web';
 import { isSalesforceEnabled } from '../salesforce/functions';
 import { startScreenShareFlow } from '../screen-share/actions.web';
 import ShareAudioButton from '../screen-share/components/web/ShareAudioButton';
 import { isScreenAudioSupported, isScreenVideoShared } from '../screen-share/functions';
 import { useSecurityDialogButton } from '../security/hooks.web';
+import FollowMeContainerButton from '../settings/components/web/FollowMeContainerButtons';
+import PinAllCamerasButton from './components/web/PinAllCamerasButton';
 import SettingsButton from '../settings/components/web/SettingsButton';
 import { useSharedVideoButton } from '../shared-video/hooks';
 import SpeakerStats from '../speaker-stats/components/web/SpeakerStats';
@@ -62,10 +65,12 @@ import VideoQualityButton from '../video-quality/components/VideoQualityButton.w
 import VideoQualityDialog from '../video-quality/components/VideoQualityDialog.web';
 import { useVirtualBackgroundButton } from '../virtual-background/hooks';
 import { useWhiteboardButton } from '../whiteboard/hooks';
+import MaxStageParticipantsButton from '../filmstrip/components/MaxStageParticipantsButton.web';
 
 import { setFullScreen } from './actions.web';
 import DownloadButton from './components/DownloadButton';
 import HelpButton from './components/HelpButton';
+import SpeakerButton from './components/SpeakerButton';
 import AudioSettingsButton from './components/web/AudioSettingsButton';
 import CustomOptionButton from './components/web/CustomOptionButton';
 import FullscreenButton from './components/web/FullscreenButton';
@@ -76,7 +81,6 @@ import ToggleCameraButton from './components/web/ToggleCameraButton';
 import VideoSettingsButton from './components/web/VideoSettingsButton';
 import { isButtonEnabled, isDesktopShareButtonDisabled } from './functions.web';
 import { ICustomToolbarButton, IToolboxButton, ToolbarButton } from './types';
-
 
 const microphone = {
     key: 'microphone',
@@ -96,6 +100,12 @@ const profile = {
     group: 1
 };
 
+const speaker = {
+    key: 'speaker',
+    Content: SpeakerButton,
+    group: 2
+};
+
 const desktop = {
     key: 'desktop',
     Content: ShareDesktopButton,
@@ -108,6 +118,18 @@ const desktop = {
 const raisehand = {
     key: 'raisehand',
     Content: RaiseHandContainerButton,
+    group: 2
+};
+
+const pinallcameras = {
+    key: 'pinallcameras',
+    Content: PinAllCamerasButton,
+    group: 2
+};
+
+const followme = {
+    key: 'followme',
+    Content: FollowMeContainerButton,
     group: 2
 };
 
@@ -169,6 +191,18 @@ const help = {
     key: 'help',
     Content: HelpButton,
     group: 4
+};
+
+const recording = {
+    key: 'recording',
+    Content: RecordButton,
+    group: 4
+};
+
+const maxStageParticipants = {
+    key: 'maxstageparticipants',
+    Content: MaxStageParticipantsButton,
+    group: 2
 };
 
 /**
@@ -293,7 +327,10 @@ export function useToolboxButtons(
     const cc = useClosedCaptionButton();
     const polls = usePollsButton();
     const filesharing = useFileSharingButton();
-    const recording = useRecordingButton();
+
+    // HeyJoe: recording lives in the main toolbar as a direct start/stop RecordButton
+    // (top-level const above) — do not shadow it with the overflow-menu hook.
+    // const recording = useRecordingButton();
     const liveStreaming = useLiveStreamingButton();
     const linktosalesforce = useLinkToSalesforceButton();
     const shareaudio = getShareAudioButton();
@@ -314,13 +351,18 @@ export function useToolboxButtons(
         microphone,
         camera,
         profile,
+        recording,
         desktop: desktopSharing,
+        speaker,
         chat,
         raisehand,
+        pinallcameras,
+        followme,
         reactions,
         'participants-pane': participants,
         invite: _invite,
         tileview,
+        maxstageparticipants: maxStageParticipants,
         'toggle-camera': toggleCameraButton,
         videoquality: videoQuality,
         fullscreen: _fullscreen,
@@ -328,7 +370,6 @@ export function useToolboxButtons(
         closedcaptions: cc,
         polls,
         filesharing,
-        recording,
         livestreaming: liveStreaming,
         linktosalesforce,
         sharedvideo: shareVideo,

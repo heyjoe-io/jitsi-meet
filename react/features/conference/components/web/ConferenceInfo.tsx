@@ -12,7 +12,6 @@ import { showToolbox } from '../../../toolbox/actions.web';
 import { isToolboxVisible } from '../../../toolbox/functions.web';
 import VideoQualityLabel from '../../../video-quality/components/VideoQualityLabel.web';
 import VisitorsCountLabel from '../../../visitors/components/web/VisitorsCountLabel';
-import ConferenceTimer from '../ConferenceTimer';
 import { getConferenceInfo } from '../functions.web';
 
 import ConferenceInfoContainer from './ConferenceInfoContainer';
@@ -63,10 +62,10 @@ const COMPONENTS: Array<{
         Component: SubjectText,
         id: 'subject'
     },
-    {
-        Component: ConferenceTimer,
-        id: 'conference-timer'
-    },
+    // {
+    //     Component: ConferenceTimer,
+    //     id: 'conference-timer'
+    // },
     {
         Component: SpeakerStatsLabel,
         id: 'participants-count'

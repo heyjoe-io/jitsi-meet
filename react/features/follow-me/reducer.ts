@@ -41,10 +41,8 @@ ReducerRegistry.register<IFollowMeState>(
             return newState;
         }
         case SET_FOLLOW_ME_RECORDER:
-            return { ...state,
-                followMeRecorderEnabled: action.enabled,
-                followMeEnabled: action.enabled
-            };
+            // HeyJoe: recorder follow-me is independent of participant follow-me.
+            return set(state, 'followMeRecorderEnabled', action.enabled);
         case SET_FOLLOW_ME_STATE: {
             return set(state, 'state', action.state);
         }

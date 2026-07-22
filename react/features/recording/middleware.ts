@@ -6,6 +6,7 @@ import { IStore } from '../app/types';
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../base/app/actionTypes';
 import { CONFERENCE_JOIN_IN_PROGRESS } from '../base/conference/actionTypes';
 import { getCurrentConference } from '../base/conference/functions';
+import { setFollowMe, setFollowMeModerator } from '../follow-me/actions';
 import { openDialog } from '../base/dialog/actions';
 import JitsiMeetJS, {
     JitsiConferenceEvents,
@@ -21,7 +22,7 @@ import { MEDIA_TYPE } from '../base/media/constants';
 import { PARTICIPANT_UPDATED } from '../base/participants/actionTypes';
 import { updateLocalRecordingStatus } from '../base/participants/actions';
 import { PARTICIPANT_ROLE } from '../base/participants/constants';
-import { getLocalParticipant, getParticipantDisplayName } from '../base/participants/functions';
+import { getLocalParticipant, getParticipantDisplayName, getRemoteParticipants } from '../base/participants/functions';
 import MiddlewareRegistry from '../base/redux/MiddlewareRegistry';
 import StateListenerRegistry from '../base/redux/StateListenerRegistry';
 import {
@@ -29,6 +30,7 @@ import {
     stopSound
 } from '../base/sounds/actions';
 import { TRACK_ADDED } from '../base/tracks/actionTypes';
+import { isParticipantVideoMuted } from '../base/tracks/functions.any';
 import { hideNotification, showErrorNotification, showNotification } from '../notifications/actions';
 import { NOTIFICATION_TIMEOUT_TYPE } from '../notifications/constants';
 import { isRecorderTranscriptionsRunning, isTranscribing } from '../transcribing/functions';
@@ -482,7 +484,6 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         }
 
         if (isRecordingStarting) {
-            dispatch(showPendingRecordingNotification(mode));
             break;
         }
 
@@ -495,6 +496,40 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // notification on the update from jicofo.
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
+
+            // Auto-pin participants with camera enabled when Jibri joins (first ON status).
+            // FILE (casting recordings): talent-only. STREAM (webinar → Mux): pin EVERYONE
+            // with a camera on — the host/moderator belongs on their own webinar.
+            if (!initiator && oldSessionData?.status !== ON
+                    && (mode === JitsiRecordingConstants.mode.FILE
+                        || mode === JitsiRecordingConstants.mode.STREAM)) {
+                logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator,
+                    'Old status:', oldSessionData?.status, 'New status:', updatedSessionData?.status);
+                logger.info('Starting auto-pin process for camera-enabled participants...');
+                _pinParticipantsWithCameraEnabled(dispatch, getState, mode === JitsiRecordingConstants.mode.STREAM);
+            }
+
+            // Enable follow-me when we receive initiator info (second ON status)
+            // Only the moderator who started recording should have follow-me enabled
+            if (initiator && !oldSessionData?.initiator
+                    && (mode === JitsiRecordingConstants.mode.FILE
+                        || mode === JitsiRecordingConstants.mode.STREAM)) {
+                const state = getState();
+                const localParticipant = getLocalParticipant(state);
+                const initiatorId = getResourceId(initiator);
+
+                // Only enable follow-me if the local participant is the one who started recording
+                if (localParticipant && localParticipant.id === initiatorId) {
+                    // Set the local moderator as the one controlling follow-me
+                    dispatch(setFollowMeModerator(localParticipant.id));
+                    dispatch(setFollowMe(true));
+                    logger.info('Enabled follow-me for recording initiator:', localParticipant.id);
+                } else {
+                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:',
+                        localParticipant?.id, 'Initiator:', initiatorId);
+                }
+            }
+
             if (initiator && !oldSessionData?.initiator) {
                 // Initiator just became known — let maybeNotifyRecordingStart
                 // decide whether to emit the notification now. It reads the
@@ -516,6 +551,12 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 }
             }
         } else if (updatedSessionData?.status === OFF && oldSessionData?.status !== OFF) {
+            // Restore filmstrip when recording stops but keep follow-me enabled
+            if (mode === JitsiRecordingConstants.mode.FILE) {
+                _restoreFilmstripAfterRecording(dispatch, getState);
+                logger.info('Restored filmstrip after recording stopped. Follow-me remains enabled.');
+            }
+
             let duration = 0;
 
             if (oldSessionData?.timestamp) {
@@ -563,12 +604,10 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
         const state = getState();
         const localParticipant = getLocalParticipant(state);
 
-        if (localParticipant?.id !== id) {
-            return next(action);
-        }
-
-        if (role === PARTICIPANT_ROLE.MODERATOR) {
-            dispatch(showStartRecordingNotification());
+        if (localParticipant?.id === id) {
+            if (role === PARTICIPANT_ROLE.MODERATOR) {
+                dispatch(showStartRecordingNotification());
+            }
         }
 
         return next(action);
@@ -690,3 +729,129 @@ function _showExplicitConsentDialog(recorderSession: any, dispatch: IStore['disp
         }));
     });
 }
+
+/**
+ * Pins all participants who have their camera enabled to the stage filmstrip.
+ * This is triggered when Jibri joins for recording.
+ * Only works on web platform where stage filmstrip is available.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+async function _pinParticipantsWithCameraEnabled(
+        dispatch: IStore['dispatch'],
+        getState: IStore['getState'],
+        pinAllCameras = false) {
+    if (navigator.product === 'ReactNative') {
+        return;
+    }
+
+    try {
+        const { isStageFilmstripAvailable } = await import('../filmstrip/functions.web');
+        const { addStageParticipant, clearStageParticipants } = await import('../filmstrip/actions.web');
+        const { updateSettings } = await import('../base/settings/actions');
+
+        const state = getState();
+
+        if (!isStageFilmstripAvailable(state)) {
+            return;
+        }
+
+        const remoteParticipants = getRemoteParticipants(state);
+        const localParticipant = getLocalParticipant(state);
+
+        const participantsToPinIds: string[] = [];
+
+        // Record only talent. The casting wrapper tags display names "First Last (role)";
+        // exclude anyone whose tag is present and not 'talent'. NO tag (e.g. the native
+        // phone app, which IS the talent camera) defaults to INCLUDED. The moderator
+        // check stays as belt-and-suspenders (directors are moderators anyway).
+        const excludedByRole = (name?: string) => {
+            const tag = name?.match(/\(([^)]+)\)\s*$/)?.[1]?.trim().toLowerCase();
+
+            return Boolean(tag && tag !== 'talent');
+        };
+
+        // Stream mode (webinar): every camera-on participant belongs on the stream,
+        // moderators and crew included. File mode (casting recording): talent only.
+        const isExcluded = (participant: any) => !pinAllCameras
+            && (participant.role === PARTICIPANT_ROLE.MODERATOR || excludedByRole(participant.name));
+
+        remoteParticipants.forEach((participant: any) => {
+            if (!participant.botType
+                    && !isExcluded(participant)
+                    && !isParticipantVideoMuted(participant, state)) {
+                participantsToPinIds.push(participant.id);
+            }
+        });
+
+        if (localParticipant
+                && !isExcluded(localParticipant)
+                && !isParticipantVideoMuted(localParticipant, state)) {
+            participantsToPinIds.push(localParticipant.id);
+        }
+
+        if (participantsToPinIds.length === 0) {
+            logger.info('Auto-pin skipped: no participants with cameras enabled');
+            return;
+        }
+
+        logger.info(`Starting auto-pin process for ${participantsToPinIds.length} participants`);
+
+        // Wait for Jibri to fully join and stabilize before making any layout changes
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Disable tile view
+        const { setTileView } = await import('../video-layout/actions.web');
+        dispatch(setTileView(false));
+
+        // Hide filmstrip to show only stage participants in recording
+        const { setFilmstripVisible } = await import('../filmstrip/actions.any');
+        dispatch(setFilmstripVisible(false));
+
+        // Raise the stage cap so EVERY non-moderator camera fits — the default
+        // is 1, which would otherwise record only the first participant.
+        dispatch(updateSettings({ maxStageParticipants: Math.max(1, participantsToPinIds.length) }));
+
+        // Clear existing pins
+        dispatch(clearStageParticipants());
+
+        // Add all participants with cameras IMMEDIATELY after clear (no delay)
+        // This prevents layout from switching to vertical/horizontal filmstrip
+        participantsToPinIds.forEach(participantId => {
+            dispatch(addStageParticipant(participantId, true));
+        });
+
+        // Wait for pins to be applied and layout to stabilize
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        logger.info(`Auto-pinned ${participantsToPinIds.length} participants with camera enabled for recording`);
+        logger.info('Follow-me is already enabled, Jibri will receive the pinned participants layout');
+    } catch (error) {
+        logger.error('Error auto-pinning participants for recording:', error);
+    }
+}
+
+/**
+ * Restores the filmstrip visibility after recording stops.
+ * Note: Follow-me remains enabled and is not disabled when recording stops.
+ *
+ * @param {Function} dispatch - The Redux dispatch function.
+ * @param {Function} getState - The Redux getState function.
+ * @returns {void}
+ */
+async function _restoreFilmstripAfterRecording(dispatch: IStore['dispatch'], getState: IStore['getState']) {
+    // Restore filmstrip visibility after recording stops
+    if (navigator.product !== 'ReactNative') {
+        try {
+            const { setFilmstripVisible } = await import('../filmstrip/actions.any');
+            dispatch(setFilmstripVisible(true));
+            logger.info('Restored filmstrip visibility after recording stopped');
+        } catch (error) {
+            logger.error('Error restoring filmstrip visibility:', error);
+        }
+    }
+}
+
+
