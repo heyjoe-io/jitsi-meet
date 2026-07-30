@@ -1411,6 +1411,7 @@
             "showWhiteboard": "Show whiteboard",
             "silence": "Silence",
             "speakerStats": "Toggle participants statistics",
+            "speakermute": "Toggle speaker mute",
             "stopScreenSharing": "Stop sharing your screen",
             "stopSharedVideo": "Stop video",
             "surprised": "Surprised",
