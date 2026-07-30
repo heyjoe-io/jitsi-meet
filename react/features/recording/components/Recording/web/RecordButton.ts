@@ -53,6 +53,53 @@ interface IProps extends AbstractProps {
 class RecordingButton extends AbstractRecordButton<IProps> {
 
     /**
+     * True between a start/stop click and the recording state actually flipping.
+     * `_isRecordingRunning` (canStopRecording) lags the click by a few seconds
+     * while the session ON/OFF status propagates — without this guard the button
+     * looks unchanged ("frozen") and a second click fires a duplicate stop that
+     * jicofo rejects as an unknown session.
+     */
+    _transitioning = false;
+
+    _transitionTimeout: number | undefined;
+
+    /**
+     * Clears the transition guard when the recording state has actually changed
+     * (or via the safety timeout).
+     *
+     * @param {IProps} prevProps - Previous props.
+     * @returns {void}
+     */
+    override componentDidUpdate(prevProps: IProps) {
+        if (this._transitioning && prevProps._isRecordingRunning !== this.props._isRecordingRunning) {
+            this._transitioning = false;
+            clearTimeout(this._transitionTimeout);
+            this.forceUpdate();
+        }
+    }
+
+    /**
+     * Cleanup.
+     *
+     * @returns {void}
+     */
+    override componentWillUnmount() {
+        clearTimeout(this._transitionTimeout);
+    }
+
+    /**
+     * Disabled while a start/stop is in flight, so the button gives immediate
+     * feedback and can't be double-clicked.
+     *
+     * @override
+     * @protected
+     * @returns {boolean}
+     */
+    override _isDisabled() {
+        return this.props._disabled || this._transitioning;
+    }
+
+    /**
      * Handles clicking / pressing the button.
      *
      * @override
@@ -60,7 +107,21 @@ class RecordingButton extends AbstractRecordButton<IProps> {
      * @returns {void}
      */
     override _onHandleClick() {
+        if (this._transitioning) {
+            return;
+        }
+
         const { _isRecordingRunning } = this.props;
+
+        // Guard the click and re-render so the button greys out immediately.
+        this._transitioning = true;
+        clearTimeout(this._transitionTimeout);
+        // Safety: clear the guard even if the state update never arrives.
+        this._transitionTimeout = window.setTimeout(() => {
+            this._transitioning = false;
+            this.forceUpdate();
+        }, 8000);
+        this.forceUpdate();
 
         if (_isRecordingRunning) {
             // Stop recording directly without showing dialog
