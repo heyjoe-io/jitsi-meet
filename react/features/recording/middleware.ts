@@ -497,10 +497,20 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
             // FIXME: simplify checks when the backend start sending only one status ON update containing
             // the initiator.
 
-            // Auto-pin participants with camera enabled when Jibri joins (first ON status).
+            // Auto-pin participants with camera enabled when the recording turns ON.
             // FILE (casting recordings): talent-only. STREAM (webinar → Mux): pin EVERYONE
             // with a camera on — the host/moderator belongs on their own webinar.
-            if (!initiator && oldSessionData?.status !== ON
+            //
+            // IMPORTANT: do NOT gate this on `!initiator`. That assumed the "first ON" update
+            // is sourced from the jibri's OWN hidden-domain presence (which carries no
+            // initiator), with jicofo's initiator-bearing ON arriving second. On the 11031 box
+            // that jibri presence is DROPPED by lib-jitsi-meet because it has no <session_id>
+            // element, so the only ON any client ever sees is jicofo's — which always carries
+            // an initiator. `!initiator` was therefore never true and auto-pin never ran at
+            // all, on any client. Manual pinning still worked, which made this look like a
+            // pinning bug rather than a trigger bug.
+            // Gating on the transition into ON is inherently once-per-recording.
+            if (oldSessionData?.status !== ON
                     && (mode === JitsiRecordingConstants.mode.FILE
                         || mode === JitsiRecordingConstants.mode.STREAM)) {
                 logger.info('Recording status changed to ON (Jibri joined). Initiator:', initiator,
@@ -509,24 +519,27 @@ MiddlewareRegistry.register(({ dispatch, getState }) => next => action => {
                 _pinParticipantsWithCameraEnabled(dispatch, getState, mode === JitsiRecordingConstants.mode.STREAM);
             }
 
-            // Enable follow-me when we receive initiator info (second ON status)
-            // Only the moderator who started recording should have follow-me enabled
-            if (initiator && !oldSessionData?.initiator
+            // Enable follow-me for the moderator who started the recording.
+            // IMPORTANT: do NOT gate on the `!oldSessionData?.initiator` not-yet->present
+            // transition. On 11031 the initiator's OWN client receives the `initiator` field
+            // early (with the PENDING/first ON update), so that transition never fires for them
+            // and this whole block is skipped — no [app:recording] log, follow-me stays off —
+            // even though remote participants (who get the initiator later) see it fire.
+            // Instead fire on any ON update where the initiator is known and is us, guarded by
+            // an idempotency check so the dispatch runs exactly once.
+            if (initiator
                     && (mode === JitsiRecordingConstants.mode.FILE
                         || mode === JitsiRecordingConstants.mode.STREAM)) {
                 const state = getState();
                 const localParticipant = getLocalParticipant(state);
                 const initiatorId = getResourceId(initiator);
 
-                // Only enable follow-me if the local participant is the one who started recording
-                if (localParticipant && localParticipant.id === initiatorId) {
+                if (localParticipant && localParticipant.id === initiatorId
+                        && state['features/follow-me'].moderator !== localParticipant.id) {
                     // Set the local moderator as the one controlling follow-me
                     dispatch(setFollowMeModerator(localParticipant.id));
                     dispatch(setFollowMe(true));
                     logger.info('Enabled follow-me for recording initiator:', localParticipant.id);
-                } else {
-                    logger.info('Not enabling follow-me - local participant is not the recording initiator. Local:',
-                        localParticipant?.id, 'Initiator:', initiatorId);
                 }
             }
 
